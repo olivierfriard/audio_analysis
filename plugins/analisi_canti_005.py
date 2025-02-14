@@ -1,5 +1,7 @@
 import numpy as np
 import os
+import matplotlib
+matplotlib.use('QtAgg') 
 import matplotlib.pyplot as plt
 from scipy.io import wavfile
 from scipy.signal import get_window
@@ -7,6 +9,8 @@ from matplotlib.widgets import SpanSelector, Button, TextBox
 import tkinter as tk
 from tkinter import filedialog
 import sounddevice as sd
+from PySide6.QtWidgets import QApplication, QFileDialog
+from pathlib import Path
 
 def open_file(event):
     global file_wav, sampling_rate, time, data, selected_range, selected_time, freq_range
@@ -14,6 +18,13 @@ def open_file(event):
     Apre una finestra per selezionare un file .wav e lo carica in NumPy.
     Restituisce il tasso di campionamento (sampling_rate) e i dati audio (data).
     """
+    file_path, _ = QFileDialog.getOpenFileName(None, "Seleziona un file", "", "Tutti i file (*);;File di testo (*.txt)")
+    if not file_path:  # Se l'utente chiude la finestra senza scegliere un file
+        print("Nessun file selezionato.")
+        return None, None
+
+    file_wav = str(Path(file_path).stem)
+    '''
     # Crea la finestra per la selezione del file
     root = tk.Tk()
     root.withdraw()  # Nasconde la finestra principale
@@ -26,6 +37,7 @@ def open_file(event):
     if not file_path:  # Se l'utente chiude la finestra senza scegliere un file
         print("Nessun file selezionato.")
         return None, None
+    '''
 
     # Carica il file .wav
     sampling_rate, data = wavfile.read(file_path)
@@ -194,7 +206,7 @@ def stampa_fig(event):
     ax_st[0].set_xlabel("Tempo (s)")
     ax_st[0].set_title(file_wav, fontsize = 14)
 
-# Plotta lo spettro aggiornato
+    # Plotta lo spettro aggiornato
     ax_st[1].plot(freqs, avg_spectrum, color='k')
     ax_st[1].set_xlabel("Frequenza (Hz)")
     ax_st[1].set_ylabel("Ampiezza")
@@ -241,72 +253,78 @@ def toggle_coords(event):
             print("Coordinate DISATTIVATE")
         spectrum()
         
+def main():
+    # Parametri iniziali della FFT
+    window_size = 1024
+    window_type = "hamming"
+    overlap = 50
 
-# Parametri iniziali della FFT
-window_size = 1024
-window_type = "hamming"
-overlap = 50
+    # Crea la figura con due subplot (Oscillogramma + Spettro)
+    fig, ax = plt.subplots(2, 1, figsize=(10, 10))
+    plt.subplots_adjust(bottom=0.3)  # Spazio per i widget
 
-# Crea la figura con due subplot (Oscillogramma + Spettro)
-fig, ax = plt.subplots(2, 1, figsize=(10, 10))
-plt.subplots_adjust(bottom=0.3)  # Spazio per i widget
+    # Variabile per tenere traccia dello stato dell'annotazione
+    show_coords = False  # Inizia disattivato
 
-# Variabile per tenere traccia dello stato dell'annotazione
-show_coords = False  # Inizia disattivato
+    # Plot dell'Oscillogramma
+    ax[0].plot([], [], linewidth=0.5, color='black')
+    ax[0].set_ylabel("Ampiezza")
+    ax[0].set_xlabel("Tempo (s)")
+    ax[0].set_title("", fontsize = 20)
 
-# Plot dell'Oscillogramma
-ax[0].plot([], [], linewidth=0.5, color='black')
-ax[0].set_ylabel("Ampiezza")
-ax[0].set_xlabel("Tempo (s)")
-ax[0].set_title("", fontsize = 20)
+    # Creazione dell'annotazione (inizialmente nascosta)
+    annot = ax[1].annotate("", xy=(0, 0), xytext=(10, 10), textcoords="offset points",
+                            bbox=dict(boxstyle="round", fc="w"), fontsize=10, visible=False)
 
-# Creazione dell'annotazione (inizialmente nascosta)
-annot = ax[1].annotate("", xy=(0, 0), xytext=(10, 10), textcoords="offset points",
-                        bbox=dict(boxstyle="round", fc="w"), fontsize=10, visible=False)
+    # Variabile per tenere traccia dello stato dell'annotazione
+    show_coords = False  # 🟢 Inizia disattivato
+    cursor_event_id = None  # Memorizza l'evento per disattivarlo
 
-# Variabile per tenere traccia dello stato dell'annotazione
-show_coords = False  # 🟢 Inizia disattivato
-cursor_event_id = None  # Memorizza l'evento per disattivarlo
-
-# Collega l'evento del tasto destro alla funzione toggle_coords
-fig.canvas.mpl_connect("button_press_event", toggle_coords)
-
-
-
-# Creazione delle caselle di testo
-axbox1 = plt.axes([0.1, 0.1, 0.10, 0.05])
-textbox_window_size = TextBox(axbox1, "Finestra", initial=str(window_size))
-
-axbox2 = plt.axes([0.25, 0.1, 0.10, 0.05])
-textbox_window_type = TextBox(axbox2, "Tipo", initial=window_type)
-
-axbox3 = plt.axes([0.45, 0.1, 0.10, 0.05])
-textbox_overlap = TextBox(axbox3, "Overlap (%)", initial=str(overlap))
-
-# Creazione del pulsante di aggiornamento
-ax_button_aggiorna = plt.axes([0.6, 0.1, 0.1, 0.05])
-button_update = Button(ax_button_aggiorna, "Aggiorna")
-button_update.on_clicked(update_spectrum)
-
-ax_button_stampa = plt.axes([0.75, 0.1, 0.1, 0.05])
-button_stampa = Button(ax_button_stampa, "Stampa")
-button_stampa.on_clicked(stampa_fig)
-
-ax_button_apri = plt.axes([0.85, 0.1, 0.1, 0.05])
-button_apri = Button(ax_button_apri, "Apri wav")
-button_apri.on_clicked(open_file)
-
-ax_button_play = plt.axes([0.1, 0.9, 0.1, 0.05])  # Definizione posizione pulsante
-button_play = Button(ax_button_play, "Play")  # Creazione pulsante
-button_play.on_clicked(play_audio)  # Collegare il pulsante alla funzione
+    # Collega l'evento del tasto destro alla funzione toggle_coords
+    fig.canvas.mpl_connect("button_press_event", toggle_coords)
 
 
-# Aggiunge l'interattività sull'oscillogramma
-span_time = SpanSelector(ax[0], onselect_time, "horizontal", useblit=True)
-span_time.set_props(alpha=0.5, facecolor="red")
 
-# Aggiunge l'interattività sullo spettro
-span_freq = SpanSelector(ax[1], onselect_freq, "horizontal", useblit=True)
-span_freq.set_props(alpha=0.5, facecolor="blue")
+    # Creazione delle caselle di testo
+    axbox1 = plt.axes([0.1, 0.1, 0.10, 0.05])
+    textbox_window_size = TextBox(axbox1, "Finestra", initial=str(window_size))
 
-plt.show()
+    axbox2 = plt.axes([0.25, 0.1, 0.10, 0.05])
+    textbox_window_type = TextBox(axbox2, "Tipo", initial=window_type)
+
+    axbox3 = plt.axes([0.45, 0.1, 0.10, 0.05])
+    textbox_overlap = TextBox(axbox3, "Overlap (%)", initial=str(overlap))
+
+    # Creazione del pulsante di aggiornamento
+    ax_button_aggiorna = plt.axes([0.6, 0.1, 0.1, 0.05])
+    button_update = Button(ax_button_aggiorna, "Aggiorna")
+    button_update.on_clicked(update_spectrum)
+
+    ax_button_stampa = plt.axes([0.75, 0.1, 0.1, 0.05])
+    button_stampa = Button(ax_button_stampa, "Stampa")
+    button_stampa.on_clicked(stampa_fig)
+
+    ax_button_apri = plt.axes([0.85, 0.1, 0.1, 0.05])
+    button_apri = Button(ax_button_apri, "Apri wav")
+    button_apri.on_clicked(open_file)
+
+    ax_button_play = plt.axes([0.1, 0.9, 0.1, 0.05])  # Definizione posizione pulsante
+    button_play = Button(ax_button_play, "Play")  # Creazione pulsante
+    button_play.on_clicked(play_audio)  # Collegare il pulsante alla funzione
+
+
+    # Aggiunge l'interattività sull'oscillogramma
+    span_time = SpanSelector(ax[0], onselect_time, "horizontal", useblit=True)
+    span_time.set_props(alpha=0.5, facecolor="red")
+
+    # Aggiunge l'interattività sullo spettro
+    span_freq = SpanSelector(ax[1], onselect_freq, "horizontal", useblit=True)
+    span_freq.set_props(alpha=0.5, facecolor="blue")
+
+    plt.show()
+
+
+# allow to execute main function only if directly run (python analisi_canti_005.py) and not if loaded as module
+if __name__ == '__main__':
+    main()
+
