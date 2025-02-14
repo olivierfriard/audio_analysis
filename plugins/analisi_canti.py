@@ -242,8 +242,10 @@ class Main(QWidget):
         self.spectrum()
 
     def stampa_fig(self, event):
-        print("stampa_fig")
-        # Crea la figura con due subplot (Oscillogramma + Spettro)
+        """
+        Crea la figura con due subplot (Oscillogramma + Spettro)
+        """
+
         fig_st, ax_st = plt.subplots(2, 1, figsize=(6, 8))
         plt.subplots_adjust(bottom=0.1)
 
@@ -264,6 +266,8 @@ class Main(QWidget):
         ax_st[1].set_xlabel("Frequenza (Hz)")
         ax_st[1].set_ylabel("Ampiezza")
         ax_st[1].set_xlim(self.freq_range)
+
+        plt.show()
 
     def play_audio(self, event):
         """Riproduce il segmento selezionato dell'audio."""
