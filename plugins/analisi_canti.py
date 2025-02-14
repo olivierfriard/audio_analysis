@@ -1,3 +1,8 @@
+"""
+Plugin analisi canti
+
+"""
+
 import sys
 import numpy as np
 import matplotlib.pyplot as plt
@@ -10,34 +15,24 @@ from scipy.signal import get_window
 import sounddevice as sd
 
 
-class MatplotlibWidget(QWidget):
+class Main(QWidget):
     def __init__(self, parent=None):
-        super(MatplotlibWidget, self).__init__(parent)
-
-        self.figure, self.ax = plt.subplots(2, 1, figsize=(10, 10))
-
-        self.canvas = FigureCanvas(self.figure)
-
-        layout = QVBoxLayout()
-        layout.addWidget(self.canvas)
-
-        """
-        self.button = QPushButton("init")
-        self.button.clicked.connect(self.reset_selection)
-        layout.addWidget(self.button)
-        """
-
-        self.setLayout(layout)
+        super(Main, self).__init__(parent)
 
         self.window_size = 1024
         self.window_type = "hamming"
         self.overlap = 50
 
-        self.update_plot()
-        # Variable pour stocker la sélection
-        self.selected_region = None
+        self.figure, self.ax = plt.subplots(2, 1, figsize=(10, 10))
+        self.canvas = FigureCanvas(self.figure)
 
-    def update_plot(self):
+        layout = QVBoxLayout()
+        layout.addWidget(self.canvas)
+        self.setLayout(layout)
+
+        self.draw_plot()
+
+    def draw_plot(self):
         print("update plot")
 
         # Plot dell'Oscillogramma
@@ -356,7 +351,7 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
 
     # Création de la fenêtre principale
-    main_widget = MatplotlibWidget()
+    main_widget = Main()
     main_widget.show()
 
     sys.exit(app.exec())
