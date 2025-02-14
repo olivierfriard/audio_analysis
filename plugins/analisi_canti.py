@@ -33,7 +33,9 @@ class Main(QWidget):
         self.draw_plot()
 
     def draw_plot(self):
-        print("update plot")
+        """
+        draw initial plot
+        """
 
         # Plot dell'Oscillogramma
         self.ax[0].plot([], [], linewidth=0.5, color="black")
@@ -102,12 +104,11 @@ class Main(QWidget):
         self.canvas.draw()
 
     def open_file(self, event):
-        print("open file")
-
         """
         Apre una finestra per selezionare un file .wav e lo carica in NumPy.
         Restituisce il tasso di campionamento (sampling_rate) e i dati audio (data).
         """
+
         self.file_path, _ = QFileDialog.getOpenFileName(None, "Seleziona un file WAV", "", "File audio WAV (*.wav);;All files (*)")
         if not self.file_path:  # Se l'utente chiude la finestra senza scegliere un file
             print("Nessun file selezionato.")
@@ -158,9 +159,10 @@ class Main(QWidget):
 
         self.canvas.draw()
 
-    # Funzione per aggiornare lo spettro medio
     def spectrum(self):
-        # global freqs, avg_spectrum, annot  # Manteniamo l'annotazione e le frequenze
+        """
+        Funzione per aggiornare lo spettro medio
+        """
 
         # Memorizziamo la posizione dell'annotazione prima di cancellare il grafico
         x_annot, y_annot = self.annot.xy if self.annot.get_visible() else (None, None)

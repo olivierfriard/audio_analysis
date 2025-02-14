@@ -1,15 +1,10 @@
 import numpy as np
-import os
-import matplotlib
-
-# matplotlib.use('QtAgg')
 import matplotlib.pyplot as plt
 from scipy.io import wavfile
 from scipy.signal import get_window
 from matplotlib.widgets import SpanSelector, Button, TextBox
-import tkinter as tk
 import sounddevice as sd
-from PySide6.QtWidgets import QApplication, QFileDialog
+from PySide6.QtWidgets import QFileDialog
 from pathlib import Path
 
 
