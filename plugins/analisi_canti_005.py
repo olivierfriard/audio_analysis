@@ -1,43 +1,29 @@
 import numpy as np
 import os
 import matplotlib
-matplotlib.use('QtAgg') 
+#matplotlib.use('QtAgg') 
 import matplotlib.pyplot as plt
 from scipy.io import wavfile
 from scipy.signal import get_window
 from matplotlib.widgets import SpanSelector, Button, TextBox
 import tkinter as tk
-from tkinter import filedialog
 import sounddevice as sd
 from PySide6.QtWidgets import QApplication, QFileDialog
 from pathlib import Path
 
 def open_file(event):
+    print('open file')
     global file_wav, sampling_rate, time, data, selected_range, selected_time, freq_range
     """
     Apre una finestra per selezionare un file .wav e lo carica in NumPy.
     Restituisce il tasso di campionamento (sampling_rate) e i dati audio (data).
     """
-    file_path, _ = QFileDialog.getOpenFileName(None, "Seleziona un file", "", "Tutti i file (*);;File di testo (*.txt)")
+    file_path, _ = QFileDialog.getOpenFileName(None, "Seleziona un file WAV", "", "File audio WAV (*.wav);;All files (*)")
     if not file_path:  # Se l'utente chiude la finestra senza scegliere un file
         print("Nessun file selezionato.")
         return None, None
 
     file_wav = str(Path(file_path).stem)
-    '''
-    # Crea la finestra per la selezione del file
-    root = tk.Tk()
-    root.withdraw()  # Nasconde la finestra principale
-
-    # Finestra di dialogo per scegliere il file .wav
-    file_path = filedialog.askopenfilename(title="Seleziona un file WAV",
-                                           filetypes=[("File audio WAV", "*.wav")])
-
-    file_wav = file_path.split("/")[-1][:-4]
-    if not file_path:  # Se l'utente chiude la finestra senza scegliere un file
-        print("Nessun file selezionato.")
-        return None, None
-    '''
 
     # Carica il file .wav
     sampling_rate, data = wavfile.read(file_path)
