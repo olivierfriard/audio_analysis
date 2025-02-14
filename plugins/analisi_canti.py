@@ -278,11 +278,13 @@ class Main(QWidget):
 
     def update_cursor(self, event):
         """
-        # Funzione per aggiornare le coordinate del mouse
+        Funzione per aggiornare le coordinate del mouse
         """
 
-        # Funzione per trovare l'indice più vicino in un array
         def find_nearest(array, value):
+            """
+            Funzione per trovare l'indice più vicino in un array
+            """
             idx = (np.abs(array - value)).argmin()
             return idx, array[idx]  # Restituisce l'indice e il valore più vicino
 
