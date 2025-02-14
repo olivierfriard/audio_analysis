@@ -276,9 +276,10 @@ class Main(QWidget):
             segment = self.data[start:end]  # Estrarre il segmento selezionato
             sd.play(segment, samplerate=self.sampling_rate)  # Riprodurre il suono
 
-    # Funzione per aggiornare le coordinate del mouse
     def update_cursor(self, event):
-        print(f"update_cursor {event}")
+        """
+        # Funzione per aggiornare le coordinate del mouse
+        """
 
         # Funzione per trovare l'indice più vicino in un array
         def find_nearest(array, value):
