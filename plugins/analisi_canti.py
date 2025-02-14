@@ -359,7 +359,6 @@ class Main(QWidget):
 if __name__ == "__main__":
     app = QApplication(sys.argv)
 
-    # Création de la fenêtre principale
     main_widget = Main()
     main_widget.show()
 
