@@ -18,6 +18,7 @@ import sounddevice as sd
 class Main(QWidget):
     def __init__(self, parent=None):
         super(Main, self).__init__(parent)
+        self.setWindowTitle(Path(__file__).stem.replace("_", " "))
 
         self.window_size = 1024
         self.window_type = "hamming"

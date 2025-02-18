@@ -9,8 +9,8 @@ import sys
 from PySide6.QtWidgets import QApplication, QMainWindow, QMenuBar, QTextEdit
 from PySide6.QtGui import QAction
 
-__version__ = "0.0.1"
-__version_date__ = "2025-02-14"
+__version__ = "0.0.2"
+__version_date__ = "2025-02-18"
 
 
 class MainWindow(QMainWindow):
@@ -24,6 +24,7 @@ class MainWindow(QMainWindow):
         self.modules: dict = {}
         for file_ in sorted(Path("plugins").glob("*.py")):
             module_name = file_.stem  # python file name without '.py'
+            print(f"Loading {module_name=}")
             spec = importlib.util.spec_from_file_location(module_name, file_)
             self.modules[module_name] = importlib.util.module_from_spec(spec)
             sys.modules[module_name] = self.modules[module_name]
@@ -41,14 +42,16 @@ class MainWindow(QMainWindow):
         for module_name in self.modules:
             action = QAction(module_name, self)
             # Collegamento delle azioni alle funzioni
-            action.triggered.connect(lambda: self.run_option(module_name))
-            # Aggiunta delle azioni al menu
+            action.triggered.connect(self.run_option)
             run_menu.addAction(action)
 
-    def run_option(self, module_name):
+    def run_option(self):
         """
         Load Main class from plugin and show it
         """
+
+        module_name = self.sender().text()
+        print(f"running {module_name=}")
 
         self.text_edit.append(f"Running {module_name} plugin")
         self.w = self.modules[module_name].Main()
