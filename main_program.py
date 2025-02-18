@@ -6,7 +6,7 @@ Framework for the management and startup of analysis plugins.
 import importlib.util
 from pathlib import Path
 import sys
-from PySide6.QtWidgets import QApplication, QMainWindow, QMenuBar, QTextEdit
+from PySide6.QtWidgets import QApplication, QMainWindow, QTextEdit
 from PySide6.QtGui import QAction
 
 __version__ = "0.0.2"
