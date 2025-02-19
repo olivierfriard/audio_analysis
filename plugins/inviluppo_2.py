@@ -14,6 +14,8 @@ class Main(QWidget):
     def __init__(self, wav_file = None):
         super().__init__()
 
+        self.wav_file = wav_file
+
         self.setWindowTitle("Selezione Interattiva")
         self.setGeometry(100, 100, 800, 500)
         self.window_size = 1024
@@ -43,9 +45,9 @@ class Main(QWidget):
 
         self.canvas.draw_idle()
 
-        if wav_file:
-            print(f"DEBUG: Plugin ricevuto file WAV: {wav_file}")
-            self.load_wav(wav_file)
+        if self.wav_file:
+            print(f"DEBUG: Plugin ricevuto file WAV: {self.wav_file}")
+            self.load_wav(self.wav_file)
         else:
             
             # Carica il file .wav
@@ -129,7 +131,7 @@ class Main(QWidget):
 if __name__ == "__main__":
     app = QApplication(sys.argv)
 
-    main_widget = Main()
+    main_widget = Main(wav_file='')
     main_widget.show()
 
     sys.exit(app.exec())
