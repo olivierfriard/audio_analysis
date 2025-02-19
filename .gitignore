@@ -1,3 +1,5 @@
 *.wav
 uv.lock
 .vscode
+__pycache__/
+plugins/__pycache__/
