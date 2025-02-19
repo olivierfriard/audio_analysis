@@ -143,28 +143,6 @@ class ResamplingWindow(QWidget):
             wavfile.write(save_path, self.new_sampling_rate, self.data_resampled)
             print(f"DEBUG: File salvato correttamente in {save_path}")
 
-class Cutting(QWidget):
-    def __init__(self, wav_file):
-        super().__init__()
-
-        self.setWindowTitle("Resampling Audio")
-        self.setGeometry(200, 200, 400, 250)
-        
-        self.wav_file = wav_file  # Salva il file WAV passato dal MainWindow
-        
-        # Carica il file WAV e ottiene le informazioni
-        self.sampling_rate, self.data = wavfile.read(self.wav_file)
-        self.duration = len(self.data) / self.sampling_rate
-
-        # Layout principale
-        layout = QVBoxLayout()
-
-        # Etichetta con informazioni sul file
-        self.label_info = QLabel(f"File WAV selezionato: {self.wav_file}\n"
-                                 f"Durata: {self.duration:.2f} sec\n"
-                                 f"Frequenza di campionamento: {self.sampling_rate} Hz")
-        layout.addWidget(self.label_info)
-
 
 class MainWindow(QMainWindow):
     def __init__(self):
