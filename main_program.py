@@ -4,7 +4,7 @@ import sys
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.io import wavfile
-from PySide6.QtWidgets import QApplication, QMainWindow, QMenuBar, QTextEdit, QFileDialog, QWidget, QVBoxLayout
+from PySide6.QtWidgets import QApplication, QMainWindow, QMenuBar, QTextEdit, QFileDialog, QWidget, QVBoxLayout, QLabel, QComboBox, QPushButton
 from PySide6.QtGui import QAction
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.widgets import Slider, SpanSelector
@@ -69,7 +69,6 @@ class OscillogramWindow(QWidget):
         self.range = self.xmax - self.xmin
 
         self.slider.set_val(self.xmax/self.duration)
-        
         self.canvas.draw_idle()
 
     def on_slider(self, val):
@@ -79,6 +78,8 @@ class OscillogramWindow(QWidget):
         self.xmin = self.xmax - self.range
         self.ax.set_xlim(self.xmin, self.xmax)
         self.canvas.draw_idle()
+        
+        
 
 class ResamplingWindow(QWidget):
     def __init__(self, wav_file):
