@@ -16,7 +16,7 @@ import sounddevice as sd
 
 
 class Main(QWidget):
-    def __init__(self, wav_file: str = ""):
+    def __init__(self, wav_file_path: str = ""):
         super(Main, self).__init__()
         self.setWindowTitle(Path(__file__).stem.replace("_", " "))
 
@@ -32,6 +32,10 @@ class Main(QWidget):
         self.setLayout(layout)
 
         self.draw_plot()
+
+        if wav_file_path:
+            self.wav_file_path = wav_file_path
+            self.load_file(self.wav_file_path)
 
     def draw_plot(self):
         """
@@ -104,28 +108,16 @@ class Main(QWidget):
 
         self.canvas.draw()
 
-    def open_file(self, event):
-        """
-        Apre una finestra per selezionare un file .wav e lo carica in NumPy.
-        Restituisce il tasso di campionamento (sampling_rate) e i dati audio (data).
-        """
-
-        self.file_path, _ = QFileDialog.getOpenFileName(None, "Seleziona un file WAV", "", "File audio WAV (*.wav);;All files (*)")
-        if not self.file_path:  # Se l'utente chiude la finestra senza scegliere un file
-            print("Nessun file selezionato.")
-            return None, None
-
-        self.file_wav = str(Path(self.file_path).stem)
-
+    def load_file(self, wav_file_path):
         # Carica il file .wav
-        self.sampling_rate, self.data = wavfile.read(self.file_path)
+        self.sampling_rate, self.data = wavfile.read(wav_file_path)
 
         # Se il file è stereo, usa solo un canale
         if len(self.data.shape) > 1:
             print("File stereo rilevato. Prendo solo il primo canale.")
             self.data = self.data[:, 0]
 
-        print(f"File caricato: {self.file_path}")
+        print(f"File caricato: {wav_file_path}")
         print(f"Frequenza di campionamento: {self.sampling_rate} Hz")
         print(f"Durata: {len(self.data) / self.sampling_rate:.2f} secondi")
 
@@ -151,7 +143,7 @@ class Main(QWidget):
         self.ax[0].plot(self.time, self.data, linewidth=0.5, color="black")
         self.ax[0].set_ylabel("Ampiezza")
         self.ax[0].set_xlabel("Tempo (s)")
-        self.ax[0].set_title(self.file_wav)
+        self.ax[0].set_title(Path(wav_file_path).stem)
 
         # Secondo grafico preparazione
         self.ax[1].cla()
@@ -159,6 +151,19 @@ class Main(QWidget):
         self.ax[1].set_ylabel("Ampiezza")
 
         self.canvas.draw()
+
+    def open_file(self, event):
+        """
+        Apre una finestra per selezionare un file .wav e lo carica in NumPy.
+        Restituisce il tasso di campionamento (sampling_rate) e i dati audio (data).
+        """
+
+        self.wav_file_path, _ = QFileDialog.getOpenFileName(None, "Seleziona un file WAV", "", "File audio WAV (*.wav);;All files (*)")
+        if not self.wav_file_path:  # Se l'utente chiude la finestra senza scegliere un file
+            print("Nessun file selezionato.")
+            return None, None
+
+        self.load_file(self.wav_file_path)
 
     def spectrum(self):
         """
@@ -344,7 +349,7 @@ class Main(QWidget):
         )
         self.ax[0].set_ylabel("Ampiezza")
         self.ax[0].set_xlabel("Tempo (s)")
-        self.ax[0].set_title(self.file_wav, fontsize=20)
+        self.ax[0].set_title(Path(self.wav_file_path).stem, fontsize=20)
 
         # Aggiorna lo spettro
         self.spectrum()
