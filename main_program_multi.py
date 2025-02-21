@@ -26,8 +26,8 @@ from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.widgets import Slider, SpanSelector
 import librosa
 
-__version__ = "0.0.1"
-__version_date__ = "2025-02-14"
+__version__ = "0.0.2"
+__version_date__ = "2025-02-21"
 
 
 class OscillogramWindow(QWidget):
