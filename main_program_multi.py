@@ -4,6 +4,7 @@ import sys
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.io import wavfile
+import wave
 from PySide6.QtWidgets import (
     QApplication,
     QMainWindow,
@@ -19,6 +20,8 @@ from PySide6.QtWidgets import (
     QLabel,
     QComboBox,
     QPushButton,
+    QTreeWidget,
+    QTreeWidgetItem,
 )
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction
@@ -137,7 +140,9 @@ class ResamplingWindow(QWidget):
         self.setLayout(layout)
 
     def apply_resampling(self):
-        """Applica il resampling ai dati audio"""
+        """
+        Applica il resampling ai dati audio
+        """
         new_sampling_rate = int(self.combo_sampling_rate.currentText())
 
         print(f"DEBUG: Resampling da {self.sampling_rate} Hz a {new_sampling_rate} Hz...")
@@ -152,7 +157,9 @@ class ResamplingWindow(QWidget):
         print(f"DEBUG: Resampling completato. Nuova lunghezza: {len(self.data_resampled)} campioni.")
 
     def save_wav(self):
-        """Salva il file WAV dopo il resampling"""
+        """
+        Salva il file WAV dopo il resampling
+        """
         save_path, _ = QFileDialog.getSaveFileName(self, "Salva file WAV", "", "WAV Files (*.wav)")
         if save_path:
             wavfile.write(save_path, self.new_sampling_rate, self.data_resampled)
@@ -173,7 +180,11 @@ class MainWindow(QMainWindow):
         self.check_all_checkbox.stateChanged.connect(self.toggle_all_items)
 
         # list for WAV file paths
-        self.wav_list_widget = QListWidget()
+        # self.wav_list_widget = QListWidget()
+        # Create a QTreeWidget (like QListWidget but supports columns)
+        self.wav_list_widget = QTreeWidget()
+        self.wav_list_widget.setColumnCount(2)  # Number of columns
+        self.wav_list_widget.setHeaderLabels(["WAV file", "Sample rate"])  # Column headers
 
         # Editor di testo per output
         self.text_edit = QTextEdit(self)
@@ -199,7 +210,7 @@ class MainWindow(QMainWindow):
         # Set central widget
         self.setCentralWidget(central_widget)
 
-        self.resize(400, 500)
+        self.resize(1400, 500)
 
         # Creazione del menu
         menubar = self.menuBar()
@@ -252,27 +263,37 @@ class MainWindow(QMainWindow):
         Toggles all items in the list based on the "Check All" checkbox state.
         """
         check_state = Qt.Checked if state == 2 else Qt.Unchecked
-        for i in range(self.wav_list_widget.count()):
-            self.wav_list_widget.item(i).setCheckState(check_state)
+        for i in range(self.wav_list_widget.topLevelItemCount()):
+            self.wav_list_widget.topLevelItem(i).setCheckState(0, check_state)
 
     def open_wav(self):
         print("DEBUG: La funzione open_wav() è stata chiamata.")  # Controllo immediato
-        file_path, _ = QFileDialog.getOpenFileName(self, "Open WAV File", "", "WAV Files (*.wav)")
-        if file_path:
-            if file_path not in self.wav_list:
-                self.wav_list[file_path] = {}
+        file_paths, _ = QFileDialog.getOpenFileNames(self, "Open WAV File", "", "WAV Files (*.wav)")
+        if not file_paths:
+            print("DEBUG: Nessun file WAV selezionato.")
+            return
 
+        for file_path in file_paths:
+            if file_path in self.wav_list:
+                self.text_edit.append(f"file {file_path} already loaded")
+                continue
+
+            # get sample_rate
+            with wave.open(file_path, "rb") as wav_file:
+                sample_rate = wav_file.getframerate()
+
+            self.wav_list[file_path] = {"sample rate": sample_rate}
             self.text_edit.append(f"file {file_path} added to list")
 
-            self.wav_list_widget.clear()
-            for item_text in self.wav_list:
-                item = QListWidgetItem(item_text)
-                item.setCheckState(Qt.Unchecked)  # Unchecked by default
-                self.wav_list_widget.addItem(item)
+        self.wav_list_widget.clear()
+        for wav_file_path in self.wav_list:
+            print(self.wav_list[wav_file_path]["sample rate"])
+            item = QTreeWidgetItem([wav_file_path, str(self.wav_list[wav_file_path]["sample rate"])])
+            item.setCheckState(0, Qt.Unchecked)
+            self.wav_list_widget.addTopLevelItem(item)
 
-            self.show_oscillogram(wav_file_path=file_path)
-        else:
-            print("DEBUG: Nessun file WAV selezionato.")
+        if len(file_paths) == 1:
+            self.show_oscillogram(wav_file_path=file_paths[0])
 
     def close_program(self):
         print("ho chiamato la funzione close")
@@ -285,10 +306,11 @@ class MainWindow(QMainWindow):
         else:
             # check if wav checked in list
             checked_wav_files = [
-                self.wav_list_widget.item(i).text()
-                for i in range(self.wav_list_widget.count())
-                if self.wav_list_widget.item(i).checkState() == Qt.Checked
+                self.wav_list_widget.topLevelItem(i).text(0)
+                for i in range(self.wav_list_widget.topLevelItemCount())
+                if self.wav_list_widget.topLevelItem(i).checkState(0) == Qt.Checked
             ]
+            print(checked_wav_files)
             if checked_wav_files:
                 self.oscillogram_window_list = []
                 for wav_file_path in checked_wav_files:
