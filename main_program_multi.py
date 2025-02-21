@@ -8,20 +8,18 @@ import wave
 from PySide6.QtWidgets import (
     QApplication,
     QMainWindow,
-    QMenuBar,
     QTextEdit,
     QFileDialog,
     QWidget,
     QVBoxLayout,
-    QListWidget,
     QSplitter,
-    QListWidgetItem,
     QCheckBox,
     QLabel,
     QComboBox,
     QPushButton,
     QTreeWidget,
     QTreeWidgetItem,
+    QHeaderView,
 )
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction
@@ -186,6 +184,8 @@ class MainWindow(QMainWindow):
         self.wav_list_widget.setColumnCount(2)  # Number of columns
         self.wav_list_widget.setHeaderLabels(["WAV file", "Sample rate"])  # Column headers
 
+        self.wav_list_widget.header().setSectionResizeMode(QHeaderView.ResizeToContents)  # Resize to fit content
+
         # Editor di testo per output
         self.text_edit = QTextEdit(self)
 
@@ -220,6 +220,10 @@ class MainWindow(QMainWindow):
         open_wav_action = QAction("Open wav", self)
         open_wav_action.triggered.connect(self.open_wav)
         file_menu.addAction(open_wav_action)
+
+        open_wav_dir_action = QAction("Open wav directory", self)
+        open_wav_dir_action.triggered.connect(self.open_wav_dir)
+        file_menu.addAction(open_wav_dir_action)
 
         close_action = QAction("Close", self)
         close_action.triggered.connect(self.close_program)
@@ -294,6 +298,24 @@ class MainWindow(QMainWindow):
 
         if len(file_paths) == 1:
             self.show_oscillogram(wav_file_path=file_paths[0])
+
+    def open_wav_dir(self):
+        directory = QFileDialog.getExistingDirectory(self, "Select Directory", "")
+        if not directory:
+            return
+        for file_path in Path(directory).glob("*.wav"):
+            # get sample_rate
+            with wave.open(str(file_path), "rb") as wav_file:
+                sample_rate = wav_file.getframerate()
+            self.wav_list[str(file_path)] = {"sample rate": sample_rate}
+            self.text_edit.append(f"file {file_path} added to list")
+
+        self.wav_list_widget.clear()
+        for wav_file_path in self.wav_list:
+            print(self.wav_list[wav_file_path]["sample rate"])
+            item = QTreeWidgetItem([wav_file_path, str(self.wav_list[wav_file_path]["sample rate"])])
+            item.setCheckState(0, Qt.Unchecked)
+            self.wav_list_widget.addTopLevelItem(item)
 
     def close_program(self):
         print("ho chiamato la funzione close")
