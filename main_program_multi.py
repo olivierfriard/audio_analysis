@@ -326,13 +326,12 @@ class MainWindow(QMainWindow):
             self.oscillogram_window = OscillogramWindow(wav_file_path)
             self.oscillogram_window.show()
         else:
-            # check if wav checked in list
+            # check if wav checked in treewidget
             checked_wav_files = [
                 self.wav_list_widget.topLevelItem(i).text(0)
                 for i in range(self.wav_list_widget.topLevelItemCount())
                 if self.wav_list_widget.topLevelItem(i).checkState(0) == Qt.Checked
             ]
-            print(checked_wav_files)
             if checked_wav_files:
                 self.oscillogram_window_list = []
                 for wav_file_path in checked_wav_files:
@@ -344,11 +343,11 @@ class MainWindow(QMainWindow):
     def resampling(self):
         """Apre la finestra di resampling"""
 
-        # check if wav checked in list
+        # check if wav checked in treewidget
         checked_wav_files = [
-            self.wav_list_widget.item(i).text()
-            for i in range(self.wav_list_widget.count())
-            if self.wav_list_widget.item(i).checkState() == Qt.Checked
+            self.wav_list_widget.topLevelItem(i).text(0)
+            for i in range(self.wav_list_widget.topLevelItemCount())
+            if self.wav_list_widget.topLevelItem(i).checkState(0) == Qt.Checked
         ]
         if checked_wav_files:
             self.resampling_window_list = []
@@ -366,8 +365,20 @@ class MainWindow(QMainWindow):
         print(f"running {module_name=}")
 
         self.text_edit.append(f"Running {module_name} plugin")
-        self.w = self.modules[module_name].Main(self.wav_file)
-        self.w.show()
+
+        # check if wav checked in treewidget
+        checked_wav_files = [
+            self.wav_list_widget.topLevelItem(i).text(0)
+            for i in range(self.wav_list_widget.topLevelItemCount())
+            if self.wav_list_widget.topLevelItem(i).checkState(0) == Qt.Checked
+        ]
+        if not checked_wav_files:
+            return
+
+        self.plugin_widgets: list = []
+        for wav_file_path in checked_wav_files:
+            self.plugin_widgets.append(self.modules[module_name].Main(wav_file_path))
+            self.plugin_widgets.show()
 
 
 if __name__ == "__main__":

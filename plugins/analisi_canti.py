@@ -16,8 +16,8 @@ import sounddevice as sd
 
 
 class Main(QWidget):
-    def __init__(self, parent=None):
-        super(Main, self).__init__(parent)
+    def __init__(self, wav_file: str = ""):
+        super(Main, self).__init__()
         self.setWindowTitle(Path(__file__).stem.replace("_", " "))
 
         self.window_size = 1024
