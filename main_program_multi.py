@@ -182,7 +182,7 @@ class MainWindow(QMainWindow):
         # Create a QTreeWidget (like QListWidget but supports columns)
         self.wav_list_widget = QTreeWidget()
         self.wav_list_widget.setColumnCount(2)  # Number of columns
-        self.wav_list_widget.setHeaderLabels(["WAV file", "Sample rate"])  # Column headers
+        self.wav_list_widget.setHeaderLabels(["WAV file path", "duration (s)", "Sample rate (Hz)"])  # Column headers
 
         self.wav_list_widget.header().setSectionResizeMode(QHeaderView.ResizeToContents)  # Resize to fit content
 
@@ -270,6 +270,23 @@ class MainWindow(QMainWindow):
         for i in range(self.wav_list_widget.topLevelItemCount()):
             self.wav_list_widget.topLevelItem(i).setCheckState(0, check_state)
 
+    def get_rate_duration(self, wav_file_path):
+        # get sample_rate
+        with wave.open(wav_file_path, "rb") as wav_file:
+            sample_rate = wav_file.getframerate()
+            frames = wav_file.getnframes()
+            duration = round(frames / float(sample_rate), 3)
+        return sample_rate, duration
+
+    def update_wav_list(self):
+        self.wav_list_widget.clear()
+        for wav_file_path in self.wav_list:
+            item = QTreeWidgetItem(
+                [wav_file_path, str(self.wav_list[wav_file_path]["duration"]), str(self.wav_list[wav_file_path]["sample rate"])]
+            )
+            item.setCheckState(0, Qt.Unchecked)
+            self.wav_list_widget.addTopLevelItem(item)
+
     def open_wav(self):
         print("DEBUG: La funzione open_wav() è stata chiamata.")  # Controllo immediato
         file_paths, _ = QFileDialog.getOpenFileNames(self, "Open WAV File", "", "WAV Files (*.wav)")
@@ -282,19 +299,12 @@ class MainWindow(QMainWindow):
                 self.text_edit.append(f"file {file_path} already loaded")
                 continue
 
-            # get sample_rate
-            with wave.open(file_path, "rb") as wav_file:
-                sample_rate = wav_file.getframerate()
+            sample_rate, duration = self.get_rate_duration(str(file_path))
 
-            self.wav_list[file_path] = {"sample rate": sample_rate}
+            self.wav_list[file_path] = {"sample rate": sample_rate, "duration": duration}
             self.text_edit.append(f"file {file_path} added to list")
 
-        self.wav_list_widget.clear()
-        for wav_file_path in self.wav_list:
-            print(self.wav_list[wav_file_path]["sample rate"])
-            item = QTreeWidgetItem([wav_file_path, str(self.wav_list[wav_file_path]["sample rate"])])
-            item.setCheckState(0, Qt.Unchecked)
-            self.wav_list_widget.addTopLevelItem(item)
+        self.update_wav_list()
 
         if len(file_paths) == 1:
             self.show_oscillogram(wav_file_path=file_paths[0])
@@ -305,17 +315,11 @@ class MainWindow(QMainWindow):
             return
         for file_path in Path(directory).glob("*.wav"):
             # get sample_rate
-            with wave.open(str(file_path), "rb") as wav_file:
-                sample_rate = wav_file.getframerate()
-            self.wav_list[str(file_path)] = {"sample rate": sample_rate}
+            sample_rate, duration = self.get_rate_duration(str(file_path))
+            self.wav_list[str(file_path)] = {"sample rate": sample_rate, "duration": duration}
             self.text_edit.append(f"file {file_path} added to list")
 
-        self.wav_list_widget.clear()
-        for wav_file_path in self.wav_list:
-            print(self.wav_list[wav_file_path]["sample rate"])
-            item = QTreeWidgetItem([wav_file_path, str(self.wav_list[wav_file_path]["sample rate"])])
-            item.setCheckState(0, Qt.Unchecked)
-            self.wav_list_widget.addTopLevelItem(item)
+        self.update_wav_list()
 
     def close_program(self):
         print("ho chiamato la funzione close")
