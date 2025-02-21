@@ -372,13 +372,15 @@ class MainWindow(QMainWindow):
             for i in range(self.wav_list_widget.topLevelItemCount())
             if self.wav_list_widget.topLevelItem(i).checkState(0) == Qt.Checked
         ]
-        if not checked_wav_files:
-            return
 
         self.plugin_widgets: list = []
-        for wav_file_path in checked_wav_files:
-            self.plugin_widgets.append(self.modules[module_name].Main(wav_file_path))
+        if not checked_wav_files:
+            self.plugin_widgets.append(self.modules[module_name].Main())
             self.plugin_widgets[-1].show()
+        else:
+            for wav_file_path in checked_wav_files:
+                self.plugin_widgets.append(self.modules[module_name].Main(wav_file_path))
+                self.plugin_widgets[-1].show()
 
 
 if __name__ == "__main__":
