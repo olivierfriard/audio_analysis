@@ -16,6 +16,9 @@ from PySide6.QtWidgets import (
     QSplitter,
     QListWidgetItem,
     QCheckBox,
+    QLabel,
+    QComboBox,
+    QPushButton,
 )
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction
@@ -93,7 +96,7 @@ class OscillogramWindow(QWidget):
 
 
 class ResamplingWindow(QWidget):
-    def __init__(self, wav_file):
+    def __init__(self, wav_file=str):
         super().__init__()
 
         self.setWindowTitle("Resampling Audio")
@@ -296,11 +299,20 @@ class MainWindow(QMainWindow):
 
     def resampling(self):
         """Apre la finestra di resampling"""
-        if self.wav_file:
-            self.resampling_window = ResamplingWindow(self.wav_file)  # Inizializza la finestra
-            self.resampling_window.show()
+
+        # check if wav checked in list
+        checked_wav_files = [
+            self.wav_list_widget.item(i).text()
+            for i in range(self.wav_list_widget.count())
+            if self.wav_list_widget.item(i).checkState() == Qt.Checked
+        ]
+        if checked_wav_files:
+            self.resampling_window_list = []
+            for wav_file_path in checked_wav_files:
+                self.resampling_window_list.append(ResamplingWindow(wav_file_path))
+                self.resampling_window_list[-1].show()
         else:
-            self.text_edit.append(" Nessun file WAV caricato! Apri un file prima di eseguire il resampling.")
+            self.text_edit.append("No WAV file selected!")
 
     def run_option(self, module_name):
         """
