@@ -58,7 +58,7 @@ class OscillogramWindow(QWidget):
         # self.ax.grid()
 
         # Imposta il range iniziale della finestra
-        self.xmin, self.xmax = 0, self.duration  # Inizialmente mostra massimo 3 secondi
+        self.xmin, self.xmax = 0, self.duration  # Inizialmente mostra tutta la registrazione
         self.xrange = self.xmax - self.xmin
         self.ax.set_xlim(self.xmin, self.xmax)
 
