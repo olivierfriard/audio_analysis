@@ -31,7 +31,7 @@ class Main(QWidget):
         super().__init__()
 
         if not wav_file:
-            self.wav_file = "C:\\Users\\Sergio\\audio_analysis\\GeCorn_2025-01-19_01.wav"
+            self.wav_file = "/media/olivier/6780-F4DB/20250125/GeCorn_2025-01-25_09.wav"
         else:
             self.wav_file = wav_file
         print(self.wav_file)
@@ -118,13 +118,15 @@ class Main(QWidget):
         self.slider.on_changed(self.on_slider)
 
         # Attivazione di SpanSelector click left
-        self.span_selector = SpanSelector(
-            self.ax, self.on_select, "horizontal", button=1, useblit=True, props=dict(alpha=0.5, facecolor="red")
-        )
+        self.span_selector = SpanSelector(self.ax, self.zoom, "horizontal", button=1, useblit=True, props=dict(alpha=0.5, facecolor="red"))
 
         # Attivazione di SpanSelector click right
         self.span_selector2 = SpanSelector(
-            self.ax, self.on_select, "horizontal", button=3, useblit=True, props=dict(alpha=0.5, facecolor="green")
+            self.ax, self.delete_peaks, "horizontal", button=3, useblit=True, props=dict(alpha=0.5, facecolor="green")
+        )
+        # Attivazione di SpanSelector click middle
+        self.span_selector3 = SpanSelector(
+            self.ax, self.trova_picchi, "horizontal", button=2, useblit=True, props=dict(alpha=0.5, facecolor="yellow")
         )
 
         self.canvas.draw_idle()
@@ -202,15 +204,23 @@ class Main(QWidget):
         self.ax.set_xlim(self.xmin, self.xmax)
         self.canvas.draw_idle()
 
-    def on_select(self, xmin, xmax):
-        """Aggiorna il plot con la selezione dell'utente e sincronizza lo slider."""
-        if xmax - xmin < 0.01:
-            self.xmin = 0
-            self.xmax = self.duration
-        else:
-            self.xmin, self.xmax = xmin, xmax
+    def delete_peaks(self, xmin, xmax):
+        print("NUMERO PICCHI", len(self.peaks_times))
+        # trova i picchi tra self.xmin e self.xmax
+        """Elimina i picchi compresi tra xmin e xmax dalla lista self.peaks."""
+        if len(self.peaks_times) == 0:
+            return
+        # Converti gli indici dei picchi in tempi reali
+        num_peaks_before = len(self.peaks_times)
+        # Filtra i picchi che NON sono compresi tra xmin e xmax
+        mask = (self.peaks_times < xmin) | (self.peaks_times > xmax)
+        self.peaks_times = self.peaks_times[mask]  # Mantiene solo i picchi fuori dall'intervallo
+        num_peaks_after = len(self.peaks_times)
+        # Aggiorna il grafico per riflettere i cambiamenti
+        print("HO ELIMINATO I PICCHI", num_peaks_before - num_peaks_after)
+        self.plot_wav(self.xmin, self.xmax)
 
-    def on_select(self, xmin, xmax):
+    def zoom(self, xmin, xmax):
         self.xmin = xmin
         self.xmax = xmax
 
@@ -252,8 +262,22 @@ class Main(QWidget):
         except ValueError:
             print("Errore: Assicurati che Window Size e Overlap siano numeri interi validi.")
 
-    def trova_picchi(self):
+    def trova_picchi(self, xmin=0, xmax=0):
         """Trova i picchi dell'inviluppo RMS e li converte nei campioni della registrazione originale."""
+
+        print(self.sender())
+        print(f"{xmin=}")
+        print(f"{xmax=}")
+
+        if self.sender() is not None:
+            rms = self.rms
+            self.peaks_times = np.array([])
+        else:
+            rms = self.rms[int(xmin * self.sampling_rate / self.overlap) : int(xmax * self.sampling_rate / self.overlap)]
+            self.delete_peaks(xmin, xmax)
+
+        print(f"{rms=}")
+
         try:
             min_distance_sec = float(self.min_distance_input.text())  # Distanza in secondi
             print(min_distance_sec)
@@ -266,11 +290,18 @@ class Main(QWidget):
             print(f"   - Distanza minima tra picchi: {min_distance_sec:.5f} sec ({min_distance_samples} campioni)")
 
             # Trova i picchi nell'inviluppo RMS
-            peaks, properties = find_peaks(self.rms, height=amp_threshold, distance=min_distance_samples, prominence=0.01)
+            peaks, properties = find_peaks(rms, height=amp_threshold, distance=min_distance_samples, prominence=0.01)
 
             # Converti gli indici nei campioni effettivi dell'audio originale
             peaks_original = peaks * self.overlap  # Campioni effettivi
-            self.peaks_times = peaks * self.overlap / self.sampling_rate  # In secondi
+
+            print(f"{peaks=}")
+
+            peaks_times = peaks * self.overlap / self.sampling_rate + xmin
+            print(f"{peaks_times=}")
+
+            # self.peaks_times = peaks * self.overlap / self.sampling_rate  # In secondi
+            self.peaks_times = np.sort(np.concatenate((self.peaks_times, peaks_times)))
 
             print(f" {len(peaks)} picchi trovati")
             print(f"   - Indici nell'inviluppo: {peaks}")
