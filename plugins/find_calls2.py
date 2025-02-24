@@ -6,24 +6,25 @@ import matplotlib.pyplot as plt
 from scipy.io import wavfile
 from scipy.signal import find_peaks
 from PySide6.QtWidgets import (
-    QApplication, 
-    QMainWindow, 
-    QMenuBar, 
-    QTextEdit, 
-    QFileDialog, 
-    QWidget, 
-    QVBoxLayout, 
-    QLabel, 
-    QLineEdit, 
-    QHBoxLayout, 
+    QApplication,
+    QMainWindow,
+    QMenuBar,
+    QTextEdit,
+    QFileDialog,
+    QWidget,
+    QVBoxLayout,
+    QLabel,
+    QLineEdit,
+    QHBoxLayout,
     QSizePolicy,
-    QPushButton
-    )
+    QPushButton,
+)
 
 from PySide6.QtGui import QAction
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.widgets import Slider, SpanSelector, Button, TextBox
 import librosa
+
 
 class Main(QWidget):
     def __init__(self, wav_file=None):
@@ -40,7 +41,7 @@ class Main(QWidget):
         self.overlap = 512
         self.amp_threshold = 0
         self.min_dist = 0
-        self.rms = np.zeros(self.window_size//self.overlap)
+        self.rms = np.zeros(self.window_size // self.overlap)
         n_frames = np.arange(len(self.rms))
         self.rms_times = librosa.frames_to_time(n_frames, sr=self.sampling_rate, hop_length=self.overlap)
         self.peaks_times = np.array([])
@@ -115,15 +116,21 @@ class Main(QWidget):
         self.slider_ax = self.figure.add_axes([0.2, 0.05, 0.65, 0.03])
         self.slider = Slider(self.slider_ax, "Time", 0, 1, valinit=self.xmax / self.duration)
         self.slider.on_changed(self.on_slider)
-        
-        # Attivazione di SpanSelector
-        self.span_selector = SpanSelector(self.ax, self.on_select, "horizontal", useblit=True, props=dict(alpha=0.5, facecolor='red'))
+
+        # Attivazione di SpanSelector click left
+        self.span_selector = SpanSelector(
+            self.ax, self.on_select, "horizontal", button=1, useblit=True, props=dict(alpha=0.5, facecolor="red")
+        )
+
+        # Attivazione di SpanSelector click right
+        self.span_selector2 = SpanSelector(
+            self.ax, self.on_select, "horizontal", button=3, useblit=True, props=dict(alpha=0.5, facecolor="green")
+        )
 
         self.canvas.draw_idle()
         self.plot_wav(self.xmin, self.xmax)
-            
-    
-    def create_label_input_pair(self,label_text, default_value):
+
+    def create_label_input_pair(self, label_text, default_value):
         vbox = QVBoxLayout()  # Layout verticale per allineare etichetta e input
         label = QLabel(label_text)
         input_box = QLineEdit(str(default_value))
@@ -131,13 +138,12 @@ class Main(QWidget):
         vbox.addWidget(label)
         vbox.addWidget(input_box)
         return vbox, input_box
-  
+
     def load_wav(self, wav_file):
-        
         """Carica il file WAV e ne estrae i dati."""
         self.sampling_rate, self.data = wavfile.read(wav_file)
         self.xmin = 0
-        self.duration = len(self.data)/self.sampling_rate
+        self.duration = len(self.data) / self.sampling_rate
         self.xmax = self.duration
         # Se il file è stereo, usa solo un canale
         if len(self.data.shape) > 1:
@@ -152,22 +158,22 @@ class Main(QWidget):
         self.id_xmin = 0
         self.id_xmax = len(self.data)
 
-    def plot_wav(self,xmin,xmax):
+    def plot_wav(self, xmin, xmax):
         self.ax.cla()  # Cancella il grafico precedente
         self.xmin = xmin
         self.xmax = xmax
-        
+
         self.id_xmin = int(self.xmin * self.sampling_rate)
         self.id_xmax = int(self.xmax * self.sampling_rate)
-        
-        time = self.time[self.id_xmin:self.id_xmax]
-        data = self.data[self.id_xmin:self.id_xmax]
+
+        time = self.time[self.id_xmin : self.id_xmax]
+        data = self.data[self.id_xmin : self.id_xmax]
 
         # seleziono i valori di rms che ricadono nell'intervallo xmin-xmax
         mask_rms = (self.rms_times >= self.xmin) & (self.rms_times <= self.xmax)
         rms_times_selected = self.rms_times[mask_rms]
         rms_selected = self.rms[mask_rms]
-        
+
         # seleziono i picchi che ricadono nell'intervallo xmin-xmax
         print(len(self.peaks_times))
         if len(self.peaks_times) > 0:
@@ -176,22 +182,22 @@ class Main(QWidget):
             peaks_selected = self.peaks_times[mask_peaks]
         else:
             peaks_selected = np.array([])
-            
+
         # Disegno l'oscillogramma
-        self.ax.plot(time, data, linewidth=0.5, color="black", alpha = 0.25)
+        self.ax.plot(time, data, linewidth=0.5, color="black", alpha=0.25)
         self.ax.plot(rms_times_selected, rms_selected, linewidth=1, color="red")
         if len(peaks_selected) > 0:
             for i in np.arange(len(peaks_selected)):
-                self.ax.plot([peaks_selected[i], peaks_selected[i]], [0, np.max(rms_selected)], '-g', linewidth = 1)
+                self.ax.plot([peaks_selected[i], peaks_selected[i]], [0, np.max(rms_selected)], "-g", linewidth=1)
         self.ax.plot()
-        
+
         # Aggiorna il grafico
         self.canvas.draw()
 
     def on_slider(self, val):
         """Aggiorna la vista dell'oscillogramma in base alla posizione dello slider mantenendo la durata selezionata."""
-        self.plot_wav(0,self.duration)
-        self.xmax = max(self.range,val * self.duration) 
+        self.plot_wav(0, self.duration)
+        self.xmax = max(self.range, val * self.duration)
         self.xmin = self.xmax - self.range
         self.ax.set_xlim(self.xmin, self.xmax)
         self.canvas.draw_idle()
@@ -204,31 +210,26 @@ class Main(QWidget):
         else:
             self.xmin, self.xmax = xmin, xmax
 
-        
-        
-
     def on_select(self, xmin, xmax):
         self.xmin = xmin
         self.xmax = xmax
-        
+
         if self.xmax - self.xmin < 0.01:
             self.xmin = 0
             self.id_xmin = 0
-            self.xmax = len(self.data)/self.sampling_rate
+            self.xmax = len(self.data) / self.sampling_rate
             self.id_xmax = len(self.data)
         else:
             self.xmin = xmin
             self.id_xmin = int(self.xmin * self.sampling_rate)
             self.xmax = xmax
             self.id_xmax = int(self.xmax * self.sampling_rate)
-        
+
         self.ax.set_xlim(self.xmin, self.xmax)
         self.range = self.xmax - self.xmin
-        self.slider.set_val(self.xmax/self.duration)
-        
+        self.slider.set_val(self.xmax / self.duration)
 
-       
-    def envelope(self, event = None):
+    def envelope(self, event=None):
         """Calcola l'inviluppo RMS usando i parametri aggiornati da Window Size e Overlap."""
         try:
             # Leggi i valori dalle caselle di testo
@@ -241,30 +242,23 @@ class Main(QWidget):
                 return
 
             # Calcola l'inviluppo RMS con i nuovi valori
-            self.rms = librosa.feature.rms(y=self.data, 
-                                        frame_length=self.window_size, 
-                                        hop_length=self.overlap)[0]
-            self.rms_times = librosa.frames_to_time(np.arange(len(self.rms)), 
-                                                                sr=self.sampling_rate, 
-                                                                hop_length=self.overlap)
-            print("----------------",len(self.rms))
+            self.rms = librosa.feature.rms(y=self.data, frame_length=self.window_size, hop_length=self.overlap)[0]
+            self.rms_times = librosa.frames_to_time(np.arange(len(self.rms)), sr=self.sampling_rate, hop_length=self.overlap)
+            print("----------------", len(self.rms))
             self.find_peaks_btn.setEnabled(True)  # 🔹 Attiva il pulsante
             self.save_calls_btn.setEnabled(True)  # 🔹 Attiva il pulsante
-            self.plot_wav(self.xmin,self.xmax)
-            
+            self.plot_wav(self.xmin, self.xmax)
 
         except ValueError:
             print("Errore: Assicurati che Window Size e Overlap siano numeri interi validi.")
 
-
-    
     def trova_picchi(self):
         """Trova i picchi dell'inviluppo RMS e li converte nei campioni della registrazione originale."""
         try:
             min_distance_sec = float(self.min_distance_input.text())  # Distanza in secondi
             print(min_distance_sec)
             min_distance_samples = int(min_distance_sec * (self.sampling_rate / self.overlap))  # Converti in campioni
-            print(min_distance_samples, self.sampling_rate, self.overlap )
+            print(min_distance_samples, self.sampling_rate, self.overlap)
             amp_threshold = float(self.amp_threshold_input.text())  # Soglia di ampiezza
 
             print(f" Cercando picchi con:")
@@ -289,7 +283,7 @@ class Main(QWidget):
 
         except ValueError:
             print(" Errore: Inserisci valori numerici validi per la distanza e la soglia.")
-    
+
     def edita_picchi(self):
         print("NUMERO PICCHI", len(self.peaks_times))
         # trova i picchi tra self.xmin e self.xmax
@@ -304,12 +298,12 @@ class Main(QWidget):
         self.peaks_times = self.peaks_times[mask]  # Mantiene solo i picchi fuori dall'intervallo
         num_peaks_after = len(self.peaks_times)
         # Aggiorna il grafico per riflettere i cambiamenti
-        print("HO ELIMINATO I PICCHI",num_peaks_before - num_peaks_after)
-        self.plot_wav(self.xmin,self.xmax)
+        print("HO ELIMINATO I PICCHI", num_peaks_before - num_peaks_after)
+        self.plot_wav(self.xmin, self.xmax)
 
     def salva_canti(self):
         """Salva i segmenti audio attorno ai picchi selezionati in file separati."""
-        
+
         # 🔹 Seleziona i picchi all'interno dell'intervallo xmin - xmax
         mask = (self.peaks_times > self.xmin) & (self.peaks_times < self.xmax)
         peaks_selected = self.peaks_times[mask]
@@ -317,7 +311,7 @@ class Main(QWidget):
         if len(peaks_selected) != 1:
             print("Seleziona un solo picco nella finestra!")
             return
-        
+
         # 🔹 Calcola i margini prima e dopo il picco selezionato
         peak_time = peaks_selected[0]
         before = peak_time - self.xmin
@@ -351,15 +345,10 @@ class Main(QWidget):
             print(f"Salvato: {nome_ritaglio}")
 
 
-
-    
-
-
-
 if __name__ == "__main__":
     app = QApplication(sys.argv)
 
-    main_widget = Main(wav_file='')
+    main_widget = Main(wav_file="")
     main_widget.show()
 
     sys.exit(app.exec())

@@ -299,7 +299,8 @@ class MainWindow(QMainWindow):
                 self.text_edit.append(f"file {file_path} already loaded")
                 continue
 
-            sample_rate, duration = self.get_rate_duration(str(file_path))
+            # sample_rate, duration = self.get_rate_duration(str(file_path))
+            sample_rate, duration = 0, 0
 
             self.wav_list[file_path] = {"sample rate": sample_rate, "duration": duration}
             self.text_edit.append(f"file {file_path} added to list")
