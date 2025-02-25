@@ -34,7 +34,7 @@ class Main(QWidget):
             self.wav_file = "/media/olivier/6780-F4DB/20250125/GeCorn_2025-01-25_09.wav"
         else:
             self.wav_file = wav_file
-        print(self.wav_file)
+
         self.load_wav(self.wav_file)
 
         self.window_size = 1024
