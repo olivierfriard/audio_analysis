@@ -72,7 +72,7 @@ class OscillogramWindow(QWidget):
         self.canvas.draw()
 
         # Aggiunta della selezione interattiva
-        self.span_selector = SpanSelector(self.ax, self.on_select, "horizontal", useblit=True, props=dict(alpha=0.5, facecolor="red"))
+        self.span_selector = SpanSelector(self.ax, self.on_select, "horizontal", useblit=True, props=dict(alpha=0.5, facecolor="lightgray"))
 
     def on_select(self, xmin, xmax):
         """Aggiorna il plot con la selezione dell'utente e sincronizza lo slider."""
@@ -274,11 +274,14 @@ class MainWindow(QMainWindow):
 
     def get_rate_duration(self, wav_file_path):
         # get sample_rate
-        with wave.open(wav_file_path, "rb") as wav_file:
-            sample_rate = wav_file.getframerate()
-            frames = wav_file.getnframes()
-            duration = round(frames / float(sample_rate), 3)
-        return sample_rate, duration
+        try:
+            with wave.open(wav_file_path, "rb") as wav_file:
+                sample_rate = wav_file.getframerate()
+                frames = wav_file.getnframes()
+                duration = round(frames / float(sample_rate), 3)
+            return sample_rate, duration
+        except Exception:
+            return "Not found", "Not found"
 
     def update_wav_list(self):
         self.wav_list_widget.clear()
@@ -301,8 +304,8 @@ class MainWindow(QMainWindow):
                 self.text_edit.append(f"file {file_path} already loaded")
                 continue
 
-            # sample_rate, duration = self.get_rate_duration(str(file_path))
-            sample_rate, duration = 0, 0
+            sample_rate, duration = self.get_rate_duration(str(file_path))
+            # sample_rate, duration = 0, 0
 
             self.wav_list[file_path] = {"sample rate": sample_rate, "duration": duration}
             self.text_edit.append(f"file {file_path} added to list")

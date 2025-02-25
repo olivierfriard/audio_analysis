@@ -1,4 +1,3 @@
-import importlib.util
 from pathlib import Path
 import sys
 import numpy as np
@@ -7,24 +6,20 @@ from scipy.io import wavfile
 from scipy.signal import find_peaks
 from PySide6.QtWidgets import (
     QApplication,
-    QMainWindow,
-    QMenuBar,
-    QTextEdit,
     QFileDialog,
     QWidget,
     QVBoxLayout,
     QLabel,
     QLineEdit,
     QHBoxLayout,
-    QSizePolicy,
     QPushButton,
     QDoubleSpinBox,
     QSplitter,
+    QMessageBox,
 )
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QAction
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
-from matplotlib.widgets import Slider, SpanSelector, Button, TextBox
+from matplotlib.widgets import Slider, SpanSelector
 import librosa
 
 
@@ -81,6 +76,7 @@ class Main(QWidget):
         self.sp_amp_threshold.setSingleStep(0.05)  # Step size of 0.1
         self.sp_amp_threshold.setMinimum(0.0)  # Set minimum value
         self.sp_amp_threshold.setMaximum(1)  # Set maximum value
+        self.sp_amp_threshold.setEnabled(False)
         self.sp_amp_threshold.valueChanged.connect(self.trova_picchi_spinbox)
         self.params_layout.addWidget(self.sp_amp_threshold)
 
@@ -88,13 +84,14 @@ class Main(QWidget):
         # self.params_layout.addLayout(window_min_distance_layout)
 
         # spinbox for amplitude threshold
-        self.params_layout.addWidget(QLabel("Amplitude threshold"))
+        self.params_layout.addWidget(QLabel("Minimum distance (points)"))
         self.sp_min_dist = QDoubleSpinBox()
         self.sp_min_dist.setValue(0.3)
         self.sp_min_dist.setDecimals(3)  # Set to 3 decimal places
         self.sp_min_dist.setSingleStep(0.05)  # Step size of 0.1
         self.sp_min_dist.setMinimum(0.0)  # Set minimum value
         self.sp_min_dist.setMaximum(10)  # Set maximum value
+        self.sp_min_dist.setEnabled(False)
         self.sp_min_dist.valueChanged.connect(self.trova_picchi_spinbox)
         self.params_layout.addWidget(self.sp_min_dist)
 
@@ -291,6 +288,8 @@ class Main(QWidget):
             print("----------------", len(self.rms))
             self.find_peaks_btn.setEnabled(True)  # 🔹 Attiva il pulsante
             self.save_calls_btn.setEnabled(True)  # 🔹 Attiva il pulsante
+            self.sp_amp_threshold.setEnabled(True)
+            self.sp_min_dist.setEnabled(True)
             self.plot_wav(self.xmin, self.xmax)
 
         except ValueError:
@@ -315,15 +314,13 @@ class Main(QWidget):
             rms = self.rms[int(xmin * self.sampling_rate / self.overlap) : int(xmax * self.sampling_rate / self.overlap)]
             self.delete_peaks(xmin, xmax)
 
-        print(f"{rms=}")
+        # print(f"{rms=}")
 
         try:
-            # min_distance_sec = float(self.min_distance_input.text())  # Distanza in secondi
             min_distance_sec = self.sp_min_dist.value()
-            print(min_distance_sec)
+
             min_distance_samples = int(min_distance_sec * (self.sampling_rate / self.overlap))  # Converti in campioni
-            print(min_distance_samples, self.sampling_rate, self.overlap)
-            # amp_threshold = float(self.amp_threshold_input.text())  # Soglia di ampiezza
+
             amp_threshold = self.sp_amp_threshold.value()
 
             print(" Cercando picchi con:")
@@ -381,7 +378,7 @@ class Main(QWidget):
         peaks_selected = self.peaks_times[mask]
 
         if len(peaks_selected) != 1:
-            print("Seleziona un solo picco nella finestra!")
+            QMessageBox.warning(self, "", "Seleziona un solo picco nella finestra!")
             return
 
         # 🔹 Calcola i margini prima e dopo il picco selezionato
@@ -391,8 +388,12 @@ class Main(QWidget):
 
         # 🔹 Crea una cartella con il nome del file di origine (senza estensione)
         original_filename = Path(self.wav_file).stem  # Nome del file senza estensione
-        save_folder = Path(original_filename)
-        save_folder.mkdir(exist_ok=True)  # Crea la cartella se non esiste
+
+        directory = QFileDialog.getExistingDirectory(self, "Select Directory", original_filename)
+        save_folder = Path(directory)
+
+        # save_folder = Path(original_filename)
+        # save_folder.mkdir(exist_ok=True)  # Crea la cartella se non esiste
 
         print(f"Salvando i canti nella cartella: {save_folder}")
 
