@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
     QTreeWidget,
     QTreeWidgetItem,
     QHeaderView,
+    QMessageBox,
 )
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction
@@ -196,8 +197,9 @@ class MainWindow(QMainWindow):
         splitter.setSizes([200, 400])
 
         # Layout
-        main_layout = QVBoxLayout()
-        main_layout.addWidget(splitter)
+
+        # main_layout = QVBoxLayout()
+        # main_layout.addWidget(splitter)
 
         # Layout
         central_widget = QWidget()
@@ -379,13 +381,12 @@ class MainWindow(QMainWindow):
         ]
 
         self.plugin_widgets: list = []
-        if not checked_wav_files:
-            self.plugin_widgets.append(self.modules[module_name].Main())
-            self.plugin_widgets[-1].show()
-        else:
+        if checked_wav_files:
             for wav_file_path in checked_wav_files:
                 self.plugin_widgets.append(self.modules[module_name].Main(wav_file_path))
                 self.plugin_widgets[-1].show()
+        else:
+            QMessageBox.warning(self, "", "No WAV file selected")
 
 
 if __name__ == "__main__":

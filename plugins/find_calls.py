@@ -18,8 +18,10 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QSizePolicy,
     QPushButton,
+    QDoubleSpinBox,
+    QSplitter,
 )
-
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.widgets import Slider, SpanSelector, Button, TextBox
@@ -30,10 +32,7 @@ class Main(QWidget):
     def __init__(self, wav_file=None):
         super().__init__()
 
-        if not wav_file:
-            self.wav_file = "/media/olivier/6780-F4DB/20250125/GeCorn_2025-01-25_09.wav"
-        else:
-            self.wav_file = wav_file
+        self.wav_file = wav_file
 
         self.load_wav(self.wav_file)
 
@@ -51,22 +50,81 @@ class Main(QWidget):
 
         # 🔹 Layout principale
         self.main_layout = QVBoxLayout()
-        self.setLayout(self.main_layout)
 
-        # 🔹 Layout superiore per i parametri (disposizione orizzontale)
+        up_panel = QWidget()
+        up_layout = QVBoxLayout(up_panel)
+
+        # layout for parameters
         self.params_layout = QHBoxLayout()
 
         # Crea i parametri con etichetta sopra la casella di testo
         window_size_layout, self.window_size_input = self.create_label_input_pair("Window size", self.window_size)
-        window_overlap_layout, self.window_overlap_input = self.create_label_input_pair("Overlap", self.overlap)
-        window_amp_threshold_layout, self.amp_threshold_input = self.create_label_input_pair("Amplitude threshold", self.amp_threshold)
-        window_min_distance_layout, self.min_distance_input = self.create_label_input_pair("Minimum distance (points)", self.min_dist)
-
-        # Aggiunge i layout orizzontalmente
         self.params_layout.addLayout(window_size_layout)
+
+        window_overlap_layout, self.window_overlap_input = self.create_label_input_pair("Overlap", self.overlap)
         self.params_layout.addLayout(window_overlap_layout)
-        self.params_layout.addLayout(window_amp_threshold_layout)
-        self.params_layout.addLayout(window_min_distance_layout)
+
+        self.run_envelope = QPushButton("Run Envelope")
+        self.run_envelope.setFixedSize(120, 30)
+        self.run_envelope.clicked.connect(self.envelope)
+
+        self.params_layout.addWidget(self.run_envelope)
+
+        # window_amp_threshold_layout, self.amp_threshold_input = self.create_label_input_pair("Amplitude threshold", self.amp_threshold)
+        # self.params_layout.addLayout(window_amp_threshold_layout)
+
+        # spinbox for amplitude threshold
+        self.params_layout.addWidget(QLabel("Amplitude threshold"))
+        self.sp_amp_threshold = QDoubleSpinBox()
+        self.sp_amp_threshold.setValue(0.1)
+        self.sp_amp_threshold.setDecimals(3)  # Set to 3 decimal places
+        self.sp_amp_threshold.setSingleStep(0.05)  # Step size of 0.1
+        self.sp_amp_threshold.setMinimum(0.0)  # Set minimum value
+        self.sp_amp_threshold.setMaximum(1)  # Set maximum value
+        self.sp_amp_threshold.valueChanged.connect(self.trova_picchi_spinbox)
+        self.params_layout.addWidget(self.sp_amp_threshold)
+
+        # window_min_distance_layout, self.min_distance_input = self.create_label_input_pair("Minimum distance (points)", self.min_dist)
+        # self.params_layout.addLayout(window_min_distance_layout)
+
+        # spinbox for amplitude threshold
+        self.params_layout.addWidget(QLabel("Amplitude threshold"))
+        self.sp_min_dist = QDoubleSpinBox()
+        self.sp_min_dist.setValue(0.3)
+        self.sp_min_dist.setDecimals(3)  # Set to 3 decimal places
+        self.sp_min_dist.setSingleStep(0.05)  # Step size of 0.1
+        self.sp_min_dist.setMinimum(0.0)  # Set minimum value
+        self.sp_min_dist.setMaximum(10)  # Set maximum value
+        self.sp_min_dist.valueChanged.connect(self.trova_picchi_spinbox)
+        self.params_layout.addWidget(self.sp_min_dist)
+
+        # find peaks
+        self.find_peaks_btn = QPushButton("Find Peaks")
+        self.find_peaks_btn.setFixedSize(120, 30)
+        self.find_peaks_btn.setEnabled(False)  # 🔹 Disattivato all'inizio
+        self.find_peaks_btn.clicked.connect(self.trova_picchi)
+        self.params_layout.addWidget(self.find_peaks_btn)
+
+        # delete peaks
+        self.edit_peaks_btn = QPushButton("Delete Peaks")
+        self.edit_peaks_btn.setFixedSize(120, 30)
+        self.edit_peaks_btn.setEnabled(False)  # 🔹 Disattivato all'inizio
+        self.edit_peaks_btn.clicked.connect(self.edita_picchi)
+        self.params_layout.addWidget(self.edit_peaks_btn)
+
+        # save calls
+        self.save_calls_btn = QPushButton("Save Calls")
+        self.save_calls_btn.setFixedSize(120, 30)
+        self.save_calls_btn.setEnabled(False)  # 🔹 Disattivato all'inizio
+        self.save_calls_btn.clicked.connect(self.salva_canti)
+        self.params_layout.addWidget(self.save_calls_btn)
+
+        up_layout.addLayout(self.params_layout)
+
+        # self.main_layout.addLayout(self.params_layout)  # Parametri in alto
+
+        down_panel = QWidget()
+        down_layout = QVBoxLayout(down_panel)
 
         # 🔹 Layout inferiore per l'oscillogramma e i pulsanti di analisi
         self.analysis_layout = QVBoxLayout()
@@ -77,63 +135,39 @@ class Main(QWidget):
         self.canvas = FigureCanvas(self.figure)
         self.analysis_layout.addWidget(self.canvas)
 
-        # Creazione dei pulsanti di analisi
-        buttons_layout = QHBoxLayout()
+        # self.main_layout.addLayout(self.analysis_layout)  # Oscillogramma e pulsanti in basso
+        down_layout.addLayout(self.analysis_layout)
 
-        self.run_envelope = QPushButton("Run Envelope")
-        self.run_envelope.setFixedSize(120, 30)
-        self.run_envelope.clicked.connect(self.envelope)
+        splitter = QSplitter(Qt.Vertical)
+        splitter.addWidget(up_panel)
+        splitter.addWidget(down_panel)
+        self.main_layout.addWidget(splitter)
+        self.setLayout(self.main_layout)
 
-        self.find_peaks_btn = QPushButton("Find Peaks")
-        self.find_peaks_btn.setFixedSize(120, 30)
-        self.find_peaks_btn.setEnabled(False)  # 🔹 Disattivato all'inizio
-        self.find_peaks_btn.clicked.connect(self.trova_picchi)
-
-        self.edit_peaks_btn = QPushButton("Edit Peaks")
-        self.edit_peaks_btn.setFixedSize(120, 30)
-        self.edit_peaks_btn.setEnabled(False)  # 🔹 Disattivato all'inizio
-        self.edit_peaks_btn.clicked.connect(self.edita_picchi)
-
-        self.save_calls_btn = QPushButton("Save Calls")
-        self.save_calls_btn.setFixedSize(120, 30)
-        self.save_calls_btn.setEnabled(False)  # 🔹 Disattivato all'inizio
-        self.save_calls_btn.clicked.connect(self.salva_canti)
-
-        # Aggiunge i pulsanti in una riga orizzontale
-        buttons_layout.addWidget(self.run_envelope)
-        buttons_layout.addWidget(self.find_peaks_btn)
-        buttons_layout.addWidget(self.edit_peaks_btn)
-        buttons_layout.addWidget(self.save_calls_btn)
-
-        # Aggiunge i pulsanti al layout inferiore
-        self.analysis_layout.addLayout(buttons_layout)
-
-        # 🔹 Aggiunge i due layout al layout principale
-        self.main_layout.addLayout(self.params_layout)  # Parametri in alto
-        self.main_layout.addLayout(self.analysis_layout)  # Oscillogramma e pulsanti in basso
-
-        # Crea lo slider<
+        # Crea lo slider
         self.slider_ax = self.figure.add_axes([0.2, 0.05, 0.65, 0.03])
         self.slider = Slider(self.slider_ax, "Time", 0, 1, valinit=self.xmax / self.duration)
         self.slider.on_changed(self.on_slider)
 
         # Attivazione di SpanSelector click left
-        self.span_selector = SpanSelector(self.ax, self.zoom, "horizontal", button=1, useblit=True, props=dict(alpha=0.5, facecolor="red"))
-
-        # Attivazione di SpanSelector click right
-        self.span_selector2 = SpanSelector(
-            self.ax, self.delete_peaks, "horizontal", button=3, useblit=True, props=dict(alpha=0.5, facecolor="green")
+        self.span_selector = SpanSelector(
+            self.ax, self.zoom, "horizontal", button=1, useblit=True, props=dict(alpha=0.5, facecolor="lightgray")
         )
-        # Attivazione di SpanSelector click middle
+
+        # Attivazione di SpanSelector for deleting peaks (right click)
+        self.span_selector2 = SpanSelector(
+            self.ax, self.delete_peaks, "horizontal", button=3, useblit=True, props=dict(alpha=0.5, facecolor="red")
+        )
+        # Attivazione di SpanSelector for finding peaks in selection (middle click)
         self.span_selector3 = SpanSelector(
-            self.ax, self.trova_picchi, "horizontal", button=2, useblit=True, props=dict(alpha=0.5, facecolor="yellow")
+            self.ax, self.trova_picchi, "horizontal", button=2, useblit=True, props=dict(alpha=0.5, facecolor="green")
         )
 
         self.canvas.draw_idle()
         self.plot_wav(self.xmin, self.xmax)
 
     def create_label_input_pair(self, label_text, default_value):
-        vbox = QVBoxLayout()  # Layout verticale per allineare etichetta e input
+        vbox = QHBoxLayout()  # Layout verticale per allineare etichetta e input
         label = QLabel(label_text)
         input_box = QLineEdit(str(default_value))
         input_box.setFixedSize(100, 30)  # Imposta dimensioni
@@ -262,6 +296,9 @@ class Main(QWidget):
         except ValueError:
             print("Errore: Assicurati che Window Size e Overlap siano numeri interi validi.")
 
+    def trova_picchi_spinbox(self, value):
+        self.trova_picchi()
+
     def trova_picchi(self, xmin=0, xmax=0):
         """Trova i picchi dell'inviluppo RMS e li converte nei campioni della registrazione originale."""
 
@@ -269,23 +306,27 @@ class Main(QWidget):
         print(f"{xmin=}")
         print(f"{xmax=}")
 
-        if self.sender() is not None:
+        if self.sender() is not None:  # 'Find peaks' button
             rms = self.rms
             self.peaks_times = np.array([])
-        else:
+        else:  # from span_selector
+            if xmin < 0:
+                xmin = 0
             rms = self.rms[int(xmin * self.sampling_rate / self.overlap) : int(xmax * self.sampling_rate / self.overlap)]
             self.delete_peaks(xmin, xmax)
 
         print(f"{rms=}")
 
         try:
-            min_distance_sec = float(self.min_distance_input.text())  # Distanza in secondi
+            # min_distance_sec = float(self.min_distance_input.text())  # Distanza in secondi
+            min_distance_sec = self.sp_min_dist.value()
             print(min_distance_sec)
             min_distance_samples = int(min_distance_sec * (self.sampling_rate / self.overlap))  # Converti in campioni
             print(min_distance_samples, self.sampling_rate, self.overlap)
-            amp_threshold = float(self.amp_threshold_input.text())  # Soglia di ampiezza
+            # amp_threshold = float(self.amp_threshold_input.text())  # Soglia di ampiezza
+            amp_threshold = self.sp_amp_threshold.value()
 
-            print(f" Cercando picchi con:")
+            print(" Cercando picchi con:")
             print(f"   - Soglia di ampiezza: {amp_threshold:.5f}")
             print(f"   - Distanza minima tra picchi: {min_distance_sec:.5f} sec ({min_distance_samples} campioni)")
 
@@ -379,7 +420,7 @@ class Main(QWidget):
 if __name__ == "__main__":
     app = QApplication(sys.argv)
 
-    main_widget = Main(wav_file="")
+    main_widget = Main(wav_file="GeCorn_2025-01-25_09.wav")
     main_widget.show()
 
     sys.exit(app.exec())
