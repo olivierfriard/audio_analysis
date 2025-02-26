@@ -200,7 +200,9 @@ class Main(QWidget):
             sd.play(segment, samplerate=self.sampling_rate)
 
     def load_wav(self, wav_file):
-        """Carica il file WAV e ne estrae i dati."""
+        """
+        Load WAV file and extract data
+        """
         self.sampling_rate, self.data = wavfile.read(wav_file)
         self.xmin = 0
         self.duration = len(self.data) / self.sampling_rate

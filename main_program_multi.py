@@ -98,7 +98,7 @@ class OscillogramWindow(QWidget):
 
 
 class ResamplingWindow(QWidget):
-    def __init__(self, wav_file=str):
+    def __init__(self, wav_file: str):
         super().__init__()
 
         self.setWindowTitle("Resampling Audio")
@@ -273,7 +273,14 @@ class MainWindow(QMainWindow):
             self.wav_list_widget.topLevelItem(i).setCheckState(0, check_state)
 
     def get_rate_duration(self, wav_file_path):
-        # get sample_rate
+        # Carica il file WAV e ottiene le informazioni
+        sample_rate, data = wavfile.read(str(wav_file_path))
+        duration = round(len(data) / sample_rate, 3)
+        return sample_rate, duration
+
+        # get sample_rate with wave module
+        # disabled because give some errors
+        """
         try:
             with wave.open(wav_file_path, "rb") as wav_file:
                 sample_rate = wav_file.getframerate()
@@ -282,6 +289,7 @@ class MainWindow(QMainWindow):
             return sample_rate, duration
         except Exception:
             return "Not found", "Not found"
+        """
 
     def update_wav_list(self):
         self.wav_list_widget.clear()
@@ -305,7 +313,6 @@ class MainWindow(QMainWindow):
                 continue
 
             sample_rate, duration = self.get_rate_duration(str(file_path))
-            # sample_rate, duration = 0, 0
 
             self.wav_list[file_path] = {"sample rate": sample_rate, "duration": duration}
             self.text_edit.append(f"file {file_path} added to list")
