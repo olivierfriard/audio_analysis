@@ -3,4 +3,4 @@ uv.lock
 .vscode
 __pycache__/
 plugins/__pycache__/
-inviluppo_2.py
+plugins/inviluppo_2.py
