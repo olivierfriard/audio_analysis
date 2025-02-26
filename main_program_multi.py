@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
     QTreeWidget,
     QTreeWidgetItem,
     QHeaderView,
+    QMessageBox,
 )
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction
@@ -71,7 +72,7 @@ class OscillogramWindow(QWidget):
         self.canvas.draw()
 
         # Aggiunta della selezione interattiva
-        self.span_selector = SpanSelector(self.ax, self.on_select, "horizontal", useblit=True, props=dict(alpha=0.5, facecolor="red"))
+        self.span_selector = SpanSelector(self.ax, self.on_select, "horizontal", useblit=True, props=dict(alpha=0.5, facecolor="lightgray"))
 
     def on_select(self, xmin, xmax):
         """Aggiorna il plot con la selezione dell'utente e sincronizza lo slider."""
@@ -196,8 +197,9 @@ class MainWindow(QMainWindow):
         splitter.setSizes([200, 400])
 
         # Layout
-        main_layout = QVBoxLayout()
-        main_layout.addWidget(splitter)
+
+        # main_layout = QVBoxLayout()
+        # main_layout.addWidget(splitter)
 
         # Layout
         central_widget = QWidget()
@@ -272,11 +274,14 @@ class MainWindow(QMainWindow):
 
     def get_rate_duration(self, wav_file_path):
         # get sample_rate
-        with wave.open(wav_file_path, "rb") as wav_file:
-            sample_rate = wav_file.getframerate()
-            frames = wav_file.getnframes()
-            duration = round(frames / float(sample_rate), 3)
-        return sample_rate, duration
+        try:
+            with wave.open(wav_file_path, "rb") as wav_file:
+                sample_rate = wav_file.getframerate()
+                frames = wav_file.getnframes()
+                duration = round(frames / float(sample_rate), 3)
+            return sample_rate, duration
+        except Exception:
+            return "Not found", "Not found"
 
     def update_wav_list(self):
         self.wav_list_widget.clear()
@@ -300,6 +305,7 @@ class MainWindow(QMainWindow):
                 continue
 
             sample_rate, duration = self.get_rate_duration(str(file_path))
+            # sample_rate, duration = 0, 0
 
             self.wav_list[file_path] = {"sample rate": sample_rate, "duration": duration}
             self.text_edit.append(f"file {file_path} added to list")
@@ -378,13 +384,12 @@ class MainWindow(QMainWindow):
         ]
 
         self.plugin_widgets: list = []
-        if not checked_wav_files:
-            self.plugin_widgets.append(self.modules[module_name].Main())
-            self.plugin_widgets[-1].show()
-        else:
+        if checked_wav_files:
             for wav_file_path in checked_wav_files:
                 self.plugin_widgets.append(self.modules[module_name].Main(wav_file_path))
                 self.plugin_widgets[-1].show()
+        else:
+            QMessageBox.warning(self, "", "No WAV file selected")
 
 
 if __name__ == "__main__":
