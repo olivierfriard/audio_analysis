@@ -10,7 +10,7 @@ from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, Q
 
 
 # Finestra che ospita i grafici (plot dell'oscillogramma e dello spettro)
-class PlotPanel(QWidget):
+class Main(QWidget):
     def __init__(self, wav_file):
         super().__init__()
         self.wav_file = wav_file
@@ -50,6 +50,10 @@ class PlotPanel(QWidget):
         self.range = self.xmax - self.xmin
         self.canvas.draw_idle()
         self.plot_wav(self.xmin, self.xmax)
+
+        # load control panel and show it
+        self.control_panel = ControlPanel(self)
+        self.control_panel.show()
 
     def load_wav(self, wav_file):
         """Carica il file WAV e ne estrae i dati."""
@@ -307,8 +311,6 @@ class ControlPanel(QWidget):
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     # Crea la finestra dei plots e quella dei controlli
-    plot_panel = PlotPanel(wav_file="GeCorn_2025-01-25_09/GeCorn_2025-01-25_09_sample17408.wav")
-    control_panel = ControlPanel(plot_panel)
+    plot_panel = Main(wav_file="GeCorn_2025-01-25_09/GeCorn_2025-01-25_09_sample17408.wav")
     plot_panel.show()
-    control_panel.show()
     sys.exit(app.exec())
