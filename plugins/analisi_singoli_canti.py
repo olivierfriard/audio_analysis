@@ -7,6 +7,7 @@ from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.widgets import Slider, SpanSelector
 import librosa
 from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton
+from pathlib import Path
 
 
 # Finestra che ospita i grafici (plot dell'oscillogramma e dello spettro)
@@ -17,6 +18,8 @@ class Main(QWidget):
 
         print("Carico il file:", self.wav_file)
         self.load_wav(self.wav_file)
+
+        self.setWindowTitle(f"{Path(__file__).stem.replace('_', ' ')} - {Path(self.wav_file).stem}")
 
         self.window_size = 50
         self.overlap = 50

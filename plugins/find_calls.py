@@ -30,6 +30,8 @@ class Main(QWidget):
 
         self.wav_file = wav_file
 
+        self.setWindowTitle(f"{Path(__file__).stem.replace('_', ' ')} - {Path(self.wav_file).stem}")
+
         self.load_wav(self.wav_file)
 
         self.window_size = 1024
@@ -41,7 +43,6 @@ class Main(QWidget):
         self.rms_times = librosa.frames_to_time(n_frames, sr=self.sampling_rate, hop_length=self.overlap)
         self.peaks_times = np.array([])
 
-        self.setWindowTitle("Selezione Interattiva")
         self.setGeometry(100, 100, 800, 500)
 
         # 🔹 Layout principale
@@ -184,15 +185,19 @@ class Main(QWidget):
         play selection
         """
 
-        """
-        if sd.get_stream().active:
-            print(f"stop playing")
-            sd.stop()
-        else:
-        """
-        print(f"Play audio from {self.xmin} s to {self.xmax} s")
-        segment = self.data[int(self.xmin * self.sampling_rate) : int(self.xmax * self.sampling_rate)]
-        sd.play(segment, samplerate=self.sampling_rate)
+        try:
+            if sd.get_stream().active:
+                print("stop playing")
+                sd.stop()
+            else:
+                print(f"Play audio from {self.xmin} s to {self.xmax} s")
+                segment = self.data[int(self.xmin * self.sampling_rate) : int(self.xmax * self.sampling_rate)]
+                sd.play(segment, samplerate=self.sampling_rate)
+
+        except Exception:
+            print(f"Play audio from {self.xmin} s to {self.xmax} s")
+            segment = self.data[int(self.xmin * self.sampling_rate) : int(self.xmax * self.sampling_rate)]
+            sd.play(segment, samplerate=self.sampling_rate)
 
     def load_wav(self, wav_file):
         """Carica il file WAV e ne estrae i dati."""
