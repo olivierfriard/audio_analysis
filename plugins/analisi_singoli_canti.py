@@ -8,28 +8,30 @@ from matplotlib.widgets import Slider, SpanSelector
 import librosa
 from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton
 
+
 # Finestra che ospita i grafici (plot dell'oscillogramma e dello spettro)
 class PlotPanel(QWidget):
     def __init__(self, wav_file):
         super().__init__()
-        self.wav_file = wav_file if wav_file else "C:\\Users\\Sergio\\audio_analysis\\GeCorn_2025-01-19_01_0_2641602\\GeCorn_2025-01-19_01_0_2641602_sample571392.wav"
+        self.wav_file = wav_file
+
         print("Carico il file:", self.wav_file)
         self.load_wav(self.wav_file)
-        
+
         self.window_size = 50
         self.overlap = 50
         self.min_amplitude = 0.1
         self.min_distance = 0.003
-        self.canto = np.zeros(len(self.data))        
+        self.canto = np.zeros(len(self.data))
         self.rms = np.zeros(len(self.data) // self.overlap)
         n_frames = np.arange(len(self.rms))
         self.rms_times = librosa.frames_to_time(n_frames, sr=self.sampling_rate, hop_length=self.overlap)
         self.peaks_times = np.array([])
-        
+
         # Crea la figura con 2 subplot affiancati
         self.figure, (self.ax, self.ax2) = plt.subplots(1, 2, figsize=(12, 4))
         plt.subplots_adjust(bottom=0.25)
-        
+
         self.canvas = FigureCanvas(self.figure)
 
         # Layout principale
@@ -48,7 +50,7 @@ class PlotPanel(QWidget):
         self.range = self.xmax - self.xmin
         self.canvas.draw_idle()
         self.plot_wav(self.xmin, self.xmax)
-    
+
     def load_wav(self, wav_file):
         """Carica il file WAV e ne estrae i dati."""
         self.sampling_rate, self.data = wavfile.read(wav_file)
@@ -62,7 +64,7 @@ class PlotPanel(QWidget):
         self.time = np.linspace(0, len(self.data) / self.sampling_rate, num=len(self.data))
         self.id_xmin = 0
         self.id_xmax = len(self.data)
-    
+
     def plot_wav(self, xmin, xmax):
         """Aggiorna l'oscillogramma (sinistro) con il segnale e l'envelope."""
         self.ax.cla()
@@ -70,18 +72,18 @@ class PlotPanel(QWidget):
         self.xmax = xmax
         self.id_xmin = int(self.xmin * self.sampling_rate)
         self.id_xmax = int(self.xmax * self.sampling_rate)
-        time_segment = self.time[self.id_xmin:self.id_xmax]
-        data_segment = self.data[self.id_xmin:self.id_xmax]
-        canto_segment = self.canto[self.id_xmin:self.id_xmax]
+        time_segment = self.time[self.id_xmin : self.id_xmax]
+        data_segment = self.data[self.id_xmin : self.id_xmax]
+        canto_segment = self.canto[self.id_xmin : self.id_xmax]
         print("xmin", self.xmin, "xmax", self.xmax)
         self.ax.plot(time_segment, data_segment, linewidth=0.5, color="black", alpha=0.25)
-        self.ax.plot(time_segment,canto_segment,'-', color = "blue")
+        self.ax.plot(time_segment, canto_segment, "-", color="blue")
         mask_rms = (self.rms_times >= self.xmin) & (self.rms_times <= self.xmax)
         rms_times_sel = self.rms_times[mask_rms]
         rms_sel = self.rms[mask_rms]
         if len(rms_sel) > 0:
             self.ax.plot(rms_times_sel, rms_sel, linewidth=1, color="red")
-        
+
         # seleziono i picchi che ricadono nell'intervallo xmin-xmax
         print(len(self.peaks_times))
         if len(self.peaks_times) > 0:
@@ -90,17 +92,15 @@ class PlotPanel(QWidget):
             peaks_selected = self.peaks_times[mask_peaks]
         else:
             peaks_selected = np.array([])
-        
+
         if len(peaks_selected) > 0:
             for i in np.arange(len(peaks_selected)):
-                self.ax.plot([peaks_selected[i], peaks_selected[i]], [0, 1], '-g', linewidth = 1)
-        
+                self.ax.plot([peaks_selected[i], peaks_selected[i]], [0, 1], "-g", linewidth=1)
 
         self.ax.plot()
         self.ax.plot(rms_times_sel, rms_sel, linewidth=1, color="red")
         self.canvas.draw_idle()
-    
-  
+
     def on_select(self, xmin, xmax):
         """Aggiorna il range in base alla selezione (SpanSelector)."""
         if xmax - xmin < 0.01:
@@ -114,24 +114,20 @@ class PlotPanel(QWidget):
         self.ax.set_xlim(self.xmin, self.xmax)
         self.range = self.xmax - self.xmin
         self.slider.set_val(self.xmax / self.duration)
-    
+
     def envelope(self):
         """Calcola l'envelope (RMS) usando i parametri correnti e aggiorna l'oscillogramma."""
         try:
             if self.window_size <= 0 or self.overlap < 0:
                 print("Errore: Window size deve essere > 0 e Overlap >= 0")
                 return
-            self.rms = librosa.feature.rms(y=self.data, 
-                                           frame_length=self.window_size, 
-                                           hop_length=self.overlap)[0]
-            self.rms_times = librosa.frames_to_time(np.arange(len(self.rms)), 
-                                                    sr=self.sampling_rate, 
-                                                    hop_length=self.overlap)
+            self.rms = librosa.feature.rms(y=self.data, frame_length=self.window_size, hop_length=self.overlap)[0]
+            self.rms_times = librosa.frames_to_time(np.arange(len(self.rms)), sr=self.sampling_rate, hop_length=self.overlap)
             print("Envelope calcolato, lunghezza:", len(self.rms))
             self.plot_wav(self.xmin, self.xmax)
         except Exception as e:
             print("Errore in envelope:", e)
-    
+
     def plot_spectrum(self, fft_length, fft_overlap):
         """Calcola e visualizza lo spettro di potenza del segmento selezionato."""
         try:
@@ -140,18 +136,18 @@ class PlotPanel(QWidget):
                 return
             self.id_xmin = int(self.xmin * self.sampling_rate)
             self.id_xmax = int(self.xmax * self.sampling_rate)
-            segment = self.data[self.id_xmin:self.id_xmax]
+            segment = self.data[self.id_xmin : self.id_xmax]
             if len(segment) == 0:
                 print("Segmento vuoto nella selezione.")
                 return
-        # Suddivide il segmento in finestre con sovrapposizione e calcola la FFT per ciascuna finestra
+            # Suddivide il segmento in finestre con sovrapposizione e calcola la FFT per ciascuna finestra
             step = fft_length - fft_overlap
             n_segments = (len(segment) - fft_overlap) // step
             if n_segments <= 0:
                 padded = np.zeros(fft_length)
-                padded[:len(segment)] = segment
+                padded[: len(segment)] = segment
                 fft_vals = np.fft.fft(padded)
-                power = np.abs(fft_vals)**2
+                power = np.abs(fft_vals) ** 2
             else:
                 spectra = []
                 for i in range(n_segments):
@@ -161,10 +157,10 @@ class PlotPanel(QWidget):
                         break
                     windowed = segment[start:end] * np.hamming(fft_length)
                     fft_vals = np.fft.fft(windowed, n=fft_length)
-                    power = np.abs(fft_vals)**2
+                    power = np.abs(fft_vals) ** 2
                     spectra.append(power)
                 power = np.mean(np.array(spectra), axis=0)
-            freqs = np.fft.fftfreq(fft_length, d=1/self.sampling_rate)
+            freqs = np.fft.fftfreq(fft_length, d=1 / self.sampling_rate)
             mask_positive = freqs >= 0
             freqs = freqs[mask_positive]
             power = power[mask_positive]
@@ -181,10 +177,10 @@ class PlotPanel(QWidget):
     def trova_picchi(self, min_amplitude, min_distance):
         """Trova i picchi dell'inviluppo RMS e li converte nei campioni della registrazione originale."""
         try:
-            #min_distance = float(self.min_distance_input.text())  # Distanza in secondi
+            # min_distance = float(self.min_distance_input.text())  # Distanza in secondi
             min_distance_samples = int(min_distance * (self.sampling_rate / self.overlap))  # Converti in campioni
-            
-            #min_amplitude = float(self.amp_threshold_input.text())  # Soglia di ampiezza
+
+            # min_amplitude = float(self.amp_threshold_input.text())  # Soglia di ampiezza
 
             # Trova i picchi nell'inviluppo RMS
             peaks, properties = find_peaks(self.rms, height=min_amplitude, distance=min_distance_samples, prominence=0.01)
@@ -193,7 +189,7 @@ class PlotPanel(QWidget):
             peaks_original = peaks * self.overlap  # Campioni effettivi
             self.peaks_times = peaks * self.overlap / self.sampling_rate  # In secondi
 
-            #self.plot_wav(self.xmin, self.xmax)
+            # self.plot_wav(self.xmin, self.xmax)
             self.trova_ini_fin()
         except ValueError:
             print(" Errore: Inserisci valori numerici validi per la distanza e la soglia.")
@@ -201,28 +197,27 @@ class PlotPanel(QWidget):
     def trova_ini_fin(self):
         # trova inizio
         peaks = self.peaks_times * self.sampling_rate / self.overlap
-        diff_ini = np.concatenate(([-1],np.diff(self.rms[:int(peaks[0])])))
+        diff_ini = np.concatenate(([-1], np.diff(self.rms[: int(peaks[0])])))
         ini = np.where(diff_ini < 0)[0]
         if np.size(ini) > 0:
             inizio = int(ini[-1] * self.overlap)
         else:
             inizio = 0
-        #trova fine
-        diff_fin = np.concatenate((np.diff(self.rms[int(peaks[-1]):]),[1]))
+        # trova fine
+        diff_fin = np.concatenate((np.diff(self.rms[int(peaks[-1]) :]), [1]))
         fin = np.where(diff_fin > 0)[0]
-        
+
         if np.size(fin) > 0:
             fine = int((peaks[-1] + fin[0]) * self.overlap)
         else:
             fine = len(self.rms) * self.overlap
-        
+
         self.canto = np.zeros(len(self.rms) * self.overlap)
         self.canto[inizio:fine] = np.max(self.rms)
         self.plot_wav(self.xmin, self.xmax)
-    
+
     def save_results_clicked(self):
         print("salvo")
-
 
 
 class ControlPanel(QWidget):
@@ -231,8 +226,7 @@ class ControlPanel(QWidget):
         self.plot_panel = plot_panel
         self.setWindowTitle("Control Panel")
         self.setGeometry(1100, 100, 300, 400)  # Posiziona la finestra dei controlli separata
-        
-        
+
         # Layout per i parametri dell'envelope
         envelope_layout = QVBoxLayout()
         envelope_layout.addWidget(QLabel("Envelope Parameters"))
@@ -309,12 +303,11 @@ class ControlPanel(QWidget):
         except Exception as e:
             print("Errore nei parametri spectrum:", e)
 
-        
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     # Crea la finestra dei plots e quella dei controlli
-    plot_panel = PlotPanel(wav_file='')
+    plot_panel = PlotPanel(wav_file="GeCorn_2025-01-25_09/GeCorn_2025-01-25_09_sample17408.wav")
     control_panel = ControlPanel(plot_panel)
     plot_panel.show()
     control_panel.show()
