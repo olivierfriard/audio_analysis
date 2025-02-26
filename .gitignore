@@ -1,3 +1,4 @@
+.python-version
 *.wav
 uv.lock
 .vscode
