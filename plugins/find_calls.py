@@ -21,6 +21,7 @@ from PySide6.QtCore import Qt
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.widgets import Slider, SpanSelector
 import librosa
+import sounddevice as sd
 
 
 class Main(QWidget):
@@ -51,6 +52,12 @@ class Main(QWidget):
 
         # layout for parameters
         self.params_layout = QHBoxLayout()
+
+        # add play button
+        self.btn_play = QPushButton("Play")
+        self.btn_play.setFixedSize(120, 30)
+        self.btn_play.clicked.connect(self.play_audio)
+        self.params_layout.addWidget(self.btn_play)
 
         # Crea i parametri con etichetta sopra la casella di testo
         window_size_layout, self.window_size_input = self.create_label_input_pair("Window size", self.window_size)
@@ -171,6 +178,21 @@ class Main(QWidget):
         vbox.addWidget(label)
         vbox.addWidget(input_box)
         return vbox, input_box
+
+    def play_audio(self):
+        """
+        play selection
+        """
+
+        """
+        if sd.get_stream().active:
+            print(f"stop playing")
+            sd.stop()
+        else:
+        """
+        print(f"Play audio from {self.xmin} s to {self.xmax} s")
+        segment = self.data[int(self.xmin * self.sampling_rate) : int(self.xmax * self.sampling_rate)]
+        sd.play(segment, samplerate=self.sampling_rate)
 
     def load_wav(self, wav_file):
         """Carica il file WAV e ne estrae i dati."""
