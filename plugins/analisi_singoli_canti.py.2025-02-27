@@ -1,16 +1,16 @@
 import sys
-import json
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.io import wavfile
 from scipy.signal import find_peaks
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.widgets import Slider, SpanSelector
 import librosa
-from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QSplitter
-from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton
 from pathlib import Path
 
 
+# Finestra che ospita i grafici (plot dell'oscillogramma e dello spettro)
 class Main(QWidget):
     def __init__(self, wav_file):
         super().__init__()
@@ -27,67 +27,36 @@ class Main(QWidget):
         self.min_distance = 0.003
         self.canto = np.zeros(len(self.data))
         self.rms = np.zeros(len(self.data) // self.overlap)
-        
-        self.results_dict = {
-            "file": None,
-            "sampling_rate": None,
-            "call_duration": None,
-            "pulse_number": None,
-            "spectrum": None,
-            "spectrum_peaks": None
-            }
         n_frames = np.arange(len(self.rms))
         self.rms_times = librosa.frames_to_time(n_frames, sr=self.sampling_rate, hop_length=self.overlap)
         self.peaks_times = np.array([])
-
-        # Crea il dizionario dei risultati
-
 
         # Crea la figura con 2 subplot affiancati
         self.figure, (self.ax, self.ax2) = plt.subplots(1, 2, figsize=(12, 4))
         plt.subplots_adjust(bottom=0.25)
 
-        # Layout principale
-        layout = QHBoxLayout()
-
-        left_panel = QWidget()
-        left_layout = QVBoxLayout(left_panel)
-
-        vlayout = QVBoxLayout()
-        # load control panel
-        self.control_panel = ControlPanel(self)
-        vlayout.addWidget(self.control_panel)
-
-        # save button
-        self.save_results_btn = QPushButton("Save results")
-        self.save_results_btn.clicked.connect(self.save_results_clicked)
-        vlayout.addWidget(self.save_results_btn)
-
-        left_layout.addLayout(vlayout)
-
-        right_panel = QWidget()
-        right_layout = QVBoxLayout(right_panel)
-
-        r_layout = QHBoxLayout()
-
         self.canvas = FigureCanvas(self.figure)
-        r_layout.addWidget(self.canvas)
 
-        right_layout.addLayout(r_layout)
+        # Layout principale
+        layout = QVBoxLayout()
+        layout.addWidget(self.canvas)
 
-        splitter = QSplitter(Qt.Horizontal)
-        splitter.addWidget(left_panel)
-        splitter.addWidget(right_panel)
+        save_results_layout = QVBoxLayout()
+        self.save_results_btn = QPushButton("Save results")
+        save_results_layout.addWidget(self.save_results_btn)
+        self.save_results_btn.clicked.connect(self.save_results_clicked)
 
-        layout.addWidget(splitter)
-
+        # Aggiunge il layout del pulsante al layout principale
+        layout.addLayout(save_results_layout)
         self.setLayout(layout)
 
         self.range = self.xmax - self.xmin
         self.canvas.draw_idle()
         self.plot_wav(self.xmin, self.xmax)
 
-        # self.control_panel.show()
+        # load control panel and show it
+        self.control_panel = ControlPanel(self)
+        self.control_panel.show()
 
     def load_wav(self, wav_file):
         """
@@ -95,7 +64,6 @@ class Main(QWidget):
         """
 
         self.sampling_rate, self.data = wavfile.read(wav_file)
-         
         self.xmin = 0
         self.duration = len(self.data) / self.sampling_rate
         self.xmax = self.duration
@@ -146,9 +114,7 @@ class Main(QWidget):
         self.canvas.draw_idle()
 
     def on_select(self, xmin, xmax):
-        """
-        Aggiorna il range in base alla selezione (SpanSelector).
-        """
+        """Aggiorna il range in base alla selezione (SpanSelector)."""
         if xmax - xmin < 0.01:
             self.xmin = 0
             self.xmax = self.duration
@@ -211,26 +177,14 @@ class Main(QWidget):
                     fft_vals = np.fft.fft(windowed, n=fft_length)
                     power = np.abs(fft_vals) ** 2
                     spectra.append(power)
-                
                 power = np.mean(np.array(spectra), axis=0)
             freqs = np.fft.fftfreq(fft_length, d=1 / self.sampling_rate)
             mask_positive = freqs >= 0
             freqs = freqs[mask_positive]
             power = power[mask_positive]
-            avg_power_db = np.log10(power/np.max(power) + 1e-10)
-            spectrum_peaks, properties = find_peaks(avg_power_db, height=-5, distance=1000)
-            spectrum_peaks_Hz = freqs[spectrum_peaks]
-            spectrum_peaks_db = avg_power_db[spectrum_peaks]
-            print(f"spectrum_peaks: {spectrum_peaks_Hz}")
-            
-            self.results_dict["spectrum"] = np.concatenate(([freqs],[power]), axis = 1).tolist()
-            self.results_dict["spectrum_peaks"] = np.concatenate(([spectrum_peaks_Hz], [spectrum_peaks_db]), axis = 1).tolist()
-
-            
-            
+            avg_power_db = np.log10(power + 1e-10)
             self.ax2.cla()
             self.ax2.plot(freqs, avg_power_db, color="blue")
-            self.ax2.plot(spectrum_peaks_Hz, avg_power_db[spectrum_peaks],'or')
             self.ax2.set_title("Power Spectrum")
             self.ax2.set_xlabel("Frequency (Hz)")
             self.ax2.set_ylabel("Power")
@@ -283,22 +237,8 @@ class Main(QWidget):
         self.plot_wav(self.xmin, self.xmax)
 
     def save_results_clicked(self):
-        self.results_dict["file"] = Path(self.wav_file).stem
-        print(Path(self.wav_file).stem)
-        self.results_dict["sampling_rate"] = self.sampling_rate
-        self.results_dict["call_duration"] = len(self.canto) / self.sampling_rate
-        self.results_dict["pulse_number"] = len(self.peaks_times)
+        print("salvo")
 
-        """Salva i risultati delle analisi in un file JSON."""
-        save_path = f"{self.results_dict['file']}_analysis.json"
-        
-        try:
-            with open(save_path, "w") as f:
-                json.dump(self.results_dict, f, indent=4)
-            
-            print(f"Risultati salvati in {save_path}")
-        except Exception as e:
-            print(f"Errore nel salvataggio dei risultati: {e}")
 
 class ControlPanel(QWidget):
     def __init__(self, plot_panel):
