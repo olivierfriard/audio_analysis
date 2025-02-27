@@ -59,7 +59,10 @@ class Main(QWidget):
         self.control_panel.show()
 
     def load_wav(self, wav_file):
-        """Carica il file WAV e ne estrae i dati."""
+        """
+        Carica il file WAV e ne estrae i dati.
+        """
+
         self.sampling_rate, self.data = wavfile.read(wav_file)
         self.xmin = 0
         self.duration = len(self.data) / self.sampling_rate
@@ -73,7 +76,9 @@ class Main(QWidget):
         self.id_xmax = len(self.data)
 
     def plot_wav(self, xmin, xmax):
-        """Aggiorna l'oscillogramma (sinistro) con il segnale e l'envelope."""
+        """
+        Aggiorna l'oscillogramma (sinistro) con il segnale e l'envelope.
+        """
         self.ax.cla()
         self.xmin = xmin
         self.xmax = xmax
@@ -123,7 +128,10 @@ class Main(QWidget):
         self.slider.set_val(self.xmax / self.duration)
 
     def envelope(self):
-        """Calcola l'envelope (RMS) usando i parametri correnti e aggiorna l'oscillogramma."""
+        """
+        Calcola l'envelope (RMS) usando i parametri correnti e aggiorna l'oscillogramma.
+        """
+
         try:
             if self.window_size <= 0 or self.overlap < 0:
                 print("Errore: Window size deve essere > 0 e Overlap >= 0")
@@ -136,7 +144,10 @@ class Main(QWidget):
             print("Errore in envelope:", e)
 
     def plot_spectrum(self, fft_length, fft_overlap):
-        """Calcola e visualizza lo spettro di potenza del segmento selezionato."""
+        """
+        Calcola e visualizza lo spettro di potenza del segmento selezionato.
+        """
+
         try:
             if fft_length <= 0 or fft_overlap < 0 or fft_overlap >= fft_length:
                 print("Errore: Parametri FFT non validi.")
@@ -182,7 +193,9 @@ class Main(QWidget):
             print("Errore in plot_spectrum:", e)
 
     def trova_picchi(self, min_amplitude, min_distance):
-        """Trova i picchi dell'inviluppo RMS e li converte nei campioni della registrazione originale."""
+        """
+        Trova i picchi dell'inviluppo RMS e li converte nei campioni della registrazione originale.
+        """
         try:
             # min_distance = float(self.min_distance_input.text())  # Distanza in secondi
             min_distance_samples = int(min_distance * (self.sampling_rate / self.overlap))  # Converti in campioni

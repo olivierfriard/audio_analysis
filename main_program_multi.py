@@ -208,13 +208,8 @@ class MainWindow(QMainWindow):
         splitter.addWidget(self.text_edit)
         splitter.setSizes([200, 400])
 
-        # Layout
-
-        # main_layout = QVBoxLayout()
-        # main_layout.addWidget(splitter)
-
         layout.addWidget(splitter)
-        # layout.addWidget(self.check_button)
+
         central_widget.setLayout(layout)
 
         # Set central widget
