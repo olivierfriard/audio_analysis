@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
     QFileDialog,
     QWidget,
     QVBoxLayout,
+    QHBoxLayout,
     QSplitter,
     QCheckBox,
     QLabel,
@@ -28,8 +29,8 @@ from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.widgets import Slider, SpanSelector
 import librosa
 
-__version__ = "0.0.2"
-__version_date__ = "2025-02-21"
+__version__ = "0.0.3"
+__version_date__ = "2025-02-27"
 
 
 class OscillogramWindow(QWidget):
@@ -171,16 +172,27 @@ class MainWindow(QMainWindow):
 
         self.setWindowTitle("Audio Analysis")
         self.setGeometry(100, 100, 600, 400)
-        self.wav_file = None  # Attributo per memorizzare il file WAV caricato
+        self.wav_file = None
 
         self.wav_list: dict = {}
 
+        # Layout
+        central_widget = QWidget()
+        layout = QVBoxLayout()
+
+        hlayout = QHBoxLayout()
+        # select/deselect all checkbox
         self.check_all_checkbox = QCheckBox("Check All")
         self.check_all_checkbox.stateChanged.connect(self.toggle_all_items)
+        hlayout.addWidget(self.check_all_checkbox)  # Add "Check All" checkbox on top
+        # remove pushbutton
+        self.pb_remove = QPushButton("Remove from list")
+        self.pb_remove.clicked.connect(self.remove_from_list)
+        hlayout.addWidget(self.pb_remove)  # Add "Check All" checkbox on top
 
-        # list for WAV file paths
-        # self.wav_list_widget = QListWidget()
-        # Create a QTreeWidget (like QListWidget but supports columns)
+        layout.addLayout(hlayout)
+
+        # list widget for WAV file paths
         self.wav_list_widget = QTreeWidget()
         self.wav_list_widget.setColumnCount(2)  # Number of columns
         self.wav_list_widget.setHeaderLabels(["WAV file path", "duration (s)", "Sample rate (Hz)"])  # Column headers
@@ -201,10 +213,6 @@ class MainWindow(QMainWindow):
         # main_layout = QVBoxLayout()
         # main_layout.addWidget(splitter)
 
-        # Layout
-        central_widget = QWidget()
-        layout = QVBoxLayout()
-        layout.addWidget(self.check_all_checkbox)  # Add "Check All" checkbox on top
         layout.addWidget(splitter)
         # layout.addWidget(self.check_button)
         central_widget.setLayout(layout)
@@ -271,6 +279,16 @@ class MainWindow(QMainWindow):
         check_state = Qt.Checked if state == 2 else Qt.Unchecked
         for i in range(self.wav_list_widget.topLevelItemCount()):
             self.wav_list_widget.topLevelItem(i).setCheckState(0, check_state)
+
+    def remove_from_list(self):
+        """
+        remoce selected files from list
+        """
+        # Remove checked child items first
+        for i in reversed(range(self.wav_list_widget.topLevelItemCount())):
+            item = self.wav_list_widget.topLevelItem(i)
+            if item.checkState(0) == Qt.Checked:  # Remove top-level item if checked
+                self.wav_list_widget.takeTopLevelItem(i)
 
     def get_rate_duration(self, wav_file_path):
         # Carica il file WAV e ottiene le informazioni
