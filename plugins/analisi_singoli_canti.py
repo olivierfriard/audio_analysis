@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.io import wavfile
 from scipy.signal import find_peaks
+from scipy.signal import savgol_filter
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 import librosa
 from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QSplitter
@@ -262,26 +263,27 @@ class Main(QWidget):
 
     def trova_ini_fin(self):
         # trova inizio
+        
         peaks = self.peaks_times * self.sampling_rate / self.overlap
-        diff_ini = np.concatenate(([-1], np.diff(self.rms[: int(peaks[0])])))
-        ini = np.where(diff_ini < 0)[0]
-        if np.size(ini) > 0:
-            inizio = int(ini[-1] * self.overlap)
+        rms_noise = np.mean(self.rms[:int(peaks[0]//2)])
+        
+        rms_ini = self.rms[:int(peaks[0])]
+        trova_ini = np.where(rms_ini > rms_noise * 2)[0]
+        
+        if np.size(trova_ini) > 0:
+            inizio = int(trova_ini[-1] * self.overlap)
         else:
             inizio = 0
         # trova fine
-        diff_fin = np.concatenate((np.diff(self.rms[int(peaks[-1]) :]), [1]))
-        fin = np.where(diff_fin > 0)[0]
-
-        if np.size(fin) > 0:
-            fine = int((peaks[-1] + fin[0]) * self.overlap)
-        else:
-            fine = len(self.rms) * self.overlap
-
+        rms_fine = self.rms[int(peaks[-1]):]
+        trova_fine = np.where(rms_fine <= rms_noise * 2)[0][0]
+        fine = (int(peaks[-1]) + trova_fine) * self.overlap
+        print(fine) 
         self.canto = np.zeros(len(self.rms) * self.overlap)
         self.canto[inizio:fine] = np.max(self.rms)
+        
         self.plot_wav(self.xmin, self.xmax)
-
+        
     def save_results_clicked(self):
         self.results_dict["file"] = Path(self.wav_file).stem
         print(Path(self.wav_file).stem)
@@ -387,6 +389,7 @@ class ControlPanel(QWidget):
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     # Crea la finestra dei plots e quella dei controlli
-    plot_panel = Main(wav_file="GeCorn_2025-01-25_09/GeCorn_2025-01-25_09_sample17408.wav")
+    plot_panel = Main(wav_file="SpiAglav_2025-01-24_08/SpiAglav_2025-01-24_08_sample7561216.wav")
+    #plot_panel = Main(wav_file="GeCorn_2025-01-25_09/GeCorn_2025-01-25_09_sample17408.wav")
     plot_panel.show()
     sys.exit(app.exec())
