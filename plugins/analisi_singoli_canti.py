@@ -56,15 +56,32 @@ class Main(QWidget):
         self.control_panel = ControlPanel(self)
         vlayout.addWidget(self.control_panel)
 
-        # save data button
-        self.save_results_btn = QPushButton("Save results")
-        self.save_results_btn.clicked.connect(self.save_results_clicked)
-        vlayout.addWidget(self.save_results_btn)
+        hh_layout = QHBoxLayout()
+
+        # previous file button
+        self.previous_file_btn = QPushButton("Previous file")
+        self.previous_file_btn.clicked.connect(self.previous_file_clicked)
+        hh_layout.addWidget(self.previous_file_btn)
 
         # next file button
         self.next_file_btn = QPushButton("Next file")
         self.next_file_btn.clicked.connect(self.next_file_clicked)
-        vlayout.addWidget(self.next_file_btn)
+        hh_layout.addWidget(self.next_file_btn)
+
+        vlayout.addLayout(hh_layout)
+
+        hhh_layout = QHBoxLayout()
+        # save data button
+        self.save_results_btn = QPushButton("Save results")
+        self.save_results_btn.clicked.connect(self.save_results_clicked)
+        hhh_layout.addWidget(self.save_results_btn)
+
+        # auto button
+        self.auto_btn = QPushButton("Auto")
+        self.auto_btn.clicked.connect(self.auto_btn_clicked)
+        hhh_layout.addWidget(self.auto_btn)
+
+        vlayout.addLayout(hhh_layout)
 
         left_layout.addLayout(vlayout)
 
@@ -168,10 +185,14 @@ class Main(QWidget):
             self.ax.plot(rms_times_sel, rms_sel, linewidth=1, color="red")
 
         # seleziono i picchi che ricadono nell'intervallo xmin-xmax
+
         print(len(self.peaks_times))
+
         if len(self.peaks_times) > 0:
             mask_peaks = (self.peaks_times >= self.xmin) & (self.peaks_times <= self.xmax)
+
             print(mask_peaks)
+
             peaks_selected = self.peaks_times[mask_peaks]
         else:
             peaks_selected = np.array([])
@@ -294,10 +315,11 @@ class Main(QWidget):
             self.trova_ini_fin()
         except ValueError:
             print(" Errore: Inserisci valori numerici validi per la distanza e la soglia.")
+        except Exception as e:
+            QMessageBox.critical(self, "", f"Funzione Trova picchi\n\nError on file {self.wav_file}\n\n{e}")
 
     def trova_ini_fin(self):
         # trova inizio
-
         peaks = self.peaks_times * self.sampling_rate / self.overlap
         rms_noise = np.mean(self.rms[: int(peaks[0] // 2)])
 
@@ -312,7 +334,7 @@ class Main(QWidget):
         rms_fine = self.rms[int(peaks[-1]) :]
         trova_fine = np.where(rms_fine <= rms_noise * 2)[0][0]
         fine = (int(peaks[-1]) + trova_fine) * self.overlap
-        print(fine)
+
         self.canto = np.zeros(len(self.rms) * self.overlap)
         self.canto[inizio:fine] = np.max(self.rms)
 
@@ -325,7 +347,7 @@ class Main(QWidget):
 
         sample = int(Path(self.wav_file).stem.split("_")[-1])
 
-        self.run_analysis()
+        # self.run_analysis()
 
         # test if data.json exists
         if not (Path(self.wav_file).parent / "data.json").is_file():
@@ -346,24 +368,20 @@ class Main(QWidget):
         if "songs" not in parameters:
             parameters["songs"] = {}
 
-        # if sample in parameters["songs"]:
-
-        parameters["songs"][sample] = {}
-        parameters["songs"][sample]["file"] = Path(self.wav_file).stem
-
-        parameters["songs"][sample]["window_size"] = self.window_size
-        parameters["songs"][sample]["overlap"] = self.overlap
-        parameters["songs"][sample]["min_amplitude"] = self.min_amplitude
-        parameters["songs"][sample]["min_distance"] = self.min_distance
-        parameters["songs"][sample]["fft_length"] = self.fft_length
-        parameters["songs"][sample]["fft_overlap"] = self.fft_overlap
-
-        parameters["songs"][sample]["sampling rate"] = self.sampling_rate
-        parameters["songs"][sample]["call_duration"] = len(self.canto) / self.sampling_rate
-        parameters["songs"][sample]["pulse_number"] = len(self.peaks_times)
-
-        parameters["songs"][sample]["spectrum"] = self.results_dict["spectrum"]
-        parameters["songs"][sample]["spectrum peaks"] = self.results_dict["spectrum_peaks"]
+        parameters["songs"][str(sample)] = {}
+        parameters["songs"][str(sample)]["file"] = Path(self.wav_file).stem
+        parameters["songs"][str(sample)]["window_size"] = self.window_size
+        parameters["songs"][str(sample)]["overlap"] = self.overlap
+        parameters["songs"][str(sample)]["min_amplitude"] = self.min_amplitude
+        parameters["songs"][str(sample)]["min_distance"] = self.min_distance
+        parameters["songs"][str(sample)]["fft_length"] = self.fft_length
+        parameters["songs"][str(sample)]["fft_overlap"] = self.fft_overlap
+        parameters["songs"][str(sample)]["sampling rate"] = self.sampling_rate
+        parameters["songs"][str(sample)]["call_duration"] = len(self.canto) / self.sampling_rate
+        parameters["songs"][str(sample)]["pulse_number"] = len(self.peaks_times)
+        parameters["songs"][str(sample)]["peaks_times"] = self.peaks_times.tolist()
+        parameters["songs"][str(sample)]["spectrum"] = self.results_dict["spectrum"]
+        parameters["songs"][str(sample)]["spectrum peaks"] = self.results_dict["spectrum_peaks"]
 
         print(parameters["songs"].keys())
 
@@ -388,22 +406,53 @@ class Main(QWidget):
             QMessageBox.critical(self, "", "Current file not found")
             return
 
-        if idx < len(wav_list):
-            next_file = wav_list[idx + 1]
-        else:
+        if idx >= len(wav_list):
             QMessageBox.critical(self, "", "Last file")
             return
 
-        print(f"{next_file=}")
+        self.wav_file = wav_list[idx + 1]
 
-        # self.init_values()
-
-        self.wav_file = next_file
         self.load_wav(self.wav_file)
-
         self.plot_wav(self.xmin, self.xmax)
-
         self.run_analysis()
+
+    def previous_file_clicked(self):
+        """
+        previous next file
+        """
+        wav_list = sorted(Path(self.wav_file).parent.glob("*.wav"))
+        for idx, wav_file in enumerate(wav_list):
+            if Path(self.wav_file).name == wav_file.name:
+                break
+        else:
+            QMessageBox.critical(self, "", "Current file not found")
+            return
+
+        if idx == 0:
+            QMessageBox.critical(self, "", "First file of directory")
+            return
+
+        self.wav_file = wav_list[idx - 1]
+
+        self.load_wav(self.wav_file)
+        self.plot_wav(self.xmin, self.xmax)
+        self.run_analysis()
+
+    def auto_btn_clicked(self):
+        """
+        automatically process current file and next files
+        """
+        wav_list = sorted(Path(self.wav_file).parent.glob("*.wav"))
+        for idx, wav_file in enumerate(wav_list):
+            if wav_file.name >= Path(self.wav_file).name:
+                self.wav_file = wav_file
+                self.load_wav(self.wav_file)
+
+                self.plot_wav(self.xmin, self.xmax)
+
+                self.run_analysis()
+
+                self.save_results_clicked()
 
 
 class ControlPanel(QWidget):
@@ -414,8 +463,8 @@ class ControlPanel(QWidget):
         self.setGeometry(1100, 100, 300, 400)  # Posiziona la finestra dei controlli separata
 
         # Layout per i parametri dell'envelope
-        envelope_layout = QVBoxLayout()
-        envelope_layout.addWidget(QLabel("Envelope Parameters"))
+        envelope_layout = QHBoxLayout()
+        # envelope_layout.addWidget(QLabel("Envelope Parameters"))
 
         # window size
         self.window_size_input = QSpinBox()
@@ -442,8 +491,8 @@ class ControlPanel(QWidget):
         self.envelope_btn.clicked.connect(self.envelope_clicked)
 
         # Layout per i parametri del peak finder
-        peak_finder_layout = QVBoxLayout()
-        peak_finder_layout.addWidget(QLabel("Peak Finder Parameters"))
+        peak_finder_layout = QHBoxLayout()
+        # peak_finder_layout.addWidget(QLabel("Peak Finder Parameters"))
 
         # MIN_AMPLITUDE
         self.amp_threshold_input = QDoubleSpinBox()
@@ -454,7 +503,6 @@ class ControlPanel(QWidget):
         self.amp_threshold_input.setValue(MIN_AMPLITUDE)
         self.amp_threshold_input.valueChanged.connect(self.min_amplitude_changed)
 
-        # self.min_distance_input = QLineEdit(str(MIN_DISTANCE))
         # MIN_DISTANCE
         self.min_distance_input = QDoubleSpinBox()
         self.min_distance_input.setDecimals(3)  # Set to 3 decimal places
@@ -473,8 +521,8 @@ class ControlPanel(QWidget):
         self.peaks_btn.clicked.connect(self.peaks_clicked)
 
         # Layout per i parametri dello spettro
-        spectrum_layout = QVBoxLayout()
-        spectrum_layout.addWidget(QLabel("Spectrum Parameters"))
+        spectrum_layout = QHBoxLayout()
+        # spectrum_layout.addWidget(QLabel("Spectrum Parameters"))
 
         # FFT LENGTH
         self.fft_length_input = QSpinBox()
@@ -500,16 +548,19 @@ class ControlPanel(QWidget):
         spectrum_layout.addWidget(self.spectrum_btn)
         self.spectrum_btn.clicked.connect(self.spectrum_clicked)
 
-        # reset values
-
         # Layout principale
         main_layout = QVBoxLayout()
+        main_layout.addWidget(QLabel("Envelope Parameters"))
         main_layout.addLayout(envelope_layout)
         main_layout.addSpacing(10)
+        main_layout.addWidget(QLabel("Peak Finder Parameters"))
         main_layout.addLayout(peak_finder_layout)
         main_layout.addSpacing(10)
+        main_layout.addWidget(QLabel("Spectrum Parameters"))
         main_layout.addLayout(spectrum_layout)
+        main_layout.addStretch()
 
+        # reset values
         self.reset_btn = QPushButton("Reset values")
         self.reset_btn.clicked.connect(self.reset_values)
         main_layout.addWidget(self.reset_btn)
@@ -570,7 +621,9 @@ class ControlPanel(QWidget):
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     # Crea la finestra dei plots e quella dei controlli
-    plot_panel = Main(wav_file="/tmp/ramdisk/GeCorn_2025-01-25_09/GeCorn_2025-01-25_09_sample_000096256.wav")
+    # plot_panel = Main(wav_file="/tmp/ramdisk/GeCorn_2025-01-25_09/GeCorn_2025-01-25_09_sample_000096256.wav")
+    plot_panel = Main(wav_file="/tmp/ramdisk/GeCorn_2025-01-25_09/GeCorn_2025-01-25_09_sample_000017408.wav")
+
     # plot_panel = Main(wav_file="GeCorn_2025-01-25_09/GeCorn_2025-01-25_09_sample17408.wav")
     plot_panel.show()
     sys.exit(app.exec())
