@@ -7,6 +7,7 @@ from scipy.signal import find_peaks
 from scipy.signal import savgol_filter
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 import librosa
+import pickle
 from PySide6.QtWidgets import (
     QApplication,
     QWidget,
@@ -388,8 +389,6 @@ class Main(QWidget):
         parameters["songs"][str(sample)]["spectrum"] = self.results_dict["spectrum"]
         parameters["songs"][str(sample)]["spectrum peaks"] = self.results_dict["spectrum_peaks"]
 
-        print(parameters["songs"].keys())
-
         # save in data.json
         try:
             with open(save_path, "w", encoding="utf-8") as f_out:
@@ -398,6 +397,10 @@ class Main(QWidget):
             print(f"Risultati salvati in {save_path}")
         except Exception as e:
             print(f"Errore nel salvataggio dei risultati: {e}")
+
+        # Save the dictionary to a pickle file
+        with open("data.pkl", "wb") as f_out:
+            pickle.dump(parameters, f_out)
 
     def next_file_clicked(self):
         """
