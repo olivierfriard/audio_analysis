@@ -5,6 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.io import wavfile
 import wave
+import sounddevice as sd
 from PySide6.QtWidgets import (
     QApplication,
     QMainWindow,
