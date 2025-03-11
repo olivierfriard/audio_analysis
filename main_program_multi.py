@@ -39,7 +39,7 @@ class OscillogramWindow(QWidget):
     def __init__(self, wav_file: str):
         super().__init__()
         self.setWindowTitle(f"Oscillogram for {Path(wav_file).stem}")
-        self.setGeometry(200, 200, 800, 500)
+        # self.setGeometry(200, 200, 800, 500)
 
         self.sampling_rate, self.data = wavfile.read(wav_file)
         self.duration = len(self.data) / self.sampling_rate
@@ -114,7 +114,7 @@ class ResamplingWindow(QWidget):
         super().__init__()
 
         self.setWindowTitle("Resampling Audio")
-        self.setGeometry(200, 200, 400, 250)
+        # self.setGeometry(200, 200, 400, 250)
 
         self.wav_file = wav_file  # Salva il file WAV passato dal MainWindow
 
@@ -182,7 +182,7 @@ class MainWindow(QMainWindow):
         super().__init__()
 
         self.setWindowTitle("Audio Analysis")
-        self.setGeometry(100, 100, 600, 400)
+        # self.setGeometry(100, 100, 600, 400)
         self.wav_file = None
 
         self.wav_list: dict = {}
@@ -399,7 +399,9 @@ class MainWindow(QMainWindow):
                 self.text_edit.append("No WAV file selected!")
 
     def resampling(self):
-        """Apre la finestra di resampling"""
+        """
+        Apre la finestra di resampling
+        """
 
         # check if wav checked in treewidget
         checked_wav_files = [
