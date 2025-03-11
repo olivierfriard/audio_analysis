@@ -101,7 +101,9 @@ class OscillogramWindow(QWidget):
         self.canvas.draw_idle()
 
     def on_slider(self, val):
-        """Aggiorna la vista dell'oscillogramma in base alla posizione dello slider mantenendo la durata selezionata."""
+        """
+        Aggiorna la vista dell'oscillogramma in base alla posizione dello slider mantenendo la durata selezionata.
+        """
 
         self.xmax = max(self.range, val * self.duration)
         self.xmin = self.xmax - self.range
@@ -110,13 +112,14 @@ class OscillogramWindow(QWidget):
 
 
 class ResamplingWindow(QWidget):
-    def __init__(self, wav_file: str):
+    def __init__(self, wav_file: str, wav_list: list = []):
         super().__init__()
 
         self.setWindowTitle("Resampling Audio")
         # self.setGeometry(200, 200, 400, 250)
 
-        self.wav_file = wav_file  # Salva il file WAV passato dal MainWindow
+        self.wav_file = wav_file
+        self.wav_list = wav_list
 
         # Carica il file WAV e ottiene le informazioni
         self.sampling_rate, self.data = wavfile.read(self.wav_file)
@@ -148,6 +151,11 @@ class ResamplingWindow(QWidget):
         self.button_save.clicked.connect(self.save_wav)
         layout.addWidget(self.button_save)
 
+        self.bt_resample_all = QPushButton("Resample all WAV")
+        self.bt_resample_all.setEnabled(self.wav_list != [])
+        self.bt_resample_all.clicked.connect(self.resample_all)
+        layout.addWidget(self.bt_resample_all)
+
         self.setLayout(layout)
 
     def apply_resampling(self):
@@ -175,6 +183,13 @@ class ResamplingWindow(QWidget):
         if save_path:
             wavfile.write(save_path, self.new_sampling_rate, self.data_resampled)
             print(f"DEBUG: File salvato correttamente in {save_path}")
+
+    def resample_all(self):
+        """
+        resample all files in dir
+        """
+        # QMessageBox.information(self, "", "To be continued...")
+        print(f"{self.wav_list=}")
 
 
 class MainWindow(QMainWindow):
@@ -410,10 +425,15 @@ class MainWindow(QMainWindow):
             if self.wav_list_widget.topLevelItem(i).checkState(0) == Qt.Checked
         ]
         if checked_wav_files:
-            self.resampling_window_list = []
-            for wav_file_path in checked_wav_files:
+            # self.resampling_window_list = []
+            # open resampling window for the first file
+            self.resampling_window = ResamplingWindow(checked_wav_files[0], checked_wav_files)
+            self.resampling_window.show()
+
+            """for wav_file_path in checked_wav_files:
                 self.resampling_window_list.append(ResamplingWindow(wav_file_path))
                 self.resampling_window_list[-1].show()
+            """
         else:
             self.text_edit.append("No WAV file selected!")
 
