@@ -68,9 +68,12 @@ class Main(QWidget):
         self.next_file_btn.clicked.connect(self.next_file_clicked)
         hh_layout.addWidget(self.next_file_btn)
 
+        hh_layout.addStretch()
+
         vlayout.addLayout(hh_layout)
 
         hhh_layout = QHBoxLayout()
+
         # save data button
         self.save_results_btn = QPushButton("Save results")
         self.save_results_btn.clicked.connect(self.save_results_clicked)
@@ -80,6 +83,8 @@ class Main(QWidget):
         self.auto_btn = QPushButton("Auto")
         self.auto_btn.clicked.connect(self.auto_btn_clicked)
         hhh_layout.addWidget(self.auto_btn)
+
+        hhh_layout.addStretch()
 
         vlayout.addLayout(hhh_layout)
 
@@ -464,7 +469,6 @@ class ControlPanel(QWidget):
 
         # Layout per i parametri dell'envelope
         envelope_layout = QHBoxLayout()
-        # envelope_layout.addWidget(QLabel("Envelope Parameters"))
 
         # window size
         self.window_size_input = QSpinBox()
@@ -492,7 +496,6 @@ class ControlPanel(QWidget):
 
         # Layout per i parametri del peak finder
         peak_finder_layout = QHBoxLayout()
-        # peak_finder_layout.addWidget(QLabel("Peak Finder Parameters"))
 
         # MIN_AMPLITUDE
         self.amp_threshold_input = QDoubleSpinBox()
@@ -522,7 +525,6 @@ class ControlPanel(QWidget):
 
         # Layout per i parametri dello spettro
         spectrum_layout = QHBoxLayout()
-        # spectrum_layout.addWidget(QLabel("Spectrum Parameters"))
 
         # FFT LENGTH
         self.fft_length_input = QSpinBox()
@@ -561,10 +563,12 @@ class ControlPanel(QWidget):
         main_layout.addStretch()
 
         # reset values
+        h_layout = QHBoxLayout()
         self.reset_btn = QPushButton("Reset values")
         self.reset_btn.clicked.connect(self.reset_values)
-        main_layout.addWidget(self.reset_btn)
-
+        h_layout.addWidget(self.reset_btn)
+        h_layout.addStretch()
+        main_layout.addLayout(h_layout)
         self.setLayout(main_layout)
 
     def reset_values(self):
