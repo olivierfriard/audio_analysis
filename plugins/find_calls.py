@@ -421,7 +421,7 @@ class Main(QWidget):
             "amplitude threshold": self.sp_amp_threshold.value(),
             "minimum distance": self.sp_min_dist.value(),
             "peaks_times": self.peaks_times.tolist(),
-            "peaks": {},
+            "songs": {},
         }
 
         try:

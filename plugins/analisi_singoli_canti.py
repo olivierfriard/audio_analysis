@@ -7,41 +7,39 @@ from scipy.signal import find_peaks
 from scipy.signal import savgol_filter
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 import librosa
-from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QSplitter, QMessageBox
+from PySide6.QtWidgets import (
+    QApplication,
+    QWidget,
+    QVBoxLayout,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QSplitter,
+    QMessageBox,
+    QSpinBox,
+    QDoubleSpinBox,
+)
 from PySide6.QtCore import Qt
 from pathlib import Path
+
+WINDOW_SIZE = 50
+OVERLAP = 50
+MIN_AMPLITUDE = 0.1
+MIN_DISTANCE = 0.003
+FFT_LENGTH = 1024
+FFT_OVERLAP = 512
 
 
 class Main(QWidget):
     def __init__(self, wav_file):
         super().__init__()
+
+        self.init_values()
+
         self.wav_file = wav_file
 
         print("Carico il file:", self.wav_file)
         self.load_wav(self.wav_file)
-
-        self.setWindowTitle(f"{Path(__file__).stem.replace('_', ' ')} - {Path(self.wav_file).stem}")
-
-        self.window_size = 50
-        self.overlap = 50
-        self.min_amplitude = 0.1
-        self.min_distance = 0.003
-        self.canto = np.zeros(len(self.data))
-        self.rms = np.zeros(len(self.data) // self.overlap)
-
-        self.results_dict = {
-            "file": None,
-            "sampling_rate": None,
-            "call_duration": None,
-            "pulse_number": None,
-            "spectrum": None,
-            "spectrum_peaks": None,
-        }
-        n_frames = np.arange(len(self.rms))
-        self.rms_times = librosa.frames_to_time(n_frames, sr=self.sampling_rate, hop_length=self.overlap)
-        self.peaks_times = np.array([])
-
-        # Crea il dizionario dei risultati
 
         # Crea la figura con 2 subplot affiancati
         self.figure, (self.ax, self.ax2) = plt.subplots(1, 2, figsize=(12, 4))
@@ -92,14 +90,35 @@ class Main(QWidget):
         self.canvas.draw_idle()
         self.plot_wav(self.xmin, self.xmax)
 
+        self.run_analysis()
+
+    def init_values(self):
+        self.window_size = WINDOW_SIZE
+        self.overlap = OVERLAP
+        self.min_amplitude = MIN_AMPLITUDE
+        self.min_distance = MIN_DISTANCE
+        self.fft_length = FFT_LENGTH
+        self.fft_overlap = FFT_OVERLAP
+
+        # Crea il dizionario dei risultati
+        self.results_dict = {
+            "file": None,
+            "sampling_rate": None,
+            "call_duration": None,
+            "pulse_number": None,
+            "spectrum": None,
+            "spectrum_peaks": None,
+        }
+
+    def run_analysis(self):
         # compute envelope
         self.envelope()
 
         # find peaks
-        self.control_panel.peaks_clicked()
+        self.trova_picchi()
 
         # spectrum
-        self.control_panel.spectrum_clicked()
+        self.plot_spectrum()
 
     def load_wav(self, wav_file):
         """
@@ -118,6 +137,14 @@ class Main(QWidget):
         self.time = np.linspace(0, len(self.data) / self.sampling_rate, num=len(self.data))
         self.id_xmin = 0
         self.id_xmax = len(self.data)
+
+        self.canto = np.zeros(len(self.data))
+        self.rms = np.zeros(len(self.data) // self.overlap)
+        n_frames = np.arange(len(self.rms))
+        self.rms_times = librosa.frames_to_time(n_frames, sr=self.sampling_rate, hop_length=self.overlap)
+        self.peaks_times = np.array([])
+
+        self.setWindowTitle(f"{Path(__file__).stem.replace('_', ' ')} - {Path(wav_file).stem}")
 
     def plot_wav(self, xmin, xmax):
         """
@@ -189,13 +216,13 @@ class Main(QWidget):
         except Exception as e:
             print("Errore in envelope:", e)
 
-    def plot_spectrum(self, fft_length, fft_overlap):
+    def plot_spectrum(self):
         """
         Calcola e visualizza lo spettro di potenza del segmento selezionato.
         """
 
         try:
-            if fft_length <= 0 or fft_overlap < 0 or fft_overlap >= fft_length:
+            if self.fft_length <= 0 or self.fft_overlap < 0 or self.fft_overlap >= self.fft_length:
                 print("Errore: Parametri FFT non validi.")
                 return
             self.id_xmin = int(self.xmin * self.sampling_rate)
@@ -205,10 +232,10 @@ class Main(QWidget):
                 print("Segmento vuoto nella selezione.")
                 return
             # Suddivide il segmento in finestre con sovrapposizione e calcola la FFT per ciascuna finestra
-            step = fft_length - fft_overlap
-            n_segments = (len(segment) - fft_overlap) // step
+            step = self.fft_length - self.fft_overlap
+            n_segments = (len(segment) - self.fft_overlap) // step
             if n_segments <= 0:
-                padded = np.zeros(fft_length)
+                padded = np.zeros(self.fft_length)
                 padded[: len(segment)] = segment
                 fft_vals = np.fft.fft(padded)
                 power = np.abs(fft_vals) ** 2
@@ -216,16 +243,16 @@ class Main(QWidget):
                 spectra = []
                 for i in range(n_segments):
                     start = i * step
-                    end = start + fft_length
+                    end = start + self.fft_length
                     if end > len(segment):
                         break
-                    windowed = segment[start:end] * np.hamming(fft_length)
-                    fft_vals = np.fft.fft(windowed, n=fft_length)
+                    windowed = segment[start:end] * np.hamming(self.fft_length)
+                    fft_vals = np.fft.fft(windowed, n=self.fft_length)
                     power = np.abs(fft_vals) ** 2
                     spectra.append(power)
 
                 power = np.mean(np.array(spectra), axis=0)
-            freqs = np.fft.fftfreq(fft_length, d=1 / self.sampling_rate)
+            freqs = np.fft.fftfreq(self.fft_length, d=1 / self.sampling_rate)
             mask_positive = freqs >= 0
             freqs = freqs[mask_positive]
             power = power[mask_positive]
@@ -251,15 +278,15 @@ class Main(QWidget):
         except Exception as e:
             print("Errore in plot_spectrum:", e)
 
-    def trova_picchi(self, min_amplitude, min_distance):
+    def trova_picchi(self):
         """
         Trova i picchi dell'inviluppo RMS e li converte nei campioni della registrazione originale.
         """
         try:
-            min_distance_samples = int(min_distance * (self.sampling_rate / self.overlap))  # Converti in campioni
+            min_distance_samples = int(self.min_distance * (self.sampling_rate / self.overlap))  # Converti in campioni
 
             # Trova i picchi nell'inviluppo RMS
-            peaks, properties = find_peaks(self.rms, height=min_amplitude, distance=min_distance_samples, prominence=0.01)
+            peaks, properties = find_peaks(self.rms, height=self.min_amplitude, distance=min_distance_samples, prominence=0.01)
 
             # Converti gli indici nei campioni effettivi dell'audio originale
             self.peaks_times = peaks * self.overlap / self.sampling_rate  # In secondi
@@ -298,6 +325,8 @@ class Main(QWidget):
 
         sample = int(Path(self.wav_file).stem.split("_")[-1])
 
+        self.run_analysis()
+
         # test if data.json exists
         if not (Path(self.wav_file).parent / "data.json").is_file():
             QMessageBox.warning(self, "", "The data.json file does not exist")
@@ -314,17 +343,29 @@ class Main(QWidget):
         with open(save_path, "r", encoding="utf-8") as f_in:
             parameters = json.load(f_in)
 
-        if "peaks" not in parameters:
-            parameters["peaks"] = {}
+        if "songs" not in parameters:
+            parameters["songs"] = {}
 
-        parameters["peaks"][sample] = {}
-        parameters["peaks"][sample]["file"] = Path(self.wav_file).stem
-        parameters["peaks"][sample]["sampling rate"] = self.sampling_rate
-        parameters["peaks"][sample]["call_duration"] = len(self.canto) / self.sampling_rate
-        parameters["peaks"][sample]["pulse_number"] = len(self.peaks_times)
+        # if sample in parameters["songs"]:
 
-        parameters["peaks"][sample]["spectrum"] = self.results_dict["spectrum"]
-        parameters["peaks"][sample]["spectrum peaks"] = self.results_dict["spectrum_peaks"]
+        parameters["songs"][sample] = {}
+        parameters["songs"][sample]["file"] = Path(self.wav_file).stem
+
+        parameters["songs"][sample]["window_size"] = self.window_size
+        parameters["songs"][sample]["overlap"] = self.overlap
+        parameters["songs"][sample]["min_amplitude"] = self.min_amplitude
+        parameters["songs"][sample]["min_distance"] = self.min_distance
+        parameters["songs"][sample]["fft_length"] = self.fft_length
+        parameters["songs"][sample]["fft_overlap"] = self.fft_overlap
+
+        parameters["songs"][sample]["sampling rate"] = self.sampling_rate
+        parameters["songs"][sample]["call_duration"] = len(self.canto) / self.sampling_rate
+        parameters["songs"][sample]["pulse_number"] = len(self.peaks_times)
+
+        parameters["songs"][sample]["spectrum"] = self.results_dict["spectrum"]
+        parameters["songs"][sample]["spectrum peaks"] = self.results_dict["spectrum_peaks"]
+
+        print(parameters["songs"].keys())
 
         # save in data.json
         try:
@@ -354,8 +395,15 @@ class Main(QWidget):
             return
 
         print(f"{next_file=}")
+
+        # self.init_values()
+
         self.wav_file = next_file
         self.load_wav(self.wav_file)
+
+        self.plot_wav(self.xmin, self.xmax)
+
+        self.run_analysis()
 
 
 class ControlPanel(QWidget):
@@ -368,8 +416,23 @@ class ControlPanel(QWidget):
         # Layout per i parametri dell'envelope
         envelope_layout = QVBoxLayout()
         envelope_layout.addWidget(QLabel("Envelope Parameters"))
-        self.window_size_input = QLineEdit("50")
-        self.overlap_input = QLineEdit("50")
+
+        # window size
+        self.window_size_input = QSpinBox()
+        self.window_size_input.setMinimum(10)
+        self.window_size_input.setMaximum(1000)
+        self.window_size_input.setValue(WINDOW_SIZE)
+        self.window_size_input.setSingleStep(10)
+        self.window_size_input.valueChanged.connect(self.window_size_changed)
+
+        # overlap
+        self.overlap_input = QSpinBox()
+        self.overlap_input.setMinimum(10)
+        self.overlap_input.setMaximum(1000)
+        self.overlap_input.setValue(OVERLAP)
+        self.overlap_input.setSingleStep(10)
+        self.overlap_input.valueChanged.connect(self.overlap_changed)
+
         envelope_layout.addWidget(QLabel("Window size"))
         envelope_layout.addWidget(self.window_size_input)
         envelope_layout.addWidget(QLabel("Overlap"))
@@ -381,8 +444,26 @@ class ControlPanel(QWidget):
         # Layout per i parametri del peak finder
         peak_finder_layout = QVBoxLayout()
         peak_finder_layout.addWidget(QLabel("Peak Finder Parameters"))
-        self.amp_threshold_input = QLineEdit("0.1")
-        self.min_distance_input = QLineEdit("0.003")
+
+        # MIN_AMPLITUDE
+        self.amp_threshold_input = QDoubleSpinBox()
+        self.amp_threshold_input.setDecimals(3)  # Set to 3 decimal places
+        self.amp_threshold_input.setSingleStep(0.005)  # Step size of 0.1
+        self.amp_threshold_input.setMinimum(0.0)  # Set minimum value
+        self.amp_threshold_input.setMaximum(1)  # Set maximum value
+        self.amp_threshold_input.setValue(MIN_AMPLITUDE)
+        self.amp_threshold_input.valueChanged.connect(self.min_amplitude_changed)
+
+        # self.min_distance_input = QLineEdit(str(MIN_DISTANCE))
+        # MIN_DISTANCE
+        self.min_distance_input = QDoubleSpinBox()
+        self.min_distance_input.setDecimals(3)  # Set to 3 decimal places
+        self.min_distance_input.setSingleStep(0.005)  # Step size of 0.1
+        self.min_distance_input.setMinimum(0.0)  # Set minimum value
+        self.min_distance_input.setMaximum(1)  # Set maximum value
+        self.min_distance_input.setValue(MIN_DISTANCE)
+        self.min_distance_input.valueChanged.connect(self.min_distance_changed)
+
         peak_finder_layout.addWidget(QLabel("Amplitude Threshold"))
         peak_finder_layout.addWidget(self.amp_threshold_input)
         peak_finder_layout.addWidget(QLabel("Minimum Distance"))
@@ -394,8 +475,23 @@ class ControlPanel(QWidget):
         # Layout per i parametri dello spettro
         spectrum_layout = QVBoxLayout()
         spectrum_layout.addWidget(QLabel("Spectrum Parameters"))
-        self.fft_length_input = QLineEdit("1024")
-        self.fft_overlap_input = QLineEdit("512")
+
+        # FFT LENGTH
+        self.fft_length_input = QSpinBox()
+        self.fft_length_input.setMinimum(10)
+        self.fft_length_input.setMaximum(10000)
+        self.fft_length_input.setValue(FFT_LENGTH)
+        self.fft_length_input.setSingleStep(10)
+        self.fft_length_input.valueChanged.connect(self.fft_length_changed)
+
+        # FFT OVERLAP
+        self.fft_overlap_input = QSpinBox()
+        self.fft_overlap_input.setMinimum(10)
+        self.fft_overlap_input.setMaximum(10000)
+        self.fft_overlap_input.setValue(FFT_OVERLAP)
+        self.fft_overlap_input.setSingleStep(10)
+        self.fft_overlap_input.valueChanged.connect(self.fft_overlap_changed)
+
         spectrum_layout.addWidget(QLabel("FFT Length"))
         spectrum_layout.addWidget(self.fft_length_input)
         spectrum_layout.addWidget(QLabel("Overlap"))
@@ -404,6 +500,8 @@ class ControlPanel(QWidget):
         spectrum_layout.addWidget(self.spectrum_btn)
         self.spectrum_btn.clicked.connect(self.spectrum_clicked)
 
+        # reset values
+
         # Layout principale
         main_layout = QVBoxLayout()
         main_layout.addLayout(envelope_layout)
@@ -411,33 +509,60 @@ class ControlPanel(QWidget):
         main_layout.addLayout(peak_finder_layout)
         main_layout.addSpacing(10)
         main_layout.addLayout(spectrum_layout)
+
+        self.reset_btn = QPushButton("Reset values")
+        self.reset_btn.clicked.connect(self.reset_values)
+        main_layout.addWidget(self.reset_btn)
+
         self.setLayout(main_layout)
+
+    def reset_values(self):
+        self.window_size_input.setValue(WINDOW_SIZE)
+        self.overlap_input.setValue(OVERLAP)
+        self.amp_threshold_input.setValue(MIN_AMPLITUDE)
+        self.min_distance_input.setValue(MIN_DISTANCE)
+        self.fft_length_input.setValue(FFT_LENGTH)
+        self.fft_overlap_input.setValue(FFT_OVERLAP)
+
+    def window_size_changed(self, new_value):
+        self.plot_panel.window_size = new_value
+        self.plot_panel.envelope()
+
+    def overlap_changed(self, new_value):
+        self.plot_panel.overlap = new_value
+        self.plot_panel.envelope()
+
+    def min_amplitude_changed(self, new_value):
+        self.plot_panel.min_amplitude = new_value
+        self.peaks_clicked()
+
+    def min_distance_changed(self, new_value):
+        self.plot_panel.min_distance = new_value
+        self.peaks_clicked()
+
+    def fft_length_changed(self, new_value):
+        self.plot_panel.fft_length = new_value
+        self.plot_panel.plot_spectrum()
+
+    def fft_overlap_changed(self, new_value):
+        self.plot_panel.fft_overlap = new_value
+        self.plot_panel.plot_spectrum()
 
     def envelope_clicked(self):
         try:
-            ws = int(self.window_size_input.text())
-            ov = int(self.overlap_input.text())
-            self.plot_panel.window_size = ws
-            self.plot_panel.overlap = ov
             self.plot_panel.envelope()
         except Exception as e:
             print("Errore nei parametri envelope:", e)
 
     def peaks_clicked(self):
         try:
-            min_amplitude = float(self.amp_threshold_input.text())
-            min_distance = float(self.min_distance_input.text())
-            self.plot_panel.amp_threshold = min_amplitude
-            self.plot_panel.min_distance = min_distance
             self.plot_panel.trova_picchi(min_amplitude, min_distance)
         except Exception as e:
             print("Errore nei parametri peak finder:", e)
 
     def spectrum_clicked(self):
         try:
-            fft_len = int(self.fft_length_input.text())
-            fft_ov = int(self.fft_overlap_input.text())
-            self.plot_panel.plot_spectrum(fft_len, fft_ov)
+            self.plot_panel.plot_spectrum()
         except Exception as e:
             print("Errore nei parametri spectrum:", e)
 
