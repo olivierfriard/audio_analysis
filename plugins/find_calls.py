@@ -2,6 +2,8 @@ from pathlib import Path
 import sys
 import numpy as np
 import matplotlib.pyplot as plt
+import shutil
+import json
 from scipy.io import wavfile
 from scipy.signal import find_peaks
 from PySide6.QtWidgets import (
@@ -257,7 +259,9 @@ class Main(QWidget):
         self.canvas.draw()
 
     def on_slider(self, val):
-        """Aggiorna la vista dell'oscillogramma in base alla posizione dello slider mantenendo la durata selezionata."""
+        """
+        Aggiorna la vista dell'oscillogramma in base alla posizione dello slider mantenendo la durata selezionata.
+        """
         self.plot_wav(0, self.duration)
         self.xmax = max(self.range, val * self.duration)
         self.xmin = self.xmax - self.range
@@ -300,12 +304,17 @@ class Main(QWidget):
         self.slider.set_val(self.xmax / self.duration)
 
     def envelope(self, event=None):
-        """Calcola l'inviluppo RMS usando i parametri aggiornati da Window Size e Overlap."""
+        """
+        Calcola l'inviluppo RMS usando i parametri aggiornati da Window Size e Overlap.
+        """
         try:
             # Leggi i valori dalle caselle di testo
             self.window_size = int(self.window_size_input.text())
             self.overlap = int(self.window_overlap_input.text())
-            print(self.window_size, self.overlap)
+
+            print(f"{self.window_size=}")
+            print(f"{self.overlap=}")
+
             # Verifica che i valori siano validi
             if self.window_size <= 0 or self.overlap < 0:
                 print("Errore: Window size deve essere > 0 e Overlap >= 0")
@@ -328,9 +337,10 @@ class Main(QWidget):
         self.trova_picchi()
 
     def trova_picchi(self, xmin=0, xmax=0):
-        """Trova i picchi dell'inviluppo RMS e li converte nei campioni della registrazione originale."""
+        """
+        Trova i picchi dell'inviluppo RMS e li converte nei campioni della registrazione originale.
+        """
 
-        print(self.sender())
         print(f"{xmin=}")
         print(f"{xmax=}")
 
@@ -399,8 +409,33 @@ class Main(QWidget):
         print("HO ELIMINATO I PICCHI", num_peaks_before - num_peaks_after)
         self.plot_wav(self.xmin, self.xmax)
 
+    def save_parameters(self, file_path):
+        """
+        save parameters in json file
+        """
+
+        parameters = {
+            "file name": self.wav_file,
+            "window size": self.window_size,
+            "overlap": self.overlap,
+            "amplitude threshold": self.sp_amp_threshold.value(),
+            "minimum distance": self.sp_min_dist.value(),
+            "peaks_times": self.peaks_times.tolist(),
+            "peaks": {},
+        }
+
+        try:
+            with open(file_path, "w", encoding="utf-8") as f_out:
+                json.dump(parameters, f_out, indent=0, ensure_ascii=False)
+        except Exception as e:
+            QMessageBox.critical(self, "", f"The parameters file cannot be saved. {e}")
+
     def salva_canti(self):
-        """Salva i segmenti audio attorno ai picchi selezionati in file separati."""
+        """
+        Salva i segmenti audio attorno ai picchi selezionati in file separati.
+        """
+
+        print(f"{self.xmin=}  {self.xmax=}")
 
         # 🔹 Seleziona i picchi all'interno dell'intervallo xmin - xmax
         mask = (self.peaks_times > self.xmin) & (self.peaks_times < self.xmax)
@@ -415,19 +450,37 @@ class Main(QWidget):
         before = peak_time - self.xmin
         after = self.xmax - peak_time
 
-        # 🔹 Crea una cartella con il nome del file di origine (senza estensione)
-        original_filename = Path(self.wav_file).stem  # Nome del file senza estensione
+        directory = QFileDialog.getExistingDirectory(self, "Select Directory", "")
+        parent_directory = Path(directory)
 
-        directory = QFileDialog.getExistingDirectory(self, "Select Directory", original_filename)
-        save_folder = Path(directory)
+        data_directory = parent_directory / Path(self.wav_file).stem
 
-        # save_folder = Path(original_filename)
-        # save_folder.mkdir(exist_ok=True)  # Crea la cartella se non esiste
+        if data_directory.is_dir():
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Information)
+            msg.setText(f"The directory {data_directory} already exists!")
+            msg.setWindowTitle("Warning")
 
-        print(f"Salvando i canti nella cartella: {save_folder}")
+            msg.addButton("Erase files", QMessageBox.YesRole)
+            msg.addButton("Cancel", QMessageBox.YesRole)
+
+            msg.exec()
+
+            match msg.clickedButton().text():
+                case "Erase files":
+                    shutil.rmtree(data_directory)
+                case "Cancel":
+                    return
+
+        data_directory.mkdir(exist_ok=True)  # Crea la cartella se non esiste
+
+        # save data
+        self.save_parameters(data_directory / "data.json")
+
+        print(f"Salvando i canti nella cartella: {data_directory}")
 
         for i, peak_time in enumerate(self.peaks_times):
-            # 🔹 Calcola l'inizio e la fine del ritaglio
+            # Calcola l'inizio e la fine del ritaglio
             ini = int((peak_time - before) * self.sampling_rate)
             fine = int((peak_time + after) * self.sampling_rate)
 
@@ -440,7 +493,7 @@ class Main(QWidget):
 
             # Crea il nome del file con il numero di campione
             sample_number = int(peak_time * self.sampling_rate)
-            nome_ritaglio = save_folder / f"{original_filename}_sample{sample_number}.wav"
+            nome_ritaglio = data_directory / f"{Path(self.wav_file).stem}_sample_{sample_number:09d}.wav"
 
             # Salva il file ritagliato
             wavfile.write(nome_ritaglio, self.sampling_rate, ritaglio)

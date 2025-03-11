@@ -7,7 +7,7 @@ from scipy.signal import find_peaks
 from scipy.signal import savgol_filter
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 import librosa
-from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QSplitter
+from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QSplitter, QMessageBox
 from PySide6.QtCore import Qt
 from pathlib import Path
 
@@ -28,21 +28,20 @@ class Main(QWidget):
         self.min_distance = 0.003
         self.canto = np.zeros(len(self.data))
         self.rms = np.zeros(len(self.data) // self.overlap)
-        
+
         self.results_dict = {
             "file": None,
             "sampling_rate": None,
             "call_duration": None,
             "pulse_number": None,
             "spectrum": None,
-            "spectrum_peaks": None
-            }
+            "spectrum_peaks": None,
+        }
         n_frames = np.arange(len(self.rms))
         self.rms_times = librosa.frames_to_time(n_frames, sr=self.sampling_rate, hop_length=self.overlap)
         self.peaks_times = np.array([])
 
         # Crea il dizionario dei risultati
-
 
         # Crea la figura con 2 subplot affiancati
         self.figure, (self.ax, self.ax2) = plt.subplots(1, 2, figsize=(12, 4))
@@ -59,10 +58,15 @@ class Main(QWidget):
         self.control_panel = ControlPanel(self)
         vlayout.addWidget(self.control_panel)
 
-        # save button
+        # save data button
         self.save_results_btn = QPushButton("Save results")
         self.save_results_btn.clicked.connect(self.save_results_clicked)
         vlayout.addWidget(self.save_results_btn)
+
+        # next file button
+        self.next_file_btn = QPushButton("Next file")
+        self.next_file_btn.clicked.connect(self.next_file_clicked)
+        vlayout.addWidget(self.next_file_btn)
 
         left_layout.addLayout(vlayout)
 
@@ -88,7 +92,14 @@ class Main(QWidget):
         self.canvas.draw_idle()
         self.plot_wav(self.xmin, self.xmax)
 
-        # self.control_panel.show()
+        # compute envelope
+        self.envelope()
+
+        # find peaks
+        self.control_panel.peaks_clicked()
+
+        # spectrum
+        self.control_panel.spectrum_clicked()
 
     def load_wav(self, wav_file):
         """
@@ -96,7 +107,7 @@ class Main(QWidget):
         """
 
         self.sampling_rate, self.data = wavfile.read(wav_file)
-         
+
         self.xmin = 0
         self.duration = len(self.data) / self.sampling_rate
         self.xmax = self.duration
@@ -212,26 +223,27 @@ class Main(QWidget):
                     fft_vals = np.fft.fft(windowed, n=fft_length)
                     power = np.abs(fft_vals) ** 2
                     spectra.append(power)
-                
+
                 power = np.mean(np.array(spectra), axis=0)
             freqs = np.fft.fftfreq(fft_length, d=1 / self.sampling_rate)
             mask_positive = freqs >= 0
             freqs = freqs[mask_positive]
             power = power[mask_positive]
-            avg_power_db = np.log10(power/np.max(power) + 1e-10)
-            spectrum_peaks, properties = find_peaks(avg_power_db, height=-5, distance=1000)
-            spectrum_peaks_Hz = freqs[spectrum_peaks]
-            spectrum_peaks_db = avg_power_db[spectrum_peaks]
-            print(f"spectrum_peaks: {spectrum_peaks_Hz}")
-            
-            self.results_dict["spectrum"] = np.concatenate(([freqs],[power]), axis = 1).tolist()
-            self.results_dict["spectrum_peaks"] = np.concatenate(([spectrum_peaks_Hz], [spectrum_peaks_db]), axis = 1).tolist()
+            avg_power_db = np.log10(power / np.max(power) + 1e-10)
 
-            
-            
+            self.spectrum_peaks, properties = find_peaks(avg_power_db, height=-5, distance=1000)
+            self.spectrum_peaks_Hz = freqs[self.spectrum_peaks]
+            spectrum_peaks_db = avg_power_db[self.spectrum_peaks]
+
+            print(f"spectrum_peaks: {self.spectrum_peaks_Hz}")
+
+            self.results_dict["spectrum"] = np.concatenate(([freqs], [power]), axis=1).tolist()
+            self.results_dict["spectrum_peaks"] = np.concatenate(([self.spectrum_peaks_Hz], [spectrum_peaks_db]), axis=1).tolist()
+
             self.ax2.cla()
             self.ax2.plot(freqs, avg_power_db, color="blue")
-            self.ax2.plot(spectrum_peaks_Hz, avg_power_db[spectrum_peaks],'or')
+            self.ax2.plot(self.spectrum_peaks_Hz, avg_power_db[self.spectrum_peaks], "or")
+
             self.ax2.set_title("Power Spectrum")
             self.ax2.set_xlabel("Frequency (Hz)")
             self.ax2.set_ylabel("Power")
@@ -244,63 +256,107 @@ class Main(QWidget):
         Trova i picchi dell'inviluppo RMS e li converte nei campioni della registrazione originale.
         """
         try:
-            # min_distance = float(self.min_distance_input.text())  # Distanza in secondi
             min_distance_samples = int(min_distance * (self.sampling_rate / self.overlap))  # Converti in campioni
-
-            # min_amplitude = float(self.amp_threshold_input.text())  # Soglia di ampiezza
 
             # Trova i picchi nell'inviluppo RMS
             peaks, properties = find_peaks(self.rms, height=min_amplitude, distance=min_distance_samples, prominence=0.01)
 
             # Converti gli indici nei campioni effettivi dell'audio originale
-            peaks_original = peaks * self.overlap  # Campioni effettivi
             self.peaks_times = peaks * self.overlap / self.sampling_rate  # In secondi
 
-            # self.plot_wav(self.xmin, self.xmax)
             self.trova_ini_fin()
         except ValueError:
             print(" Errore: Inserisci valori numerici validi per la distanza e la soglia.")
 
     def trova_ini_fin(self):
         # trova inizio
-        
+
         peaks = self.peaks_times * self.sampling_rate / self.overlap
-        rms_noise = np.mean(self.rms[:int(peaks[0]//2)])
-        
-        rms_ini = self.rms[:int(peaks[0])]
+        rms_noise = np.mean(self.rms[: int(peaks[0] // 2)])
+
+        rms_ini = self.rms[: int(peaks[0])]
         trova_ini = np.where(rms_ini > rms_noise * 2)[0]
-        
+
         if np.size(trova_ini) > 0:
             inizio = int(trova_ini[-1] * self.overlap)
         else:
             inizio = 0
         # trova fine
-        rms_fine = self.rms[int(peaks[-1]):]
+        rms_fine = self.rms[int(peaks[-1]) :]
         trova_fine = np.where(rms_fine <= rms_noise * 2)[0][0]
         fine = (int(peaks[-1]) + trova_fine) * self.overlap
-        print(fine) 
+        print(fine)
         self.canto = np.zeros(len(self.rms) * self.overlap)
         self.canto[inizio:fine] = np.max(self.rms)
-        
+
         self.plot_wav(self.xmin, self.xmax)
-        
+
     def save_results_clicked(self):
+        """
+        Salva i risultati delle analisi nel file data.json
+        """
+
+        sample = int(Path(self.wav_file).stem.split("_")[-1])
+
+        # test if data.json exists
+        if not (Path(self.wav_file).parent / "data.json").is_file():
+            QMessageBox.warning(self, "", "The data.json file does not exist")
+            return
+
         self.results_dict["file"] = Path(self.wav_file).stem
-        print(Path(self.wav_file).stem)
         self.results_dict["sampling_rate"] = self.sampling_rate
         self.results_dict["call_duration"] = len(self.canto) / self.sampling_rate
         self.results_dict["pulse_number"] = len(self.peaks_times)
 
-        """Salva i risultati delle analisi in un file JSON."""
-        save_path = f"{self.results_dict['file']}_analysis.json"
-        
+        save_path = Path(self.wav_file).parent / "data.json"
+
+        # read json content
+        with open(save_path, "r", encoding="utf-8") as f_in:
+            parameters = json.load(f_in)
+
+        if "peaks" not in parameters:
+            parameters["peaks"] = {}
+
+        parameters["peaks"][sample] = {}
+        parameters["peaks"][sample]["file"] = Path(self.wav_file).stem
+        parameters["peaks"][sample]["sampling rate"] = self.sampling_rate
+        parameters["peaks"][sample]["call_duration"] = len(self.canto) / self.sampling_rate
+        parameters["peaks"][sample]["pulse_number"] = len(self.peaks_times)
+
+        parameters["peaks"][sample]["spectrum"] = self.results_dict["spectrum"]
+        parameters["peaks"][sample]["spectrum peaks"] = self.results_dict["spectrum_peaks"]
+
+        # save in data.json
         try:
-            with open(save_path, "w") as f:
-                json.dump(self.results_dict, f, indent=4)
-            
+            with open(save_path, "w", encoding="utf-8") as f_out:
+                json.dump(parameters, f_out, indent=0, ensure_ascii=False)
+
             print(f"Risultati salvati in {save_path}")
         except Exception as e:
             print(f"Errore nel salvataggio dei risultati: {e}")
+
+    def next_file_clicked(self):
+        """
+        load next file
+        """
+        wav_list = sorted(Path(self.wav_file).parent.glob("*.wav"))
+        for idx, wav_file in enumerate(wav_list):
+            if Path(self.wav_file).name == wav_file.name:
+                break
+        else:
+            QMessageBox.critical(self, "", "Current file not found")
+            return
+
+        if idx < len(wav_list):
+            next_file = wav_list[idx + 1]
+        else:
+            QMessageBox.critical(self, "", "Last file")
+            return
+
+        print(f"{next_file=}")
+        self.wav_file = next_file
+        self.load_wav(self.wav_file)
+
 
 class ControlPanel(QWidget):
     def __init__(self, plot_panel):
@@ -389,7 +445,7 @@ class ControlPanel(QWidget):
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     # Crea la finestra dei plots e quella dei controlli
-    plot_panel = Main(wav_file="SpiAglav_2025-01-24_08/SpiAglav_2025-01-24_08_sample7561216.wav")
-    #plot_panel = Main(wav_file="GeCorn_2025-01-25_09/GeCorn_2025-01-25_09_sample17408.wav")
+    plot_panel = Main(wav_file="/tmp/ramdisk/GeCorn_2025-01-25_09/GeCorn_2025-01-25_09_sample_000096256.wav")
+    # plot_panel = Main(wav_file="GeCorn_2025-01-25_09/GeCorn_2025-01-25_09_sample17408.wav")
     plot_panel.show()
     sys.exit(app.exec())
