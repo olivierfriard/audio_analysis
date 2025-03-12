@@ -254,6 +254,8 @@ class Main(QWidget):
                 np.arange(len(self.rms)), sr=self.sampling_rate, hop_length=self.overlap
             )
             print("Envelope calcolato, lunghezza:", len(self.rms))
+            self.peaks_times = []
+            self.canto = np.zeros(len(self.rms) * self.overlap)
             self.plot_wav(self.xmin, self.xmax)
         except Exception as e:
             print("Errore in envelope:", e)
@@ -517,6 +519,8 @@ class ControlPanel(QWidget):
 
         # Layout per i parametri dell'envelope
         envelope_layout = QHBoxLayout()
+        self.min_amplitude = self.plot_panel.min_amplitude
+        self.min_distance = self.plot_panel.min_distance
 
         # window size
         self.window_size_input = QSpinBox()
@@ -636,10 +640,12 @@ class ControlPanel(QWidget):
         self.plot_panel.envelope()
 
     def min_amplitude_changed(self, new_value):
+        self.min_amplitude = new_value
         self.plot_panel.min_amplitude = new_value
         self.peaks_clicked()
 
     def min_distance_changed(self, new_value):
+        self.min_distance = new_value
         self.plot_panel.min_distance = new_value
         self.peaks_clicked()
 
@@ -659,9 +665,9 @@ class ControlPanel(QWidget):
 
     def peaks_clicked(self):
         try:
-            self.plot_panel.trova_picchi(min_amplitude, min_distance)
+            self.plot_panel.trova_picchi()
         except Exception as e:
-            print("Errore nei parametri peak finder:", e)
+            print("Errore nei parametri peak finder -----:", e)
 
     def spectrum_clicked(self):
         try:
