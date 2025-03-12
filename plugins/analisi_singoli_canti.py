@@ -673,11 +673,11 @@ class ControlPanel(QWidget):
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     # Crea la finestra dei plots e quella dei controlli
-    # plot_panel = Main(wav_file="/tmp/ramdisk/GeCorn_2025-01-25_09/GeCorn_2025-01-25_09_sample_000096256.wav")
+    plot_panel = Main(
+        wav_file="/tmp/ramdisk/GeCorn_2025-01-25_09/GeCorn_2025-01-25_09_sample_000096256.wav"
+    )
     # plot_panel = Main(wav_file="/tmp/ramdisk/GeCorn_2025-01-25_09/GeCorn_2025-01-25_09_sample_000017408.wav")
 
-    plot_panel = Main(
-        wav_file="GeCorn_2025-01-25_09/GeCorn_2025-01-25_09_sample17408.wav"
-    )
+    # plot_panel = Main(        wav_file="GeCorn_2025-01-25_09/GeCorn_2025-01-25_09_sample17408.wav"    )
     plot_panel.show()
     sys.exit(app.exec())
