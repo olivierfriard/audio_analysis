@@ -157,17 +157,23 @@ class Main(QWidget):
             print("File stereo rilevato. Uso il primo canale.")
             self.data = self.data[:, 0]
         self.data = self.data / np.max(np.abs(self.data))
-        self.time = np.linspace(0, len(self.data) / self.sampling_rate, num=len(self.data))
+        self.time = np.linspace(
+            0, len(self.data) / self.sampling_rate, num=len(self.data)
+        )
         self.id_xmin = 0
         self.id_xmax = len(self.data)
 
         self.canto = np.zeros(len(self.data))
         self.rms = np.zeros(len(self.data) // self.overlap)
         n_frames = np.arange(len(self.rms))
-        self.rms_times = librosa.frames_to_time(n_frames, sr=self.sampling_rate, hop_length=self.overlap)
+        self.rms_times = librosa.frames_to_time(
+            n_frames, sr=self.sampling_rate, hop_length=self.overlap
+        )
         self.peaks_times = np.array([])
 
-        self.setWindowTitle(f"{Path(__file__).stem.replace('_', ' ')} - {Path(wav_file).stem}")
+        self.setWindowTitle(
+            f"{Path(__file__).stem.replace('_', ' ')} - {Path(wav_file).stem}"
+        )
 
     def plot_wav(self, xmin, xmax):
         """
@@ -182,7 +188,9 @@ class Main(QWidget):
         data_segment = self.data[self.id_xmin : self.id_xmax]
         canto_segment = self.canto[self.id_xmin : self.id_xmax]
         print("xmin", self.xmin, "xmax", self.xmax)
-        self.ax.plot(time_segment, data_segment, linewidth=0.5, color="black", alpha=0.25)
+        self.ax.plot(
+            time_segment, data_segment, linewidth=0.5, color="black", alpha=0.25
+        )
         self.ax.plot(time_segment, canto_segment, "-", color="blue")
         mask_rms = (self.rms_times >= self.xmin) & (self.rms_times <= self.xmax)
         rms_times_sel = self.rms_times[mask_rms]
@@ -195,7 +203,9 @@ class Main(QWidget):
         print(len(self.peaks_times))
 
         if len(self.peaks_times) > 0:
-            mask_peaks = (self.peaks_times >= self.xmin) & (self.peaks_times <= self.xmax)
+            mask_peaks = (self.peaks_times >= self.xmin) & (
+                self.peaks_times <= self.xmax
+            )
 
             print(mask_peaks)
 
@@ -205,7 +215,9 @@ class Main(QWidget):
 
         if len(peaks_selected) > 0:
             for i in np.arange(len(peaks_selected)):
-                self.ax.plot([peaks_selected[i], peaks_selected[i]], [0, 1], "-g", linewidth=1)
+                self.ax.plot(
+                    [peaks_selected[i], peaks_selected[i]], [0, 1], "-g", linewidth=1
+                )
 
         self.ax.plot()
         self.ax.plot(rms_times_sel, rms_sel, linewidth=1, color="red")
@@ -236,8 +248,12 @@ class Main(QWidget):
             if self.window_size <= 0 or self.overlap < 0:
                 print("Errore: Window size deve essere > 0 e Overlap >= 0")
                 return
-            self.rms = librosa.feature.rms(y=self.data, frame_length=self.window_size, hop_length=self.overlap)[0]
-            self.rms_times = librosa.frames_to_time(np.arange(len(self.rms)), sr=self.sampling_rate, hop_length=self.overlap)
+            self.rms = librosa.feature.rms(
+                y=self.data, frame_length=self.window_size, hop_length=self.overlap
+            )[0]
+            self.rms_times = librosa.frames_to_time(
+                np.arange(len(self.rms)), sr=self.sampling_rate, hop_length=self.overlap
+            )
             print("Envelope calcolato, lunghezza:", len(self.rms))
             self.plot_wav(self.xmin, self.xmax)
         except Exception as e:
@@ -249,7 +265,11 @@ class Main(QWidget):
         """
 
         try:
-            if self.fft_length <= 0 or self.fft_overlap < 0 or self.fft_overlap >= self.fft_length:
+            if (
+                self.fft_length <= 0
+                or self.fft_overlap < 0
+                or self.fft_overlap >= self.fft_length
+            ):
                 print("Errore: Parametri FFT non validi.")
                 return
             self.id_xmin = int(self.xmin * self.sampling_rate)
@@ -285,18 +305,26 @@ class Main(QWidget):
             power = power[mask_positive]
             avg_power_db = np.log10(power / np.max(power) + 1e-10)
 
-            self.spectrum_peaks, properties = find_peaks(avg_power_db, height=-5, distance=1000)
+            self.spectrum_peaks, properties = find_peaks(
+                avg_power_db, height=-5, distance=1000
+            )
             self.spectrum_peaks_Hz = freqs[self.spectrum_peaks]
             spectrum_peaks_db = avg_power_db[self.spectrum_peaks]
 
             print(f"spectrum_peaks: {self.spectrum_peaks_Hz}")
 
-            self.results_dict["spectrum"] = np.concatenate(([freqs], [power]), axis=1).tolist()
-            self.results_dict["spectrum_peaks"] = np.concatenate(([self.spectrum_peaks_Hz], [spectrum_peaks_db]), axis=1).tolist()
+            self.results_dict["spectrum"] = np.concatenate(
+                ([freqs], [power]), axis=1
+            ).tolist()
+            self.results_dict["spectrum_peaks"] = np.concatenate(
+                ([self.spectrum_peaks_Hz], [spectrum_peaks_db]), axis=1
+            ).tolist()
 
             self.ax2.cla()
             self.ax2.plot(freqs, avg_power_db, color="blue")
-            self.ax2.plot(self.spectrum_peaks_Hz, avg_power_db[self.spectrum_peaks], "or")
+            self.ax2.plot(
+                self.spectrum_peaks_Hz, avg_power_db[self.spectrum_peaks], "or"
+            )
 
             self.ax2.set_title("Power Spectrum")
             self.ax2.set_xlabel("Frequency (Hz)")
@@ -310,19 +338,32 @@ class Main(QWidget):
         Trova i picchi dell'inviluppo RMS e li converte nei campioni della registrazione originale.
         """
         try:
-            min_distance_samples = int(self.min_distance * (self.sampling_rate / self.overlap))  # Converti in campioni
+            min_distance_samples = int(
+                self.min_distance * (self.sampling_rate / self.overlap)
+            )  # Converti in campioni
 
             # Trova i picchi nell'inviluppo RMS
-            peaks, properties = find_peaks(self.rms, height=self.min_amplitude, distance=min_distance_samples, prominence=0.01)
+            peaks, properties = find_peaks(
+                self.rms,
+                height=self.min_amplitude,
+                distance=min_distance_samples,
+                prominence=0.01,
+            )
 
             # Converti gli indici nei campioni effettivi dell'audio originale
             self.peaks_times = peaks * self.overlap / self.sampling_rate  # In secondi
 
             self.trova_ini_fin()
         except ValueError:
-            print(" Errore: Inserisci valori numerici validi per la distanza e la soglia.")
+            print(
+                " Errore: Inserisci valori numerici validi per la distanza e la soglia."
+            )
         except Exception as e:
-            QMessageBox.critical(self, "", f"Funzione Trova picchi\n\nError on file {self.wav_file}\n\n{e}")
+            QMessageBox.critical(
+                self,
+                "",
+                f"Funzione Trova picchi\n\nError on file {self.wav_file}\n\n{e}",
+            )
 
     def trova_ini_fin(self):
         # trova inizio
@@ -340,7 +381,6 @@ class Main(QWidget):
         rms_fine = self.rms[int(peaks[-1]) :]
         trova_fine = np.where(rms_fine <= rms_noise * 2)[0][0]
         fine = (int(peaks[-1]) + trova_fine) * self.overlap
-
         self.canto = np.zeros(len(self.rms) * self.overlap)
         self.canto[inizio:fine] = np.max(self.rms)
 
@@ -383,11 +423,15 @@ class Main(QWidget):
         parameters["songs"][str(sample)]["fft_length"] = self.fft_length
         parameters["songs"][str(sample)]["fft_overlap"] = self.fft_overlap
         parameters["songs"][str(sample)]["sampling rate"] = self.sampling_rate
-        parameters["songs"][str(sample)]["call_duration"] = len(self.canto) / self.sampling_rate
+        parameters["songs"][str(sample)]["call_duration"] = (
+            len(self.canto) / self.sampling_rate
+        )
         parameters["songs"][str(sample)]["pulse_number"] = len(self.peaks_times)
         parameters["songs"][str(sample)]["peaks_times"] = self.peaks_times.tolist()
         parameters["songs"][str(sample)]["spectrum"] = self.results_dict["spectrum"]
-        parameters["songs"][str(sample)]["spectrum peaks"] = self.results_dict["spectrum_peaks"]
+        parameters["songs"][str(sample)]["spectrum peaks"] = self.results_dict[
+            "spectrum_peaks"
+        ]
 
         # save in data.json
         try:
@@ -426,7 +470,7 @@ class Main(QWidget):
 
     def previous_file_clicked(self):
         """
-        previous next file
+        load previous file
         """
         wav_list = sorted(Path(self.wav_file).parent.glob("*.wav"))
         for idx, wav_file in enumerate(wav_list):
@@ -468,7 +512,9 @@ class ControlPanel(QWidget):
         super().__init__()
         self.plot_panel = plot_panel
         self.setWindowTitle("Control Panel")
-        self.setGeometry(1100, 100, 300, 400)  # Posiziona la finestra dei controlli separata
+        self.setGeometry(
+            1100, 100, 300, 400
+        )  # Posiziona la finestra dei controlli separata
 
         # Layout per i parametri dell'envelope
         envelope_layout = QHBoxLayout()
@@ -629,8 +675,10 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     # Crea la finestra dei plots e quella dei controlli
     # plot_panel = Main(wav_file="/tmp/ramdisk/GeCorn_2025-01-25_09/GeCorn_2025-01-25_09_sample_000096256.wav")
-    plot_panel = Main(wav_file="/tmp/ramdisk/GeCorn_2025-01-25_09/GeCorn_2025-01-25_09_sample_000017408.wav")
+    # plot_panel = Main(wav_file="/tmp/ramdisk/GeCorn_2025-01-25_09/GeCorn_2025-01-25_09_sample_000017408.wav")
 
-    # plot_panel = Main(wav_file="GeCorn_2025-01-25_09/GeCorn_2025-01-25_09_sample17408.wav")
+    plot_panel = Main(
+        wav_file="GeCorn_2025-01-25_09/GeCorn_2025-01-25_09_sample17408.wav"
+    )
     plot_panel.show()
     sys.exit(app.exec())
