@@ -206,7 +206,6 @@ class Main(QWidget):
             mask_peaks = (self.peaks_times >= self.xmin) & (
                 self.peaks_times <= self.xmax
             )
-
             print(mask_peaks)
 
             peaks_selected = self.peaks_times[mask_peaks]
