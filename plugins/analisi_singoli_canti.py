@@ -442,7 +442,7 @@ class Main(QWidget):
             print(f"Errore nel salvataggio dei risultati: {e}")
 
         # Save the dictionary to a pickle file
-        with open("data.pkl", "wb") as f_out:
+        with open(Path(self.wav_file).parent / "data.pkl", "wb") as f_out:
             pickle.dump(parameters, f_out)
 
     def next_file_clicked(self):
