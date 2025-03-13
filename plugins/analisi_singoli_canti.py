@@ -18,8 +18,8 @@ from PySide6.QtWidgets import (
     QSplitter,
     QMessageBox,
     QSpinBox,
-    QDoubleSpinBox
-    )
+    QDoubleSpinBox,
+)
 from PySide6.QtCore import Qt, QTimer
 from pathlib import Path
 
@@ -29,6 +29,7 @@ MIN_AMPLITUDE = 0.1
 MIN_DISTANCE = 0.003
 FFT_LENGTH = 1024
 FFT_OVERLAP = 512
+SIGNAL_TO_NOISE_RATIO = 2
 
 
 class Main(QWidget):
@@ -142,7 +143,7 @@ class Main(QWidget):
 
         # spectrum
         self.plot_spectrum()
-        #self.close()
+        # self.close()
 
     def load_wav(self, wav_file):
         """
@@ -576,6 +577,19 @@ class ControlPanel(QWidget):
         peak_finder_layout.addWidget(self.peaks_btn)
         self.peaks_btn.clicked.connect(self.peaks_clicked)
 
+        # Layout per i parametri del call duration
+        call_duration_layout = QHBoxLayout()
+        self.call_duration_input = QDoubleSpinBox()
+        self.call_duration_input.setDecimals(1)
+        self.call_duration_input.setSingleStep(0.1)
+        self.call_duration_input.setMinimum(1)
+        self.call_duration_input.setMaximum(5)
+        self.call_duration_input.setValue(SIGNAL_TO_NOISE_RATIO)
+        self.call_duration_input.valueChanged.connect(self.signal_noise_ratio_changed)
+
+        call_duration_layout.addWidget(QLabel("S/N"))
+        call_duration_layout.addWidget(self.call_duration_input)
+
         # Layout per i parametri dello spettro
         spectrum_layout = QHBoxLayout()
 
@@ -610,6 +624,8 @@ class ControlPanel(QWidget):
         main_layout.addSpacing(10)
         main_layout.addWidget(QLabel("Peak Finder Parameters"))
         main_layout.addLayout(peak_finder_layout)
+        main_layout.addSpacing(10)
+        main_layout.addLayout(call_duration_layout)
         main_layout.addSpacing(10)
         main_layout.addWidget(QLabel("Spectrum Parameters"))
         main_layout.addLayout(spectrum_layout)
@@ -650,6 +666,10 @@ class ControlPanel(QWidget):
         self.plot_panel.min_distance = new_value
         self.peaks_clicked()
 
+    def signal_noise_ratio_changed(self, new_value):
+        self.signal_noise_ratio = new_value
+        self.plot_panel.signal_noise_ratio = new_value
+
     def fft_length_changed(self, new_value):
         self.plot_panel.fft_length = new_value
         self.plot_panel.plot_spectrum()
@@ -680,11 +700,14 @@ class ControlPanel(QWidget):
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     # Crea la finestra dei plots e quella dei controlli
-    plot_panel = Main(
-        wav_file=r"C:\Users\Sergio\audio_analysis\GeCorn_2025-01-25_09\GeCorn_2025-01-25_09_sample_000017408.wav"
-    )
-    # plot_panel = Main(wav_file="/tmp/ramdisk/GeCorn_2025-01-25_09/GeCorn_2025-01-25_09_sample_000017408.wav")
 
-    # plot_panel = Main(        wav_file="GeCorn_2025-01-25_09/GeCorn_2025-01-25_09_sample17408.wav"    )
+    # plot_panel = Main(
+    #    wav_file=r"C:\Users\Sergio\audio_analysis\GeCorn_2025-01-25_09\GeCorn_2025-01-25_09_sample_000017408.wav"
+    # )
+
+    plot_panel = Main(
+        wav_file="/tmp/ramdisk/GeCorn_2025-01-25_09/GeCorn_2025-01-25_09_sample_003631104.wav"
+    )
+
     plot_panel.show()
     sys.exit(app.exec())
