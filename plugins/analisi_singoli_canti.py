@@ -18,9 +18,9 @@ from PySide6.QtWidgets import (
     QSplitter,
     QMessageBox,
     QSpinBox,
-    QDoubleSpinBox,
-)
-from PySide6.QtCore import Qt
+    QDoubleSpinBox
+    )
+from PySide6.QtCore import Qt, QTimer
 from pathlib import Path
 
 WINDOW_SIZE = 50
@@ -142,6 +142,7 @@ class Main(QWidget):
 
         # spectrum
         self.plot_spectrum()
+        #self.close()
 
     def load_wav(self, wav_file):
         """
@@ -667,7 +668,7 @@ class ControlPanel(QWidget):
         try:
             self.plot_panel.trova_picchi()
         except Exception as e:
-            print("Errore nei parametri peak finder -----:", e)
+            print("Errore nei parametri peak finder:", e)
 
     def spectrum_clicked(self):
         try:
@@ -680,7 +681,7 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     # Crea la finestra dei plots e quella dei controlli
     plot_panel = Main(
-        wav_file="/tmp/ramdisk/GeCorn_2025-01-25_09/GeCorn_2025-01-25_09_sample_000096256.wav"
+        wav_file=r"C:\Users\Sergio\audio_analysis\GeCorn_2025-01-25_09\GeCorn_2025-01-25_09_sample_000017408.wav"
     )
     # plot_panel = Main(wav_file="/tmp/ramdisk/GeCorn_2025-01-25_09/GeCorn_2025-01-25_09_sample_000017408.wav")
 
