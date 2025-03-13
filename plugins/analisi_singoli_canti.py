@@ -35,12 +35,20 @@ SIGNAL_TO_NOISE_RATIO = 2
 
 
 class Main(QWidget):
-    def __init__(self, wav_file):
+    def __init__(self, wav_file_list: list):
         super().__init__()
 
         self.init_values()
 
-        self.wav_file = wav_file
+        if wav_file_list:
+            self.wav_file = wav_file_list[0]
+        else:
+            QMessageBox.critical(
+                self,
+                "",
+                "No file WAV!",
+            )
+            return
 
         print("Carico il file:", self.wav_file)
         self.load_wav(self.wav_file)
@@ -582,6 +590,7 @@ class ControlPanel(QWidget):
         envelope_layout.addWidget(self.overlap_input)
         self.envelope_btn = QPushButton("Compute Envelope")
         envelope_layout.addWidget(self.envelope_btn)
+        envelope_layout.addStretch()
         self.envelope_btn.clicked.connect(self.envelope_clicked)
 
         # Layout per i parametri del peak finder
@@ -634,20 +643,22 @@ class ControlPanel(QWidget):
         peak_finder_layout.addWidget(self.prominence_input)
         self.peaks_btn = QPushButton("Find Peaks")
         peak_finder_layout.addWidget(self.peaks_btn)
+        peak_finder_layout.addStretch()
         self.peaks_btn.clicked.connect(self.peaks_clicked)
 
         # Layout per i parametri del call duration
         call_duration_layout = QHBoxLayout()
-        self.call_duration_input = QDoubleSpinBox()
-        self.call_duration_input.setDecimals(1)
-        self.call_duration_input.setSingleStep(0.1)
-        self.call_duration_input.setMinimum(1)
-        self.call_duration_input.setMaximum(5)
-        self.call_duration_input.setValue(SIGNAL_TO_NOISE_RATIO)
-        self.call_duration_input.valueChanged.connect(self.signal_to_noise_ratio_changed)
+        self.signal_noise_ration_input = QDoubleSpinBox()
+        self.signal_noise_ration_input.setDecimals(1)
+        self.signal_noise_ration_input.setSingleStep(0.1)
+        self.signal_noise_ration_input.setMinimum(1)
+        self.signal_noise_ration_input.setMaximum(5)
+        self.signal_noise_ration_input.setValue(SIGNAL_TO_NOISE_RATIO)
+        self.signal_noise_ration_input.valueChanged.connect(self.signal_to_noise_ratio_changed)
 
         call_duration_layout.addWidget(QLabel("S/N"))
-        call_duration_layout.addWidget(self.call_duration_input)
+        call_duration_layout.addWidget(self.signal_noise_ration_input)
+        call_duration_layout.addStretch()
 
         # Layout per i parametri dello spettro
         spectrum_layout = QHBoxLayout()
@@ -674,6 +685,7 @@ class ControlPanel(QWidget):
         spectrum_layout.addWidget(self.fft_overlap_input)
         self.spectrum_btn = QPushButton("Compute Spectrum")
         spectrum_layout.addWidget(self.spectrum_btn)
+        spectrum_layout.addStretch()
         self.spectrum_btn.clicked.connect(self.spectrum_clicked)
 
         # Layout principale
@@ -684,6 +696,7 @@ class ControlPanel(QWidget):
         main_layout.addWidget(QLabel("Peak Finder Parameters"))
         main_layout.addLayout(peak_finder_layout)
         main_layout.addSpacing(10)
+        main_layout.addWidget(QLabel("Call duration Parameters"))
         main_layout.addLayout(call_duration_layout)
         main_layout.addSpacing(10)
         main_layout.addWidget(QLabel("Spectrum Parameters"))
@@ -700,6 +713,10 @@ class ControlPanel(QWidget):
         self.setLayout(main_layout)
 
     def reset_values(self):
+        """
+        reset with default values
+        """
+
         self.window_size_input.setValue(WINDOW_SIZE)
         self.overlap_input.setValue(OVERLAP)
         self.amp_threshold_input.setValue(MIN_AMPLITUDE)
@@ -717,12 +734,12 @@ class ControlPanel(QWidget):
         self.plot_panel.envelope()
 
     def min_amplitude_changed(self, new_value):
-        self.min_amplitude = new_value
+        # self.min_amplitude = new_value
         self.plot_panel.min_amplitude = new_value
         self.peaks_clicked()
 
     def min_distance_changed(self, new_value):
-        self.min_distance = new_value
+        # self.min_distance = new_value
         self.plot_panel.min_distance = new_value
         self.peaks_clicked()
 
@@ -773,7 +790,7 @@ if __name__ == "__main__":
     # Crea la finestra dei plots e quella dei controlli
 
     plot_panel = Main(
-       wav_file=r"C:\Users\Sergio\audio_analysis\GeCorn_2025-01-25_09\GeCorn_2025-01-25_09_sample_000476159.wav"
+       wav_file_list=[r"C:\Users\Sergio\audio_analysis\GeCorn_2025-01-25_09\GeCorn_2025-01-25_09_sample_000476159.wav"]
     )
 
     #plot_panel = Main(
