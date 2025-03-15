@@ -44,10 +44,11 @@ class OscillogramWindow(QWidget):
     def __init__(self, wav_file: str):
         super().__init__()
         self.setWindowTitle(f"Oscillogram for {Path(wav_file).stem}")
-        self.setGeometry(300, 300, 800, 500)
+        # self.setGeometry(200, 200, 800, 500)
 
         self.sampling_rate, self.data = wavfile.read(wav_file)
         self.duration = len(self.data) / self.sampling_rate
+
         self.time = np.linspace(0, self.duration, num=len(self.data))
 
         # Layout principale a griglia
