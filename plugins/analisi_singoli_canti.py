@@ -41,6 +41,7 @@ class Main(QWidget):
         self.init_values()
 
         if wav_file_list:
+            self.wav_file_list = wav_file_list
             self.wav_file = wav_file_list[0]
         else:
             QMessageBox.critical(
@@ -133,9 +134,9 @@ class Main(QWidget):
         self.min_distance = MIN_DISTANCE
         self.max_distance = MAX_DISTANCE
         self.prominence = PROMINENCE
+        self.signal_to_noise_ratio = SIGNAL_TO_NOISE_RATIO
         self.fft_length = FFT_LENGTH
         self.fft_overlap = FFT_OVERLAP
-        self.signal_to_noise_ratio = SIGNAL_TO_NOISE_RATIO
 
         # Crea il dizionario dei risultati
         self.results_dict = {
@@ -467,10 +468,20 @@ class Main(QWidget):
         parameters["songs"][str(sample)]["file"] = Path(self.wav_file).stem
         parameters["songs"][str(sample)]["window_size"] = self.window_size
         parameters["songs"][str(sample)]["overlap"] = self.overlap
-        parameters["songs"][str(sample)]["min_amplitude"] = self.min_amplitude
+        parameters["songs"][str(sample)]["min_amplitude"] = (
+            self.min_amplitude
+        )  # amp threshold
         parameters["songs"][str(sample)]["min_distance"] = self.min_distance
+        parameters["songs"][str(sample)]["max_distance"] = self.max_distance
+        parameters["songs"][str(sample)]["prominence"] = self.prominence
+
+        parameters["songs"][str(sample)]["signal_to_noise_ratio"] = (
+            self.signal_to_noise_ratio
+        )
+
         parameters["songs"][str(sample)]["fft_length"] = self.fft_length
         parameters["songs"][str(sample)]["fft_overlap"] = self.fft_overlap
+
         parameters["songs"][str(sample)]["sampling rate"] = self.sampling_rate
         parameters["songs"][str(sample)]["call_duration"] = (
             len(self.canto) / self.sampling_rate
@@ -500,19 +511,19 @@ class Main(QWidget):
         """
         load next file
         """
-        wav_list = sorted(Path(self.wav_file).parent.glob("*.wav"))
-        for idx, wav_file in enumerate(wav_list):
-            if Path(self.wav_file).name == wav_file.name:
+
+        for idx, wav_file in enumerate(self.wav_file_list):
+            if wav_file == self.wav_file:
                 break
         else:
             QMessageBox.critical(self, "", "Current file not found")
             return
 
-        if idx >= len(wav_list):
+        if idx + 1 >= len(self.wav_file_list):
             QMessageBox.critical(self, "", "Last file")
             return
 
-        self.wav_file = wav_list[idx + 1]
+        self.wav_file = self.wav_file_list[idx + 1]
 
         self.load_wav(self.wav_file)
         self.plot_wav(self.xmin, self.xmax)
@@ -522,9 +533,9 @@ class Main(QWidget):
         """
         load previous file
         """
-        wav_list = sorted(Path(self.wav_file).parent.glob("*.wav"))
-        for idx, wav_file in enumerate(wav_list):
-            if Path(self.wav_file).name == wav_file.name:
+
+        for idx, wav_file in enumerate(self.wav_file_list):
+            if wav_file == self.wav_file:
                 break
         else:
             QMessageBox.critical(self, "", "Current file not found")
@@ -534,7 +545,7 @@ class Main(QWidget):
             QMessageBox.critical(self, "", "First file of directory")
             return
 
-        self.wav_file = wav_list[idx - 1]
+        self.wav_file = self.wav_file_list[idx - 1]
 
         self.load_wav(self.wav_file)
         self.plot_wav(self.xmin, self.xmax)
@@ -544,9 +555,10 @@ class Main(QWidget):
         """
         automatically process current file and next files
         """
-        wav_list = sorted(Path(self.wav_file).parent.glob("*.wav"))
-        for idx, wav_file in enumerate(wav_list):
-            if wav_file.name >= Path(self.wav_file).name:
+
+        # wav_list = sorted(Path(self.wav_file).parent.glob("*.wav"))
+        for idx, wav_file in self.wav_file_list:
+            if wav_file >= self.wav_file:
                 self.wav_file = wav_file
                 self.load_wav(self.wav_file)
 
@@ -567,14 +579,13 @@ class ControlPanel(QWidget):
         )  # Posiziona la finestra dei controlli separata
 
         # Layout per i parametri dell'envelope
-        envelope_layout = QHBoxLayout()
-        self.min_amplitude = self.main.min_amplitude
-        self.prominence = self.main.prominence
-        self.min_distance = self.main.min_distance
-        self.max_distance = self.main.max_distance
-        self.signal_to_noise_ratio = self.main.signal_to_noise_ratio
+        envelope_layout = QVBoxLayout()
 
-        # window size
+        envelope_layout.addWidget(QLabel("Envelope Parameters"))
+
+        h_layout = QHBoxLayout()
+
+        # envelope window size
         self.window_size_input = QSpinBox()
         self.window_size_input.setMinimum(10)
         self.window_size_input.setMaximum(1000)
@@ -582,7 +593,7 @@ class ControlPanel(QWidget):
         self.window_size_input.setSingleStep(10)
         self.window_size_input.valueChanged.connect(self.window_size_changed)
 
-        # overlap
+        #  envelope overlap
         self.overlap_input = QSpinBox()
         self.overlap_input.setMinimum(10)
         self.overlap_input.setMaximum(1000)
@@ -590,19 +601,32 @@ class ControlPanel(QWidget):
         self.overlap_input.setSingleStep(10)
         self.overlap_input.valueChanged.connect(self.overlap_changed)
 
-        envelope_layout.addWidget(QLabel("Window size"))
-        envelope_layout.addWidget(self.window_size_input)
-        envelope_layout.addWidget(QLabel("Overlap"))
-        envelope_layout.addWidget(self.overlap_input)
+        h_layout.addWidget(QLabel("Window size"))
+        h_layout.addWidget(self.window_size_input)
+        h_layout.addWidget(QLabel("Overlap"))
+        h_layout.addWidget(self.overlap_input)
+        h_layout.addStretch()
+
+        envelope_layout.addLayout(h_layout)
+
+        h_layout = QHBoxLayout()
+
         self.envelope_btn = QPushButton("Compute Envelope")
-        envelope_layout.addWidget(self.envelope_btn)
-        envelope_layout.addStretch()
         self.envelope_btn.clicked.connect(self.envelope_clicked)
+        h_layout.addWidget(self.envelope_btn)
+        h_layout.addStretch()
+        envelope_layout.addLayout(h_layout)
 
         # Layout per i parametri del peak finder
-        peak_finder_layout = QHBoxLayout()
+        peak_finder_layout = QVBoxLayout()
 
-        # MIN_AMPLITUDE
+        peak_finder_layout.addWidget(QLabel("Peak Finder Parameters"))
+
+        h_layout = QHBoxLayout()
+
+        # Amp threshold
+        h_layout.addWidget(QLabel("Amplitude threshold"))
+
         self.amp_threshold_input = QDoubleSpinBox()
         self.amp_threshold_input.setDecimals(3)  # Set to 3 decimal places
         self.amp_threshold_input.setSingleStep(0.005)  # Step size of 0.1
@@ -611,7 +635,17 @@ class ControlPanel(QWidget):
         self.amp_threshold_input.setValue(MIN_AMPLITUDE)
         self.amp_threshold_input.valueChanged.connect(self.min_amplitude_changed)
 
+        h_layout.addWidget(self.amp_threshold_input)
+
+        h_layout.addStretch()
+
+        peak_finder_layout.addLayout(h_layout)
+
+        h_layout = QHBoxLayout()
+
         # MIN_DISTANCE
+        h_layout.addWidget(QLabel("Min"))
+
         self.min_distance_input = QDoubleSpinBox()
         self.min_distance_input.setDecimals(3)  # Set to 3 decimal places
         self.min_distance_input.setSingleStep(0.0005)  # Step size of 0.1
@@ -620,7 +654,11 @@ class ControlPanel(QWidget):
         self.min_distance_input.setValue(MIN_DISTANCE)
         self.min_distance_input.valueChanged.connect(self.min_distance_changed)
 
+        h_layout.addWidget(self.min_distance_input)
+
         # MAX_DISTANCE
+        h_layout.addWidget(QLabel("Max"))
+
         self.max_distance_input = QDoubleSpinBox()
         self.max_distance_input.setDecimals(3)  # Set to 3 decimal places
         self.max_distance_input.setSingleStep(0.001)  # Step size of 0.1
@@ -629,7 +667,16 @@ class ControlPanel(QWidget):
         self.max_distance_input.setValue(MAX_DISTANCE)
         self.max_distance_input.valueChanged.connect(self.max_distance_changed)
 
+        h_layout.addWidget(self.max_distance_input)
+        h_layout.addStretch()
+
+        peak_finder_layout.addLayout(h_layout)
+
+        h_layout = QHBoxLayout()
+
         # PROMINENCE
+        h_layout.addWidget(QLabel("Prominence"))
+
         self.prominence_input = QDoubleSpinBox()
         self.prominence_input.setDecimals(3)  # Set to 3 decimal places
         self.prominence_input.setSingleStep(0.01)  # Step size of 0.1
@@ -638,21 +685,27 @@ class ControlPanel(QWidget):
         self.prominence_input.setValue(PROMINENCE)
         self.prominence_input.valueChanged.connect(self.prominence_changed)
 
-        peak_finder_layout.addWidget(QLabel("Amplitude Threshold"))
-        peak_finder_layout.addWidget(self.amp_threshold_input)
-        peak_finder_layout.addWidget(QLabel("Min"))
-        peak_finder_layout.addWidget(self.min_distance_input)
-        peak_finder_layout.addWidget(QLabel("Max"))
-        peak_finder_layout.addWidget(self.max_distance_input)
-        peak_finder_layout.addWidget(QLabel("Prominence"))
-        peak_finder_layout.addWidget(self.prominence_input)
+        h_layout.addWidget(self.prominence_input)
+        h_layout.addStretch()
+
+        peak_finder_layout.addLayout(h_layout)
+
+        h_layout = QHBoxLayout()
+
         self.peaks_btn = QPushButton("Find Peaks")
-        peak_finder_layout.addWidget(self.peaks_btn)
-        peak_finder_layout.addStretch()
         self.peaks_btn.clicked.connect(self.peaks_clicked)
+        h_layout.addWidget(self.peaks_btn)
+        h_layout.addStretch()
+
+        peak_finder_layout.addLayout(h_layout)
 
         # Layout per i parametri del call duration
         call_duration_layout = QHBoxLayout()
+
+        call_duration_layout.addWidget(QLabel("Call duration Parameters"))
+
+        call_duration_layout.addWidget(QLabel("S/N"))
+
         self.signal_noise_ration_input = QDoubleSpinBox()
         self.signal_noise_ration_input.setDecimals(1)
         self.signal_noise_ration_input.setSingleStep(0.1)
@@ -663,14 +716,19 @@ class ControlPanel(QWidget):
             self.signal_to_noise_ratio_changed
         )
 
-        call_duration_layout.addWidget(QLabel("S/N"))
         call_duration_layout.addWidget(self.signal_noise_ration_input)
         call_duration_layout.addStretch()
 
         # Layout per i parametri dello spettro
-        spectrum_layout = QHBoxLayout()
+        spectrum_layout = QVBoxLayout()
+
+        spectrum_layout.addWidget(QLabel("Spectrum Parameters"))
+
+        h_layout = QHBoxLayout()
 
         # FFT LENGTH
+        h_layout.addWidget(QLabel("FFT Length"))
+
         self.fft_length_input = QSpinBox()
         self.fft_length_input.setMinimum(10)
         self.fft_length_input.setMaximum(10000)
@@ -678,7 +736,11 @@ class ControlPanel(QWidget):
         self.fft_length_input.setSingleStep(10)
         self.fft_length_input.valueChanged.connect(self.fft_length_changed)
 
+        h_layout.addWidget(self.fft_length_input)
+
         # FFT OVERLAP
+        h_layout.addWidget(QLabel("Overlap"))
+
         self.fft_overlap_input = QSpinBox()
         self.fft_overlap_input.setMinimum(10)
         self.fft_overlap_input.setMaximum(10000)
@@ -686,27 +748,32 @@ class ControlPanel(QWidget):
         self.fft_overlap_input.setSingleStep(10)
         self.fft_overlap_input.valueChanged.connect(self.fft_overlap_changed)
 
-        spectrum_layout.addWidget(QLabel("FFT Length"))
-        spectrum_layout.addWidget(self.fft_length_input)
-        spectrum_layout.addWidget(QLabel("Overlap"))
-        spectrum_layout.addWidget(self.fft_overlap_input)
+        h_layout.addWidget(self.fft_overlap_input)
+        h_layout.addStretch()
+
+        spectrum_layout.addLayout(h_layout)
+
+        h_layout = QHBoxLayout()
+
         self.spectrum_btn = QPushButton("Compute Spectrum")
-        spectrum_layout.addWidget(self.spectrum_btn)
-        spectrum_layout.addStretch()
         self.spectrum_btn.clicked.connect(self.spectrum_clicked)
+        h_layout.addWidget(self.spectrum_btn)
+        h_layout.addStretch()
+
+        spectrum_layout.addLayout(h_layout)
 
         # Layout principale
         main_layout = QVBoxLayout()
-        main_layout.addWidget(QLabel("Envelope Parameters"))
+
         main_layout.addLayout(envelope_layout)
         main_layout.addSpacing(10)
-        main_layout.addWidget(QLabel("Peak Finder Parameters"))
+
         main_layout.addLayout(peak_finder_layout)
         main_layout.addSpacing(10)
-        main_layout.addWidget(QLabel("Call duration Parameters"))
+
         main_layout.addLayout(call_duration_layout)
         main_layout.addSpacing(10)
-        main_layout.addWidget(QLabel("Spectrum Parameters"))
+
         main_layout.addLayout(spectrum_layout)
         main_layout.addStretch()
 
@@ -726,9 +793,11 @@ class ControlPanel(QWidget):
 
         self.window_size_input.setValue(WINDOW_SIZE)
         self.overlap_input.setValue(OVERLAP)
-        self.amp_threshold_input.setValue(MIN_AMPLITUDE)
+        self.amp_threshold_input.setValue(MIN_AMPLITUDE)  # Amplitude threshold
         self.min_distance_input.setValue(MIN_DISTANCE)
         self.max_distance_input.setValue(MAX_DISTANCE)
+        self.prominence_input.setValue(PROMINENCE)
+        self.signal_noise_ration_input.setValue(SIGNAL_TO_NOISE_RATIO)
         self.fft_length_input.setValue(FFT_LENGTH)
         self.fft_overlap_input.setValue(FFT_OVERLAP)
 
@@ -741,27 +810,22 @@ class ControlPanel(QWidget):
         self.main.envelope()
 
     def min_amplitude_changed(self, new_value):
-        # self.min_amplitude = new_value
         self.main.min_amplitude = new_value
         self.peaks_clicked()
 
     def min_distance_changed(self, new_value):
-        # self.min_distance = new_value
         self.main.min_distance = new_value
         self.peaks_clicked()
 
     def max_distance_changed(self, new_value):
-        self.max_distance = new_value
         self.main.max_distance = new_value
         self.peaks_clicked()
 
     def prominence_changed(self, new_value):
-        self.prominence = new_value
         self.main.prominence = new_value
         self.peaks_clicked()
 
     def signal_to_noise_ratio_changed(self, new_value):
-        self.signal_to_noise_ratio = new_value
         self.main.signal_to_noise_ratio = new_value
         self.main.trova_ini_fin()
 
@@ -802,7 +866,9 @@ if __name__ == "__main__":
 
     main = Main(
         wav_file_list=[
-            "/tmp/ramdisk/GeCorn_2025-01-25_09/GeCorn_2025-01-25_09_sample_003631104.wav"
+            "/tmp/ramdisk/GeCorn_2025-01-25_09/GeCorn_2025-01-25_09_sample_003631104.wav",
+            "/tmp/ramdisk/GeCorn_2025-01-25_09/GeCorn_2025-01-25_09_sample_003654656.wav",
+            "/tmp/ramdisk/GeCorn_2025-01-25_09/GeCorn_2025-01-25_09_sample_003681792.wav",
         ]
     )
 
