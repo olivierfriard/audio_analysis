@@ -235,8 +235,11 @@ class OscillogramWindow(QWidget):
         self.ax.plot(self.time, self.data, linewidth=0.5, color="black")
         self.ax.set_xlabel("Time (s)")
         self.ax.set_ylabel("Amplitude")
-        self.ax.set_xlim(self.xmin, self.xmax)
+        # self.ax.set_xlim(self.xmin, self.xmax)
         self.canvas.draw()
+
+        print(f"{self.selected_region=}")
+        self.selected_region = None
 
     def play_dialog(self):
         """Riproduce il segmento selezionato dell'audio."""
