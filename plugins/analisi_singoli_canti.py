@@ -512,18 +512,12 @@ class Main(QWidget):
         load next file
         """
 
-        for idx, wav_file in enumerate(self.wav_file_list):
-            if wav_file == self.wav_file:
-                break
-        else:
-            QMessageBox.critical(self, "", "Current file not found")
-            return
-
-        if idx + 1 >= len(self.wav_file_list):
+        current_wav_index = self.wav_file_list.index(self.wav_file)
+        if current_wav_index == len(self.wav_file_list) - 1:
             QMessageBox.critical(self, "", "Last file")
             return
 
-        self.wav_file = self.wav_file_list[idx + 1]
+        self.wav_file = self.wav_file_list[current_wav_index + 1]
 
         self.load_wav(self.wav_file)
         self.plot_wav(self.xmin, self.xmax)
@@ -534,18 +528,12 @@ class Main(QWidget):
         load previous file
         """
 
-        for idx, wav_file in enumerate(self.wav_file_list):
-            if wav_file == self.wav_file:
-                break
-        else:
-            QMessageBox.critical(self, "", "Current file not found")
-            return
-
-        if idx == 0:
+        current_wav_index = self.wav_file_list.index(self.wav_file)
+        if current_wav_index == 0:
             QMessageBox.critical(self, "", "First file of directory")
             return
 
-        self.wav_file = self.wav_file_list[idx - 1]
+        self.wav_file = self.wav_file_list[current_wav_index - 1]
 
         self.load_wav(self.wav_file)
         self.plot_wav(self.xmin, self.xmax)
@@ -556,17 +544,15 @@ class Main(QWidget):
         automatically process current file and next files
         """
 
-        # wav_list = sorted(Path(self.wav_file).parent.glob("*.wav"))
-        for idx, wav_file in self.wav_file_list:
-            if wav_file >= self.wav_file:
-                self.wav_file = wav_file
-                self.load_wav(self.wav_file)
+        for wav_file in self.wav_file_list[self.wav_file_list.index(self.wav_file) :]:
+            self.wav_file = wav_file
+            self.load_wav(self.wav_file)
 
-                self.plot_wav(self.xmin, self.xmax)
+            self.plot_wav(self.xmin, self.xmax)
 
-                self.run_analysis()
+            self.run_analysis()
 
-                self.save_results_clicked()
+            self.save_results_clicked()
 
 
 class ControlPanel(QWidget):
