@@ -221,7 +221,7 @@ class Main(QWidget):
             mask_peaks = (self.peaks_times >= self.xmin) & (
                 self.peaks_times <= self.xmax
             )
-            #print(mask_peaks)
+            # print(mask_peaks)
 
             peaks_selected = self.peaks_times[mask_peaks]
         else:
@@ -268,7 +268,7 @@ class Main(QWidget):
             self.rms_times = librosa.frames_to_time(
                 np.arange(len(self.rms)), sr=self.sampling_rate, hop_length=self.overlap
             )
-            #print("Envelope calcolato, lunghezza:", len(self.rms))
+            # print("Envelope calcolato, lunghezza:", len(self.rms))
             self.peaks_times = []
             self.canto = np.zeros(len(self.rms) * self.overlap)
             self.plot_wav(self.xmin, self.xmax)
@@ -327,13 +327,14 @@ class Main(QWidget):
             self.spectrum_peaks_Hz = freqs[self.spectrum_peaks]
             spectrum_peaks_db = avg_power_db[self.spectrum_peaks]
 
-            #print(f"spectrum_peaks: {self.spectrum_peaks_Hz}")
+            # print(f"spectrum_peaks: {self.spectrum_peaks_Hz}")
 
             self.results_dict["spectrum"] = np.concatenate(
-                ([freqs], [power]), axis=1
+                ([freqs], [power]), axis=0
             ).tolist()
+
             self.results_dict["spectrum_peaks"] = np.concatenate(
-                ([self.spectrum_peaks_Hz], [spectrum_peaks_db]), axis=1
+                ([self.spectrum_peaks_Hz], [spectrum_peaks_db]), axis=0
             ).tolist()
 
             self.ax2.cla()
@@ -373,21 +374,25 @@ class Main(QWidget):
             for i in np.arange(1, len(peaks)):
                 if peaks[i] - peaks_filtered[-1] < max_distance_samples:
                     peaks_filtered.append(peaks[i])
-            
+
             peaks_filtered = np.array(peaks_filtered)
             mean_distance_between_peaks = np.mean(np.diff(peaks_filtered))
             sdt_distance_between_peaks = np.std(np.diff(peaks_filtered))
-            print("STD=",sdt_distance_between_peaks)
+            print("STD=", sdt_distance_between_peaks)
             peaks = [peaks_filtered[0]]
             # ultimo check
             for i in np.arange(1, len(peaks_filtered)):
                 print(peaks_filtered[i] - peaks[-1])
-                if (peaks_filtered[i] - peaks[-1]) < mean_distance_between_peaks + 3 * sdt_distance_between_peaks:
+                if (
+                    peaks_filtered[i] - peaks[-1]
+                ) < mean_distance_between_peaks + 3 * sdt_distance_between_peaks:
                     peaks.append(peaks_filtered[i])
-            
+
             peaks_filtered = np.array(peaks)
             # Converti gli indici nei campioni effettivi dell'audio originale
-            self.peaks_times = np.array(peaks_filtered) * self.overlap / self.sampling_rate  # In secondi
+            self.peaks_times = (
+                np.array(peaks_filtered) * self.overlap / self.sampling_rate
+            )  # In secondi
 
             self.trova_ini_fin()
         except ValueError:
@@ -405,27 +410,26 @@ class Main(QWidget):
         # trova inizio
         peaks = self.peaks_times * self.sampling_rate / self.overlap
         rms_noise_ini = np.mean(self.rms[: int(peaks[0] // 2)])
-        rms_noise_fin = np.mean(self.rms[int(peaks[-1]):])
-        
-        
+        rms_noise_fin = np.mean(self.rms[int(peaks[-1]) :])
+
         rms_ini = self.rms[: int(peaks[0])]
-        
+
         trova_ini = np.where(rms_ini > rms_noise_ini * self.signal_to_noise_ratio)[0]
-        
+
         if np.size(trova_ini) > 0:
             inizio = int(trova_ini[-1] * self.overlap)
-        
+
         else:
             inizio = 0
         # trova fine
         rms_fine = self.rms[int(peaks[-1]) :]
         trova_fine = np.where(rms_fine <= rms_noise_fin * self.signal_to_noise_ratio)[0]
-        
+
         if np.size(trova_fine) > 0:
             fine = (int(peaks[-1]) + trova_fine[0]) * self.overlap
         else:
             fine = len(self.rms) * self.overlap
-        
+
         self.canto = np.zeros(len(self.rms) * self.overlap)
         self.canto[inizio:fine] = np.max(self.rms)
 
@@ -474,6 +478,7 @@ class Main(QWidget):
         parameters["songs"][str(sample)]["pulse_number"] = len(self.peaks_times)
         parameters["songs"][str(sample)]["peaks_times"] = self.peaks_times.tolist()
         parameters["songs"][str(sample)]["spectrum"] = self.results_dict["spectrum"]
+
         parameters["songs"][str(sample)]["spectrum peaks"] = self.results_dict[
             "spectrum_peaks"
         ]
@@ -553,9 +558,9 @@ class Main(QWidget):
 
 
 class ControlPanel(QWidget):
-    def __init__(self, plot_panel):
+    def __init__(self, main):
         super().__init__()
-        self.plot_panel = plot_panel
+        self.main = main
         self.setWindowTitle("Control Panel")
         self.setGeometry(
             1100, 100, 300, 400
@@ -563,11 +568,12 @@ class ControlPanel(QWidget):
 
         # Layout per i parametri dell'envelope
         envelope_layout = QHBoxLayout()
-        self.min_amplitude = self.plot_panel.min_amplitude
-        self.prominence = self.plot_panel.prominence
-        self.min_distance = self.plot_panel.min_distance
-        self.max_distance = self.plot_panel.max_distance
-        self.signal_to_noise_ratio = self.plot_panel.signal_to_noise_ratio
+        self.min_amplitude = self.main.min_amplitude
+        self.prominence = self.main.prominence
+        self.min_distance = self.main.min_distance
+        self.max_distance = self.main.max_distance
+        self.signal_to_noise_ratio = self.main.signal_to_noise_ratio
+
         # window size
         self.window_size_input = QSpinBox()
         self.window_size_input.setMinimum(10)
@@ -632,7 +638,6 @@ class ControlPanel(QWidget):
         self.prominence_input.setValue(PROMINENCE)
         self.prominence_input.valueChanged.connect(self.prominence_changed)
 
-
         peak_finder_layout.addWidget(QLabel("Amplitude Threshold"))
         peak_finder_layout.addWidget(self.amp_threshold_input)
         peak_finder_layout.addWidget(QLabel("Min"))
@@ -654,7 +659,9 @@ class ControlPanel(QWidget):
         self.signal_noise_ration_input.setMinimum(1)
         self.signal_noise_ration_input.setMaximum(5)
         self.signal_noise_ration_input.setValue(SIGNAL_TO_NOISE_RATIO)
-        self.signal_noise_ration_input.valueChanged.connect(self.signal_to_noise_ratio_changed)
+        self.signal_noise_ration_input.valueChanged.connect(
+            self.signal_to_noise_ratio_changed
+        )
 
         call_duration_layout.addWidget(QLabel("S/N"))
         call_duration_layout.addWidget(self.signal_noise_ration_input)
@@ -726,61 +733,61 @@ class ControlPanel(QWidget):
         self.fft_overlap_input.setValue(FFT_OVERLAP)
 
     def window_size_changed(self, new_value):
-        self.plot_panel.window_size = new_value
-        self.plot_panel.envelope()
+        self.main.window_size = new_value
+        self.main.envelope()
 
     def overlap_changed(self, new_value):
-        self.plot_panel.overlap = new_value
-        self.plot_panel.envelope()
+        self.main.overlap = new_value
+        self.main.envelope()
 
     def min_amplitude_changed(self, new_value):
         # self.min_amplitude = new_value
-        self.plot_panel.min_amplitude = new_value
+        self.main.min_amplitude = new_value
         self.peaks_clicked()
 
     def min_distance_changed(self, new_value):
         # self.min_distance = new_value
-        self.plot_panel.min_distance = new_value
+        self.main.min_distance = new_value
         self.peaks_clicked()
 
     def max_distance_changed(self, new_value):
         self.max_distance = new_value
-        self.plot_panel.max_distance = new_value
+        self.main.max_distance = new_value
         self.peaks_clicked()
 
     def prominence_changed(self, new_value):
         self.prominence = new_value
-        self.plot_panel.prominence = new_value
+        self.main.prominence = new_value
         self.peaks_clicked()
 
     def signal_to_noise_ratio_changed(self, new_value):
         self.signal_to_noise_ratio = new_value
-        self.plot_panel.signal_to_noise_ratio = new_value
-        self.plot_panel.trova_ini_fin()
+        self.main.signal_to_noise_ratio = new_value
+        self.main.trova_ini_fin()
 
     def fft_length_changed(self, new_value):
-        self.plot_panel.fft_length = new_value
-        self.plot_panel.plot_spectrum()
+        self.main.fft_length = new_value
+        self.main.plot_spectrum()
 
     def fft_overlap_changed(self, new_value):
-        self.plot_panel.fft_overlap = new_value
-        self.plot_panel.plot_spectrum()
+        self.main.fft_overlap = new_value
+        self.main.plot_spectrum()
 
     def envelope_clicked(self):
         try:
-            self.plot_panel.envelope()
+            self.main.envelope()
         except Exception as e:
             print("Errore nei parametri envelope:", e)
 
     def peaks_clicked(self):
         try:
-            self.plot_panel.trova_picchi()
+            self.main.trova_picchi()
         except Exception as e:
             print("Errore nei parametri peak finder:", e)
 
     def spectrum_clicked(self):
         try:
-            self.plot_panel.plot_spectrum()
+            self.main.plot_spectrum()
         except Exception as e:
             print("Errore nei parametri spectrum:", e)
 
@@ -789,13 +796,15 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     # Crea la finestra dei plots e quella dei controlli
 
-    plot_panel = Main(
-       wav_file_list=[r"C:\Users\Sergio\audio_analysis\GeCorn_2025-01-25_09\GeCorn_2025-01-25_09_sample_000476159.wav"]
+    # main = Main(
+    #   wav_file_list=[r"C:\Users\Sergio\audio_analysis\GeCorn_2025-01-25_09\GeCorn_2025-01-25_09_sample_000476159.wav"]
+    # )
+
+    main = Main(
+        wav_file_list=[
+            "/tmp/ramdisk/GeCorn_2025-01-25_09/GeCorn_2025-01-25_09_sample_003631104.wav"
+        ]
     )
 
-    #plot_panel = Main(
-    #    wav_file="/tmp/ramdisk/GeCorn_2025-01-25_09/GeCorn_2025-01-25_09_sample_00134656.wav"
-    #)
-
-    plot_panel.show()
+    main.show()
     sys.exit(app.exec())
