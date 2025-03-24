@@ -442,10 +442,12 @@ class Main(QWidget):
 
         sample = int(Path(self.wav_file).stem.split("_")[-1])
 
+        save_path = Path(self.wav_file).parent.parent / "data.json"
+
         # self.run_analysis()
 
         # test if data.json exists
-        if not (Path(self.wav_file).parent / "data.json").is_file():
+        if not save_path.is_file():
             QMessageBox.warning(self, "", "The data.json file does not exist")
             return
 
@@ -453,8 +455,6 @@ class Main(QWidget):
         self.results_dict["sampling_rate"] = self.sampling_rate
         self.results_dict["call_duration"] = len(self.canto) / self.sampling_rate
         self.results_dict["pulse_number"] = len(self.peaks_times)
-
-        save_path = Path(self.wav_file).parent / "data.json"
 
         # read json content
         with open(save_path, "r", encoding="utf-8") as f_in:
@@ -503,7 +503,7 @@ class Main(QWidget):
             print(f"Errore nel salvataggio dei risultati: {e}")
 
         # Save the dictionary to a pickle file
-        with open(Path(self.wav_file).parent / "data.pkl", "wb") as f_out:
+        with open(save_path.with_suffix(".pkl"), "wb") as f_out:
             pickle.dump(parameters, f_out)
 
     def next_file_clicked(self):
