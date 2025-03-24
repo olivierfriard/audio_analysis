@@ -378,7 +378,6 @@ class MainWindow(QMainWindow):
         super().__init__()
 
         self.setWindowTitle("Audio Analysis")
-        # self.setGeometry(100, 100, 600, 400)
         self.wav_file = None
 
         self.wav_list: dict = {}

@@ -1,27 +1,28 @@
-import importlib.util
+"""
+cut wav files
+
+"""
+
 from pathlib import Path
 import sys
 import numpy as np
-import matplotlib.pyplot as plt
 from scipy.io import wavfile
 from PySide6.QtWidgets import (
     QApplication,
-    QMainWindow,
     QVBoxLayout,
     QLabel,
-    QLineEdit,
     QPushButton,
     QFileDialog,
     QWidget,
+    QMessageBox,
+    QSpinBox,
+    QHBoxLayout,
 )
-from PySide6.QtGui import QAction
-from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
-from matplotlib.widgets import Slider, SpanSelector, Button, TextBox
 import librosa
 
 
 class Main(QWidget):
-    def __init__(self, wav_file=None):
+    def __init__(self, wav_file_list: list):
         super().__init__()
 
         """
@@ -29,7 +30,23 @@ class Main(QWidget):
             self.wav_file = "C:\\Users\\Sergio\\audio_analysis\\"
         else:
         """
-        self.wav_file = wav_file
+
+        self.durata_ritaglio = 60  # Durata predefinita
+
+        if wav_file_list:
+            self.wav_file_list = wav_file_list
+            self.wav_file = wav_file_list[0]
+        else:
+            QMessageBox.critical(
+                self,
+                "",
+                "No file WAV!",
+            )
+            return
+
+        self.setWindowTitle(
+            f"{Path(__file__).stem.replace('_', ' ')} - {Path(self.wav_file).stem}"
+        )
 
         # Carica il file WAV e ottiene le informazioni
         self.sampling_rate, self.data = wavfile.read(self.wav_file)
@@ -47,47 +64,56 @@ class Main(QWidget):
         layout.addWidget(self.label_info)
 
         # Pulsante seleziona cartella madre
+        hlayout = QHBoxLayout()
         self.button_select = QPushButton("Scegli Cartella Madre", self)
         self.button_select.clicked.connect(self.select_folder)
-        layout.addWidget(self.button_select)
+        hlayout.addWidget(self.button_select)
+        hlayout.addStretch()
+        layout.addLayout(hlayout)
 
         # **Aggiunta di un titolo alla casella di testo**
         self.label_durata = QLabel("Durata ritaglio (secondi):")
         layout.addWidget(self.label_durata)
 
         # **Casella di testo per inserire la durata del ritaglio**
+        """
         self.text_input = QLineEdit(self)
         self.text_input.setPlaceholderText("60")  # Valore predefinito
         self.text_input.textChanged.connect(self.update_label)
         layout.addWidget(self.text_input)
-
-        # **Etichetta per mostrare il valore della durata**
-        self.label_selected_duration = QLabel("Durata selezionata: 60 sec")
-        layout.addWidget(self.label_selected_duration)
+        """
+        hlayout = QHBoxLayout()
+        self.duration = QSpinBox()
+        self.duration.setMinimum(1)
+        self.duration.setMaximum(1000)
+        self.duration.setValue(self.durata_ritaglio)
+        self.duration.setSingleStep(1)
+        self.duration.valueChanged.connect(self.update_label)
+        hlayout.addWidget(self.duration)
+        hlayout.addStretch()
+        layout.addLayout(hlayout)
 
         # Pulsante per salvare i file ritagliati
+        hlayout = QHBoxLayout()
         self.button_save = QPushButton("Salva i files ritagliati", self)
         self.button_save.clicked.connect(self.save_files)
-        layout.addWidget(self.button_save)
+        hlayout.addWidget(self.button_save)
         self.button_save.setEnabled(
             False
         )  # Disabilitato se sottocartella non è stata ancora selezionata
+        hlayout.addStretch()
+        layout.addLayout(hlayout)
 
         # Variabile per salvare la cartella selezionata
         self.selected_folder = None
-        self.durata_ritaglio = 60  # Durata predefinita
 
         self.setLayout(layout)
 
     def update_label(self, text):
-        """Aggiorna l'etichetta con la durata scelta"""
-        try:
-            self.durata_ritaglio = float(text)
-            self.label_selected_duration.setText(
-                f"Durata selezionata: {self.durata_ritaglio} sec"
-            )
-        except ValueError:
-            self.label_selected_duration.setText("⚠️ Inserire un numero valido")
+        """
+        Aggiorna l'etichetta con la durata scelta
+        """
+        self.durata_ritaglio = self.duration.value()
 
     def select_folder(self):
         """Apre il file dialog per selezionare una cartella e la salva in self.selected_folder"""
@@ -107,7 +133,10 @@ class Main(QWidget):
             )  # Abilita il pulsante solo dopo la creazione della sottocartella
 
     def save_files(self):
-        """Salva i ritagli assicurandosi che il taglio avvenga dove il segnale è minimo"""
+        """
+        Salva i ritagli assicurandosi che il taglio avvenga dove il segnale è minimo
+        """
+
         original_name = f"{Path(self.nome_subcartella) / Path(self.wav_file).stem}"
         ini = 0
         counter = 0  # per tenere traccia del numero di ritagli salvati
@@ -135,7 +164,7 @@ class Main(QWidget):
             fin_best = fin_range[min_index]
 
             # Costruisco il nome del file per il ritaglio corrente
-            nome_ritaglio = f"{original_name}_{ini}_{fin_best - 1}.wav"
+            nome_ritaglio = f"{original_name}_{ini:09d}_{fin_best - 1:09d}.wav"
             print(nome_ritaglio)
 
             # Evito un eventuale loop infinito: se il nuovo punto di taglio

@@ -4,7 +4,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.io import wavfile
 from scipy.signal import find_peaks
-from scipy.signal import savgol_filter
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 import librosa
 import pickle
@@ -20,7 +19,7 @@ from PySide6.QtWidgets import (
     QSpinBox,
     QDoubleSpinBox,
 )
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import Qt
 from pathlib import Path
 
 WINDOW_SIZE = 50
