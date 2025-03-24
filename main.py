@@ -544,7 +544,10 @@ class MainWindow(QMainWindow):
             self.wav_list_widget.addTopLevelItem(item)
 
     def open_wav(self):
-        print("DEBUG: La funzione open_wav() è stata chiamata.")  # Controllo immediato
+        """
+        apre i file wav indicati dall'utente e estrae sample rate e durata
+        """
+
         file_paths, _ = QFileDialog.getOpenFileNames(
             self, "Open WAV File", "", "WAV Files (*.wav)"
         )
