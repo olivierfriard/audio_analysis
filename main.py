@@ -4,7 +4,6 @@ import sys
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.io import wavfile
-import wave
 import sounddevice as sd
 from PySide6.QtWidgets import (
     QApplication,
@@ -32,7 +31,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
-from matplotlib.widgets import Slider, SpanSelector
+from matplotlib.widgets import SpanSelector
 import librosa
 
 __version__ = "0.0.4"
@@ -250,9 +249,6 @@ class OscillogramWindow(QWidget):
         sd.play(segment, samplerate=self.sampling_rate)  # Riprodurre il suono
 
 
-from PySide6.QtWidgets import QDialog
-
-
 class AmplifyDialog(QDialog):
     def __init__(self, parent):
         super().__init__(parent)
@@ -459,7 +455,7 @@ class MainWindow(QMainWindow):
         edit_menu.addAction(resampling_action)
 
         # Menu Process
-        process_menu = menubar.addMenu("Process")
+        # process_menu = menubar.addMenu("Process")
 
         # Menu Analyse
         analyse_menu = menubar.addMenu("Analyse")
