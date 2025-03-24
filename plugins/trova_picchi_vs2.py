@@ -159,7 +159,13 @@ class Main(QWidget):
                 "col": 2,
                 "row_span": 1,
                 "col_span": 1,
-                "default": ["600", "0", "50", "10", "2000"],
+                "default": [
+                    "1000",
+                    "0",
+                    "50",
+                    "10",
+                    "2000",
+                ],  # value, num decimali, step, min, max
                 "linked_fnc": "detect_calls",
                 "widget": None,
             },
