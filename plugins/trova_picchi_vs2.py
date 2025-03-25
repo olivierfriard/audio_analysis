@@ -346,6 +346,12 @@ class Main(QWidget):
                 parameters = json.load(f_in)
             if Path(self.wav_file).name in parameters:
                 self.start = parameters[Path(self.wav_file).name].get("start", 0)
+        """
+        else: # no json, file not cut
+            # create directory
+            # (Path(self.wav_file).parent / Path(self.wav_file).name).mkdir(exist_ok=True)
+            data_file_path = Path(self.wav_file).parent / "data.json"
+        """
 
         self.amp_rms = 1.5  # fattore di moltiplicazione dell'inviluppo, per accentuare variazione in ampiezza
         self.sampling_rate, self.data = wavfile.read(wav_file)
@@ -397,7 +403,9 @@ class Main(QWidget):
         self.canvas.draw()
 
     def show_message(self, button_name):
-        """Mostra un messaggio di avviso con il nome del pulsante premuto."""
+        """
+        Mostra un messaggio di avviso con il nome del pulsante premuto.
+        """
         QMessageBox.warning(
             self,
             "Non Implementato",
@@ -405,7 +413,9 @@ class Main(QWidget):
         )
 
     def on_select(self, xmin, xmax):
-        """Evidenzia l'area selezionata con il mouse e aggiorna xmin e xmax."""
+        """
+        Evidenzia l'area selezionata con il mouse e aggiorna xmin e xmax.
+        """
         if xmin < 0:
             xmin = 0
             xmax = 0

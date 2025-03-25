@@ -579,7 +579,7 @@ class MainWindow(QMainWindow):
         directory = QFileDialog.getExistingDirectory(self, "Select Directory", "")
         if not directory:
             return
-        for file_path in Path(directory).glob("*.wav"):
+        for file_path in sorted(Path(directory).glob("*.wav")):
             # get sample_rate
             sample_rate, duration = self.get_rate_duration(str(file_path))
             self.wav_list[str(file_path)] = {
