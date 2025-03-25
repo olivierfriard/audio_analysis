@@ -6,6 +6,7 @@ cut wav files
 from pathlib import Path
 import sys
 import numpy as np
+import json
 from scipy.io import wavfile
 from PySide6.QtWidgets import (
     QApplication,
@@ -44,9 +45,7 @@ class Main(QWidget):
             )
             return
 
-        self.setWindowTitle(
-            f"{Path(__file__).stem.replace('_', ' ')} - {Path(self.wav_file).stem}"
-        )
+        self.setWindowTitle(f"{Path(__file__).stem.replace('_', ' ')} - {Path(self.wav_file).stem}")
 
         # Carica il file WAV e ottiene le informazioni
         self.sampling_rate, self.data = wavfile.read(self.wav_file)
@@ -57,9 +56,7 @@ class Main(QWidget):
 
         # Etichetta con informazioni sul file
         self.label_info = QLabel(
-            f"File WAV selezionato: {self.wav_file}\n"
-            f"Durata: {self.duration:.2f} sec\n"
-            f"Frequenza di campionamento: {self.sampling_rate} Hz"
+            f"File WAV selezionato: {self.wav_file}\nDurata: {self.duration:.2f} sec\nFrequenza di campionamento: {self.sampling_rate} Hz"
         )
         layout.addWidget(self.label_info)
 
@@ -98,9 +95,7 @@ class Main(QWidget):
         self.button_save = QPushButton("Salva i files ritagliati", self)
         self.button_save.clicked.connect(self.save_files)
         hlayout.addWidget(self.button_save)
-        self.button_save.setEnabled(
-            False
-        )  # Disabilitato se sottocartella non è stata ancora selezionata
+        self.button_save.setEnabled(False)  # Disabilitato se sottocartella non è stata ancora selezionata
         hlayout.addStretch()
         layout.addLayout(hlayout)
 
@@ -116,10 +111,11 @@ class Main(QWidget):
         self.durata_ritaglio = self.duration.value()
 
     def select_folder(self):
-        """Apre il file dialog per selezionare una cartella e la salva in self.selected_folder"""
-        folder_path = QFileDialog.getExistingDirectory(
-            self, "Seleziona la cartella di origine"
-        )
+        """
+        Apre il file dialog per selezionare una cartella e la salva in self.selected_folder
+        """
+
+        folder_path = QFileDialog.getExistingDirectory(self, "Seleziona la cartella di origine")
         if folder_path:  # Controlla che l'utente non abbia annullato la selezione
             self.selected_folder = Path(folder_path)
             print(f"DEBUG: Cartella selezionata -> {self.selected_folder}")
@@ -128,16 +124,36 @@ class Main(QWidget):
             self.nome_subcartella = self.selected_folder / Path(self.wav_file).stem
             self.nome_subcartella.mkdir(parents=True, exist_ok=True)
             print(f"DEBUG: Sottocartella creata -> {self.nome_subcartella}")
-            self.button_save.setEnabled(
-                True
-            )  # Abilita il pulsante solo dopo la creazione della sottocartella
+            self.button_save.setEnabled(True)  # Abilita il pulsante solo dopo la creazione della sottocartella
 
     def save_files(self):
         """
         Salva i ritagli assicurandosi che il taglio avvenga dove il segnale è minimo
         """
 
+        # create the json file
+
+        data_file_path = Path(self.nome_subcartella) / "data.json"
+        # test if data.json exists
+        if data_file_path.is_file():
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Information)
+            msg.setText(f"The {data_file_path} file already exists!")
+            msg.setWindowTitle("Warning")
+
+            msg.addButton("Overwrite file", QMessageBox.YesRole)
+            msg.addButton("Cancel", QMessageBox.YesRole)
+
+            msg.exec()
+
+            match msg.clickedButton().text():
+                case "Cancel":
+                    return
+
+        parameters: dict = {}
+
         original_name = f"{Path(self.nome_subcartella) / Path(self.wav_file).stem}"
+
         ini = 0
         counter = 0  # per tenere traccia del numero di ritagli salvati
         while ini < len(self.data):
@@ -155,9 +171,7 @@ class Main(QWidget):
             # Calcolo del RMS nel range definito
             frame_length = int(self.sampling_rate / 100)
             hop_length = int(self.sampling_rate / 100)
-            rms = librosa.feature.rms(
-                y=self.data[fin_range], frame_length=frame_length, hop_length=hop_length
-            )[0]
+            rms = librosa.feature.rms(y=self.data[fin_range], frame_length=frame_length, hop_length=hop_length)[0]
 
             # Individuo l'indice in cui il valore RMS è minimo
             min_index = np.argmin(rms)
@@ -176,9 +190,24 @@ class Main(QWidget):
             ritaglio = self.data[ini:fin_best]
             wavfile.write(nome_ritaglio, self.sampling_rate, ritaglio)
 
+            parameters[Path(nome_ritaglio).name] = {"start": int(ini), "end": int(fin_best - 1), "cut_from": self.wav_file}
+
             # Aggiorno ini per il prossimo ritaglio
             ini = fin_best
             counter += 1
+
+        # write file
+        try:
+            with open(data_file_path, "w", encoding="utf-8") as f_out:
+                json.dump(parameters, f_out, indent=0, ensure_ascii=False)
+
+            print(f"Risultati salvati in {data_file_path}")
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "",
+                f"Errore nel salvataggio dei risultati: {e}",
+            )
 
 
 if __name__ == "__main__":
