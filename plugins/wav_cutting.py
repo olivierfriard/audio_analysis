@@ -7,6 +7,7 @@ from pathlib import Path
 import sys
 import numpy as np
 import json
+import shutil
 from scipy.io import wavfile
 from PySide6.QtWidgets import (
     QApplication,
@@ -122,6 +123,25 @@ class Main(QWidget):
 
             # Creo la sottocartella basata sul nome del file WAV
             self.nome_subcartella = self.selected_folder / Path(self.wav_file).stem
+
+            # check if folder already exists
+            if self.nome_subcartella.is_dir():
+                msg = QMessageBox()
+                msg.setIcon(QMessageBox.Information)
+                msg.setText(f"The directory {self.nome_subcartella} already exists!")
+                msg.setWindowTitle("Warning")
+
+                msg.addButton("Erase files", QMessageBox.YesRole)
+                msg.addButton("Cancel", QMessageBox.YesRole)
+
+                msg.exec()
+
+                match msg.clickedButton().text():
+                    case "Erase files":
+                        shutil.rmtree(self.nome_subcartella)
+                    case "Cancel":
+                        return
+
             self.nome_subcartella.mkdir(parents=True, exist_ok=True)
             print(f"DEBUG: Sottocartella creata -> {self.nome_subcartella}")
             self.button_save.setEnabled(True)  # Abilita il pulsante solo dopo la creazione della sottocartella
@@ -132,7 +152,6 @@ class Main(QWidget):
         """
 
         # create the json file
-
         data_file_path = Path(self.nome_subcartella) / "data.json"
         # test if data.json exists
         if data_file_path.is_file():

@@ -559,6 +559,22 @@ class MainWindow(QMainWindow):
         if len(file_paths) == 1:
             self.show_oscillogram(wav_file_path=file_paths[0])
 
+            # propose to cut the file if > 1 min
+            if duration > 60:
+                msg = QMessageBox()
+                msg.setIcon(QMessageBox.Information)
+                msg.setText("The duration of wav file is greater then 1 minute.\nDo you want to cut it?")
+                msg.setWindowTitle("Warning")
+                msg.addButton("Yes", QMessageBox.YesRole)
+                msg.addButton("No", QMessageBox.NoRole)
+                msg.exec()
+                match msg.clickedButton().text():
+                    case "Yes":
+                        module_name = "wav_cutting"
+                        self.text_edit.append(f"Running {module_name} plugin")
+                        self.plugin_widgets.append(self.modules[module_name].Main([file_path]))
+                        self.plugin_widgets[-1].show()
+
     def open_wav_dir(self):
         directory = QFileDialog.getExistingDirectory(self, "Select Directory", "")
         if not directory:
