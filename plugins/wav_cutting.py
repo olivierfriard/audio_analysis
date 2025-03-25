@@ -202,12 +202,19 @@ class Main(QWidget):
                 json.dump(parameters, f_out, indent=0, ensure_ascii=False)
 
             print(f"Risultati salvati in {data_file_path}")
+
         except Exception as e:
             QMessageBox.critical(
                 self,
                 "",
                 f"Errore nel salvataggio dei risultati: {e}",
             )
+
+        QMessageBox.information(
+            self,
+            "",
+            f"{counter} file{'s' if counter > 1 else ''} saved",
+        )
 
 
 if __name__ == "__main__":
