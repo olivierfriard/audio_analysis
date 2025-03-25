@@ -576,10 +576,20 @@ class MainWindow(QMainWindow):
                         self.plugin_widgets[-1].show()
 
     def open_wav_dir(self):
+        """
+        Opens a directory selection dialog to allow the user to choose a folder containing WAV files.
+
+        This function scans the selected directory for `.wav` files (case insensitive), extracts their
+        sample rate and duration, and adds them to `self.wav_list`. After processing, it updates
+        the WAV file list in the UI.
+
+        """
+
         directory = QFileDialog.getExistingDirectory(self, "Select Directory", "")
         if not directory:
             return
-        for file_path in sorted(Path(directory).glob("*.wav")):
+
+        for file_path in sorted([f for f in Path(directory).glob("*") if f.suffix.lower() == ".wav"]):
             # get sample_rate
             sample_rate, duration = self.get_rate_duration(str(file_path))
             self.wav_list[str(file_path)] = {
@@ -591,7 +601,9 @@ class MainWindow(QMainWindow):
         self.update_wav_list()
 
     def close_program(self):
-        print("ho chiamato la funzione close")
+        """
+        close
+        """
         self.close()
 
     def show_oscillogram(self, wav_file_path: str = ""):
