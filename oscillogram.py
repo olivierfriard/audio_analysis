@@ -273,5 +273,5 @@ class OscillogramWindow(QWidget):
             Path(self.wav_file).with_suffix(".tmp"), self.sampling_rate, self.data
         )
 
-        self.wav_cutting_widget = Wav_cutting(self.wav_file).with_suffix(".tmp"))
+        self.wav_cutting_widget = Wav_cutting(Path(self.wav_file).with_suffix(".tmp"))
         self.wav_cutting_widget.show()
