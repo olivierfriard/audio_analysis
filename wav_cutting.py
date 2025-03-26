@@ -15,7 +15,7 @@ from PySide6.QtWidgets import (
     QSpinBox,
     QFileDialog,
 )
-from PySide6.QtCore import Signal, Slot
+from PySide6.QtCore import Signal
 
 
 class Wav_cutting(QWidget):
@@ -25,19 +25,6 @@ class Wav_cutting(QWidget):
         super().__init__()
 
         self.durata_ritaglio = 60  # Durata predefinita
-
-        """
-        if wav_file_list:
-            self.wav_file_list = wav_file_list
-            self.wav_file = wav_file_list[0]
-        else:
-            QMessageBox.critical(
-                self,
-                "",
-                "No file WAV!",
-            )
-            return
-        """
 
         self.wav_file = wav_file
 
@@ -68,6 +55,7 @@ class Wav_cutting(QWidget):
         layout.addLayout(hlayout)
         """
 
+        """
         hlayout = QHBoxLayout()
         hlayout.addWidget(QLabel("Durata ritaglio (secondi):"))
         self.duration = QSpinBox()
@@ -80,6 +68,7 @@ class Wav_cutting(QWidget):
         hlayout.addWidget(self.duration)
         hlayout.addStretch()
         layout.addLayout(hlayout)
+        """
 
         hlayout = QHBoxLayout()
         hlayout.addWidget(QLabel("Number of chunk(s)"))
