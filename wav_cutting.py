@@ -184,17 +184,19 @@ class Wav_cutting(QWidget):
         original_name = f"{Path(self.nome_subcartella) / Path(self.wav_file).stem}"
 
         # set duration in base of number of chunks
+        n_chunks = self.n_chunks_sb.value()
         self.durata_ritaglio = round(
-            len(self.data) / self.sampling_rate / self.n_chunks_sb.value()
+            len(self.data) / self.sampling_rate / n_chunks
         )
-
+        print(self.durata_ritaglio)
         ini = 0
         counter = 0  # per tenere traccia del numero di ritagli salvati
         while ini < len(self.data):
             # Calcolo della fine teorica del segmento di durata self.durata_ritaglio
-            fin = int(ini + self.sampling_rate * self.durata_ritaglio)
-            if fin > len(self.data):
+            if counter == n_chunks or fin > len(self.data):
                 fin = len(self.data)
+            else:
+                fin = int(ini + self.sampling_rate * self.durata_ritaglio)
 
             # Definisco l'intervallo ±0.1 secondi attorno al punto fin
             offset = int(self.sampling_rate * 0.1)
@@ -235,6 +237,7 @@ class Wav_cutting(QWidget):
             # Aggiorno ini per il prossimo ritaglio
             ini = fin_best
             counter += 1
+            
 
         # write file
         try:
