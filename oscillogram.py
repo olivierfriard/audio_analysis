@@ -263,5 +263,8 @@ class OscillogramWindow(QWidget):
         cut and save WAV files
         """
 
+        # save current wav file
+        # wavfile.write(save_path, self.new_sampling_rate, self.data_resampled)
+
         self.wav_cutting_widget = Wav_cutting(self.wav_file)
         self.wav_cutting_widget.show()

@@ -63,10 +63,6 @@ class Wav_cutting(QWidget):
         hlayout.addStretch()
         layout.addLayout(hlayout)
 
-        # **Aggiunta di un titolo alla casella di testo**
-        self.label_durata = QLabel("Durata ritaglio (secondi):")
-        layout.addWidget(self.label_durata)
-
         # **Casella di testo per inserire la durata del ritaglio**
         """
         self.text_input = QLineEdit(self)
@@ -75,13 +71,27 @@ class Wav_cutting(QWidget):
         layout.addWidget(self.text_input)
         """
         hlayout = QHBoxLayout()
+        hlayout.addWidget(QLabel("Durata ritaglio (secondi):"))
         self.duration = QSpinBox()
         self.duration.setMinimum(1)
         self.duration.setMaximum(1000)
         self.duration.setValue(self.durata_ritaglio)
         self.duration.setSingleStep(1)
         self.duration.valueChanged.connect(self.update_label)
+        self.duration.setEnabled(False)
         hlayout.addWidget(self.duration)
+        hlayout.addStretch()
+        layout.addLayout(hlayout)
+
+        hlayout = QHBoxLayout()
+        hlayout.addWidget(QLabel("Number of chunk(s)"))
+        self.n_chunks_sb = QSpinBox()
+        self.n_chunks_sb.setMinimum(1)
+        self.n_chunks_sb.setMaximum(100)
+        self.n_chunks_sb.setValue(1)
+        self.n_chunks_sb.setSingleStep(1)
+        # self.n_chunks_sb.valueChanged.connect(self.update_label)
+        hlayout.addWidget(self.n_chunks_sb)
         hlayout.addStretch()
         layout.addLayout(hlayout)
 
@@ -172,6 +182,11 @@ class Wav_cutting(QWidget):
         parameters: dict = {}
 
         original_name = f"{Path(self.nome_subcartella) / Path(self.wav_file).stem}"
+
+        # set duration in base of number of chunks
+        self.durata_ritaglio = round(
+            len(self.data) / self.sampling_rate / self.n_chunks_sb.value()
+        )
 
         ini = 0
         counter = 0  # per tenere traccia del numero di ritagli salvati
