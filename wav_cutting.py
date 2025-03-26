@@ -161,11 +161,6 @@ class Wav_cutting(QWidget):
         Salva i ritagli assicurandosi che il taglio avvenga dove il segnale è minimo
         """
 
-        # save data in a wav temporary file (.tmp)
-        wavfile.write(
-            Path(self.wav_file).with_suffix(".tmp"), self.sampling_rate, self.data
-        )
-
         # create the json file
         data_file_path = Path(self.nome_subcartella) / "data.json"
         # test if data.json exists
