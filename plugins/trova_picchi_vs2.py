@@ -160,7 +160,7 @@ class Main(QWidget):
                 "row_span": 1,
                 "col_span": 1,
                 "default": [
-                    "1",
+                    "0.1",
                     "3",
                     ".1",
                     "0.005",
@@ -634,7 +634,7 @@ class Main(QWidget):
                 x = np.mean(
                     self.rms[c] - self.rms[c + 1 : min(c + before, len(self.rms))]
                 )
-                if x < 0:
+                if x < s_min:
                     s_min = x
                     s_idmin = c
 
@@ -646,12 +646,12 @@ class Main(QWidget):
             for ee in range(after):
                 e = id1 + ee
                 x = np.mean(self.rms[e] - self.rms[e + 1 : e + after])
-
+                
                 if x < e_min:
                     e_min = x
                     e_idmin = e
-                    print("e_min", e_min)
-                    break
+                    #print("e_min", e_min)
+                    #break
 
             self.end_times.append(self.rms_times[e_idmin])
         # print("ss", start_times)
