@@ -384,7 +384,9 @@ class Main(QWidget):
 
         self.start = 0
         # check if wav was cut
-        data_file_path = Path(self.wav_file).parent / "data.json"
+        data_file_path = Path(self.wav_file).parent / Path(self.wav_file).with_suffix(
+            ".json"
+        )
         if data_file_path.is_file():
             # read file content
             with open(data_file_path, "r", encoding="utf-8") as f_in:
@@ -646,12 +648,12 @@ class Main(QWidget):
             for ee in range(after):
                 e = id1 + ee
                 x = np.mean(self.rms[e] - self.rms[e + 1 : e + after])
-                
+
                 if x < e_min:
                     e_min = x
                     e_idmin = e
-                    #print("e_min", e_min)
-                    #break
+                    # print("e_min", e_min)
+                    # break
 
             self.end_times.append(self.rms_times[e_idmin])
         # print("ss", start_times)
