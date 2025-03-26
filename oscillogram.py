@@ -251,7 +251,9 @@ class OscillogramWindow(QWidget):
         self.selected_region = None
 
     def play_dialog(self):
-        """Riproduce il segmento selezionato dell'audio."""
+        """
+        Riproduce il segmento selezionato dell'audio.
+        """
         self.stop_button.setEnabled(True)
         ini = int(self.xmin * self.sampling_rate)
         fin = int(self.xmax * self.sampling_rate)
@@ -266,5 +268,10 @@ class OscillogramWindow(QWidget):
         # save current wav file
         # wavfile.write(save_path, self.new_sampling_rate, self.data_resampled)
 
-        self.wav_cutting_widget = Wav_cutting(self.wav_file)
+        # save data in a wav temporary file (.tmp)
+        wavfile.write(
+            Path(self.wav_file).with_suffix(".tmp"), self.sampling_rate, self.data
+        )
+
+        self.wav_cutting_widget = Wav_cutting(self.wav_file).with_suffix(".tmp"))
         self.wav_cutting_widget.show()
