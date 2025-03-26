@@ -161,6 +161,11 @@ class Wav_cutting(QWidget):
         Salva i ritagli assicurandosi che il taglio avvenga dove il segnale è minimo
         """
 
+        # save data in a wav temporary file (.tmp)
+        wavfile.write(
+            Path(self.wav_file).with_suffix(".tmp"), self.sampling_rate, self.data
+        )
+
         # create the json file
         data_file_path = Path(self.nome_subcartella) / "data.json"
         # test if data.json exists
@@ -185,15 +190,15 @@ class Wav_cutting(QWidget):
 
         # set duration in base of number of chunks
         n_chunks = self.n_chunks_sb.value()
-        self.durata_ritaglio = round(
-            len(self.data) / self.sampling_rate / n_chunks
-        )
+        self.durata_ritaglio = round(len(self.data) / self.sampling_rate / n_chunks)
         print(self.durata_ritaglio)
         ini = 0
         counter = 0  # per tenere traccia del numero di ritagli salvati
         while ini < len(self.data):
             # Calcolo della fine teorica del segmento di durata self.durata_ritaglio
-            if counter == n_chunks or int(ini + self.sampling_rate * self.durata_ritaglio) > len(self.data):
+            if counter == n_chunks or int(
+                ini + self.sampling_rate * self.durata_ritaglio
+            ) > len(self.data):
                 fin = len(self.data)
             else:
                 fin = int(ini + self.sampling_rate * self.durata_ritaglio)
@@ -237,7 +242,6 @@ class Wav_cutting(QWidget):
             # Aggiorno ini per il prossimo ritaglio
             ini = fin_best
             counter += 1
-            
 
         # write file
         try:
