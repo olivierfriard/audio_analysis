@@ -153,7 +153,7 @@ class Wav_cutting(QWidget):
         data_file_path = Path(self.nome_subcartella) / Path(self.wav_file).with_suffix(
             ".json"
         )
-        # test if data.json exists
+        # test if .json exists
         if data_file_path.is_file():
             msg = QMessageBox()
             msg.setIcon(QMessageBox.Information)
