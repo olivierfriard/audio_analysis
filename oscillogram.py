@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (
     QTextEdit,
     QMessageBox,
 )
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal, Slot
 
 from wav_cutting import Wav_cutting
 
@@ -273,5 +273,7 @@ class OscillogramWindow(QWidget):
             Path(self.wav_file).with_suffix(".tmp"), self.sampling_rate, self.data
         )
 
-        self.wav_cutting_widget = Wav_cutting(Path(self.wav_file).with_suffix(".tmp"))
+        self.wav_cutting_widget = Wav_cutting(
+            str(Path(self.wav_file).with_suffix(".tmp"))
+        )
         self.wav_cutting_widget.show()

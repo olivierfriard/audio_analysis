@@ -15,9 +15,12 @@ from PySide6.QtWidgets import (
     QSpinBox,
     QFileDialog,
 )
+from PySide6.QtCore import Qt, Signal, Slot
 
 
 class Wav_cutting(QWidget):
+    cut_ended_signal = Signal()
+
     def __init__(self, wav_file: str):
         super().__init__()
 
@@ -56,20 +59,15 @@ class Wav_cutting(QWidget):
         layout.addWidget(self.label_info)
 
         # Pulsante seleziona cartella madre
+        """
         hlayout = QHBoxLayout()
         self.button_select = QPushButton("Scegli Cartella Madre", self)
         self.button_select.clicked.connect(self.select_folder)
         hlayout.addWidget(self.button_select)
         hlayout.addStretch()
         layout.addLayout(hlayout)
+        """
 
-        # **Casella di testo per inserire la durata del ritaglio**
-        """
-        self.text_input = QLineEdit(self)
-        self.text_input.setPlaceholderText("60")  # Valore predefinito
-        self.text_input.textChanged.connect(self.update_label)
-        layout.addWidget(self.text_input)
-        """
         hlayout = QHBoxLayout()
         hlayout.addWidget(QLabel("Durata ritaglio (secondi):"))
         self.duration = QSpinBox()
@@ -100,9 +98,12 @@ class Wav_cutting(QWidget):
         self.button_save = QPushButton("Salva i files ritagliati", self)
         self.button_save.clicked.connect(self.save_files)
         hlayout.addWidget(self.button_save)
+
+        """
         self.button_save.setEnabled(
             False
         )  # Disabilitato se sottocartella non è stata ancora selezionata
+        """
         hlayout.addStretch()
         layout.addLayout(hlayout)
 
@@ -152,14 +153,12 @@ class Wav_cutting(QWidget):
 
             self.nome_subcartella.mkdir(parents=True, exist_ok=True)
             print(f"DEBUG: Sottocartella creata -> {self.nome_subcartella}")
-            self.button_save.setEnabled(
-                True
-            )  # Abilita il pulsante solo dopo la creazione della sottocartella
 
     def save_files(self):
         """
         Salva i ritagli assicurandosi che il taglio avvenga dove il segnale è minimo
         """
+        self.select_folder()
 
         # create the json file
         data_file_path = Path(self.nome_subcartella) / "data.json"
@@ -257,3 +256,7 @@ class Wav_cutting(QWidget):
             "",
             f"{counter} file{'s' if counter > 1 else ''} saved",
         )
+
+        # delete file .tmp
+        if Path(self.wav_file).exists() and Path(self.wav_file).suffix == ".tmp":
+            Path(self.wav_file).unlink()
