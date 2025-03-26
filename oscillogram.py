@@ -280,5 +280,8 @@ class OscillogramWindow(QWidget):
         self.wav_cutting_widget.show()
 
     def cut_ended(self):
+        """
+        receive signal from Wav_cutting
+        """
         self.wav_cutting_widget.close()
         self.close()
