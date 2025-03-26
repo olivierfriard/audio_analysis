@@ -1,10 +1,14 @@
+"""
+main program of 'Analisi canti' package
+
+"""
+
 import importlib.util
 from pathlib import Path
-import sys
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.io import wavfile
-import sounddevice as sd
+import sys
 from PySide6.QtWidgets import (
     QApplication,
     QMainWindow,
@@ -24,258 +28,18 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QSpacerItem,
     QSizePolicy,
-    QDialog,
-    QGridLayout,
-    QSlider,
 )
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction
-from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
-from matplotlib.widgets import SpanSelector
 import librosa
 
 __version__ = "0.0.4"
 __version_date__ = "2025-03-11"
 
 
-class OscillogramWindow(QWidget):
-    def __init__(self, wav_file: str):
-        super().__init__()
-        self.setWindowTitle(f"Oscillogram for {Path(wav_file).stem}")
-        # self.setGeometry(200, 200, 800, 500)
+from oscillogram import OscillogramWindow
 
-        self.sampling_rate, self.data = wavfile.read(wav_file)
-        self.duration = len(self.data) / self.sampling_rate
-
-        self.time = np.linspace(0, self.duration, num=len(self.data))
-
-        # Layout principale a griglia
-        self.layout = QGridLayout()
-        self.setLayout(self.layout)
-
-        # Creazione della figura matplotlib (plot)
-        self.figure, self.ax = plt.subplots(figsize=(10, 4))
-        self.canvas = FigureCanvas(self.figure)
-
-        # Slider Qt
-        self.slider = QSlider(Qt.Horizontal)
-        self.slider.setMinimum(0)
-        self.slider.setMaximum(100)
-        self.slider.setValue(0)  # Inizialmente a 0
-        self.slider.setTickPosition(QSlider.TicksBelow)
-        self.slider.setTickInterval(10)
-        self.slider.valueChanged.connect(self.on_slider)
-        self.layout.addWidget(self.slider, 2, 1)
-
-        # double click to reset xmin e xmax
-        self.canvas.mpl_connect("button_press_event", self.on_double_click)
-
-        # Pulsante zoomIn
-        self.zoomIn_button = QPushButton("Zoom In")
-        self.zoomIn_button.setEnabled(False)
-        self.zoomIn_button.clicked.connect(self.zoomIn_wav)
-
-        # Pulsante zoomOut
-        self.zoomOut_button = QPushButton("Zoom Out")
-        self.zoomOut_button.setEnabled(False)
-        self.zoomOut_button.clicked.connect(self.zoomOut_wav)
-
-        # Pulsante STOP
-        self.stop_button = QPushButton("Stop")
-        self.stop_button.setEnabled(False)
-        self.stop_button.clicked.connect(self.stopplaying)
-
-        # Pulsante "Amplify"
-        self.amplify_button = QPushButton("Amplify")
-        self.amplify_button.clicked.connect(self.open_amplify_dialog)
-
-        # Pulsante "Riproduci"
-        self.play_button = QPushButton("Play")
-        self.play_button.clicked.connect(self.play_dialog)
-
-        # Disegna il grafico iniziale
-        self.ax.plot(self.time, self.data, linewidth=0.5, color="black")
-        self.ax.set_xlabel("Time (s)")
-        self.ax.set_ylabel("Amplitude")
-        self.ax.set_title(f"Oscillogram for {Path(wav_file).stem}")
-        # self.ax.grid()
-
-        # Imposta il range iniziale della finestra
-        self.xmin, self.xmax = (
-            0,
-            self.duration,
-        )  # Inizialmente mostra tutta la registrazione
-        self.xrange = self.xmax - self.xmin
-        self.ax.set_xlim(self.xmin, self.xmax)
-
-        # Aggiunta della selezione interattiva
-        self.selected_region = None
-        self.span_selector = SpanSelector(
-            self.ax,
-            self.on_select,
-            "horizontal",
-            useblit=True,
-            props=dict(alpha=0.5, facecolor="red"),
-        )
-
-        # **Organizzazione della griglia**
-        self.layout.addWidget(self.zoomIn_button, 0, 0, 1, 1)
-        self.layout.addWidget(self.zoomOut_button, 0, 1, 1, 1)
-        self.layout.addWidget(self.play_button, 0, 2, 1, 1)
-        self.layout.addWidget(self.stop_button, 0, 3, 1, 1)
-        self.layout.addWidget(self.amplify_button, 0, 4, 1, 1)
-        self.layout.addWidget(self.canvas, 1, 0, 1, 5)
-        self.layout.addWidget(self.slider, 2, 0, 1, 5)
-
-        # Configurazione del comportamento delle colonne
-        self.layout.setColumnStretch(0, 1)
-        self.layout.setColumnStretch(1, 1)
-        self.layout.setColumnStretch(2, 1)
-        self.layout.setColumnStretch(3, 1)
-        self.layout.setColumnStretch(4, 1)
-
-        # Configurazione del comportamento delle righe
-        self.layout.setRowStretch(0, 1)  # Pulsanti (meno spazio)
-        self.layout.setRowStretch(1, 5)  # Plot (più spazio)
-        self.layout.setRowStretch(2, 1)  # Slider (meno spazio)
-
-        self.canvas.draw()
-
-    def on_select(self, xmin, xmax):
-        """
-        Evidenzia l'area selezionata con il mouse.
-        """
-        min_width = 0.01
-        if abs(xmax - xmin) < min_width:
-            return
-        print(f"{self.selected_region=}")
-        if self.selected_region:
-            self.selected_region.remove()  # Rimuove l'area precedente
-        self.selected_region = self.ax.axvspan(xmin, xmax, color="red", alpha=0.3)
-        self.xmin, self.xmax = xmin, xmax
-        self.canvas.draw_idle()
-        self.zoomIn_button.setEnabled(True)
-
-    def zoomIn_wav(self):
-        if hasattr(self, "xmin") and hasattr(self, "xmax"):
-            range = self.xmax - self.xmin
-            self.slider.setValue(int((self.xmin / (self.duration - range)) * 100))
-            self.ax.set_xlim(self.xmin, self.xmax)
-
-        # Rimuove la selezione rossa se esiste
-        if self.selected_region:
-            self.selected_region.remove()
-            self.selected_region = None  # Reset della variabile
-
-        self.zoomIn_button.setEnabled(False)
-        self.zoomOut_button.setEnabled(True)
-        self.canvas.draw_idle()
-
-    def zoomOut_wav(self):
-        self.xmin = 0
-        self.xmax = self.duration
-        self.ax.set_xlim(self.xmin, self.xmax)  # Applica il reset
-        self.slider.setValue(100)  # Imposta lo slider al massimo (100%)
-        self.canvas.draw_idle()  # Aggiorna il grafico
-        self.zoomIn_button.setEnabled(False)
-        self.zoomOut_button.setEnabled(False)
-
-    def stopplaying(self):
-        sd.stop()
-        """
-        msg = QMessageBox()
-        msg.setIcon(QMessageBox.Warning)
-        msg.setWindowTitle("Errore")
-        msg.setText("Questa funzione non è ancora implementata.")
-        msg.setStandardButtons(QMessageBox.Ok)
-        msg.exec()
-        """
-
-    def on_double_click(self, event):
-        if event.dblclick:  # Controlla se è un doppio clic
-            # Resetta i limiti
-            self.xmin = 0
-            self.xmax = self.duration
-            self.ax.set_xlim(self.xmin, self.xmax)  # Applica il reset
-            self.slider.setValue(100)  # Imposta lo slider al massimo (100%)
-            self.canvas.draw_idle()  # Aggiorna il grafico
-
-    def on_slider(self, value):
-        """
-        Aggiorna la vista dell'oscillogramma in base alla posizione dello slider mantenendo la durata selezionata.
-
-
-        """
-        range = self.xmax - self.xmin
-        pos = value / 100 * (self.duration - range)
-
-        if pos + range < self.duration:
-            self.xmin = pos
-            self.xmax = pos + range
-        else:
-            self.xmin = self.duration - range
-            self.xmax = self.duration
-            self.slider.setValue(100)
-
-        self.ax.set_xlim(self.xmin, self.xmax)
-        self.canvas.draw_idle()
-
-    def open_amplify_dialog(self):
-        self.amplify_dialog = AmplifyDialog(self)
-        self.amplify_dialog.exec()
-
-    def apply_amplification(self, factor):
-        ini = int(self.xmin * self.sampling_rate)
-        fin = int(self.xmax * self.sampling_rate)
-        segnale = self.data[ini:fin]
-        segnale = np.clip(segnale * factor, -32768, 32767).astype(np.int16)
-        self.data[ini:fin] = segnale
-        self.ax.clear()
-        self.ax.plot(self.time, self.data, linewidth=0.5, color="black")
-        self.ax.set_xlabel("Time (s)")
-        self.ax.set_ylabel("Amplitude")
-        # self.ax.set_xlim(self.xmin, self.xmax)
-        self.canvas.draw()
-
-        print(f"{self.selected_region=}")
-        self.selected_region = None
-
-    def play_dialog(self):
-        """Riproduce il segmento selezionato dell'audio."""
-        self.stop_button.setEnabled(True)
-        ini = int(self.xmin * self.sampling_rate)
-        fin = int(self.xmax * self.sampling_rate)
-        segment = self.data[ini:fin]  # Estrarre il segmento selezionato
-        sd.play(segment, samplerate=self.sampling_rate)  # Riprodurre il suono
-
-
-class AmplifyDialog(QDialog):
-    def __init__(self, parent):
-        super().__init__(parent)
-        self.setWindowTitle("Amplify Signal")
-
-        layout = QVBoxLayout()
-
-        self.label = QLabel("Enter amplification factor:")
-        layout.addWidget(self.label)
-
-        self.textbox = QTextEdit()
-        self.textbox.setFixedHeight(30)
-        layout.addWidget(self.textbox)
-
-        self.button = QPushButton("Apply")
-        self.button.clicked.connect(self.apply_amplification)
-        layout.addWidget(self.button)
-
-        self.setLayout(layout)
-
-    def apply_amplification(self):
-        try:
-            factor = float(self.textbox.toPlainText())
-            self.parent().apply_amplification(factor)
-            self.accept()  # Chiude la finestra in modo corretto
-        except ValueError:
-            QMessageBox.warning(self, "Error", "Invalid amplification factor")
+from wav_cutting import Wav_cutting
 
 
 class ResamplingWindow(QWidget):
@@ -369,231 +133,6 @@ class ResamplingWindow(QWidget):
         print(f"{self.wav_list=}")
 
 
-class Wav_cutting(QWidget):
-    def __init__(self, wav_file: str):
-        super().__init__()
-
-        self.durata_ritaglio = 60  # Durata predefinita
-
-        """
-        if wav_file_list:
-            self.wav_file_list = wav_file_list
-            self.wav_file = wav_file_list[0]
-        else:
-            QMessageBox.critical(
-                self,
-                "",
-                "No file WAV!",
-            )
-            return
-        """
-
-        self.wav_file = wav_file
-
-        self.setWindowTitle(
-            f"{Path(__file__).stem.replace('_', ' ')} - {Path(self.wav_file).stem}"
-        )
-
-        # Carica il file WAV e ottiene le informazioni
-        self.sampling_rate, self.data = wavfile.read(self.wav_file)
-        self.duration = len(self.data) / self.sampling_rate
-
-        # Layout principale
-        layout = QVBoxLayout()
-
-        # Etichetta con informazioni sul file
-        self.label_info = QLabel(
-            f"File WAV selezionato: {self.wav_file}\nDurata: {self.duration:.2f} sec\nFrequenza di campionamento: {self.sampling_rate} Hz"
-        )
-        layout.addWidget(self.label_info)
-
-        # Pulsante seleziona cartella madre
-        hlayout = QHBoxLayout()
-        self.button_select = QPushButton("Scegli Cartella Madre", self)
-        self.button_select.clicked.connect(self.select_folder)
-        hlayout.addWidget(self.button_select)
-        hlayout.addStretch()
-        layout.addLayout(hlayout)
-
-        # **Aggiunta di un titolo alla casella di testo**
-        self.label_durata = QLabel("Durata ritaglio (secondi):")
-        layout.addWidget(self.label_durata)
-
-        # **Casella di testo per inserire la durata del ritaglio**
-        """
-        self.text_input = QLineEdit(self)
-        self.text_input.setPlaceholderText("60")  # Valore predefinito
-        self.text_input.textChanged.connect(self.update_label)
-        layout.addWidget(self.text_input)
-        """
-        hlayout = QHBoxLayout()
-        self.duration = QSpinBox()
-        self.duration.setMinimum(1)
-        self.duration.setMaximum(1000)
-        self.duration.setValue(self.durata_ritaglio)
-        self.duration.setSingleStep(1)
-        self.duration.valueChanged.connect(self.update_label)
-        hlayout.addWidget(self.duration)
-        hlayout.addStretch()
-        layout.addLayout(hlayout)
-
-        # Pulsante per salvare i file ritagliati
-        hlayout = QHBoxLayout()
-        self.button_save = QPushButton("Salva i files ritagliati", self)
-        self.button_save.clicked.connect(self.save_files)
-        hlayout.addWidget(self.button_save)
-        self.button_save.setEnabled(
-            False
-        )  # Disabilitato se sottocartella non è stata ancora selezionata
-        hlayout.addStretch()
-        layout.addLayout(hlayout)
-
-        # Variabile per salvare la cartella selezionata
-        self.selected_folder = None
-
-        self.setLayout(layout)
-
-    def update_label(self, text):
-        """
-        Aggiorna l'etichetta con la durata scelta
-        """
-        self.durata_ritaglio = self.duration.value()
-
-    def select_folder(self):
-        """
-        Apre il file dialog per selezionare una cartella e la salva in self.selected_folder
-        """
-
-        folder_path = QFileDialog.getExistingDirectory(
-            self, "Seleziona la cartella di origine"
-        )
-        if folder_path:  # Controlla che l'utente non abbia annullato la selezione
-            self.selected_folder = Path(folder_path)
-            print(f"DEBUG: Cartella selezionata -> {self.selected_folder}")
-
-            # Creo la sottocartella basata sul nome del file WAV
-            self.nome_subcartella = self.selected_folder / Path(self.wav_file).stem
-
-            # check if folder already exists
-            if self.nome_subcartella.is_dir():
-                msg = QMessageBox()
-                msg.setIcon(QMessageBox.Information)
-                msg.setText(f"The directory {self.nome_subcartella} already exists!")
-                msg.setWindowTitle("Warning")
-
-                msg.addButton("Erase files", QMessageBox.YesRole)
-                msg.addButton("Cancel", QMessageBox.YesRole)
-
-                msg.exec()
-
-                match msg.clickedButton().text():
-                    case "Erase files":
-                        shutil.rmtree(self.nome_subcartella)
-                    case "Cancel":
-                        return
-
-            self.nome_subcartella.mkdir(parents=True, exist_ok=True)
-            print(f"DEBUG: Sottocartella creata -> {self.nome_subcartella}")
-            self.button_save.setEnabled(
-                True
-            )  # Abilita il pulsante solo dopo la creazione della sottocartella
-
-    def save_files(self):
-        """
-        Salva i ritagli assicurandosi che il taglio avvenga dove il segnale è minimo
-        """
-
-        # create the json file
-        data_file_path = Path(self.nome_subcartella) / "data.json"
-        # test if data.json exists
-        if data_file_path.is_file():
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Information)
-            msg.setText(f"The {data_file_path} file already exists!")
-            msg.setWindowTitle("Warning")
-
-            msg.addButton("Overwrite file", QMessageBox.YesRole)
-            msg.addButton("Cancel", QMessageBox.YesRole)
-
-            msg.exec()
-
-            match msg.clickedButton().text():
-                case "Cancel":
-                    return
-
-        parameters: dict = {}
-
-        original_name = f"{Path(self.nome_subcartella) / Path(self.wav_file).stem}"
-
-        ini = 0
-        counter = 0  # per tenere traccia del numero di ritagli salvati
-        while ini < len(self.data):
-            # Calcolo della fine teorica del segmento di durata self.durata_ritaglio
-            fin = int(ini + self.sampling_rate * self.durata_ritaglio)
-            if fin > len(self.data):
-                fin = len(self.data)
-
-            # Definisco l'intervallo ±0.1 secondi attorno al punto fin
-            offset = int(self.sampling_rate * 0.1)
-            start_range = max(fin - offset, 0)
-            end_range = min(fin + offset, len(self.data))
-            fin_range = np.arange(start_range, end_range)
-
-            # Calcolo del RMS nel range definito
-            frame_length = int(self.sampling_rate / 100)
-            hop_length = int(self.sampling_rate / 100)
-            rms = librosa.feature.rms(
-                y=self.data[fin_range], frame_length=frame_length, hop_length=hop_length
-            )[0]
-
-            # Individuo l'indice in cui il valore RMS è minimo
-            min_index = np.argmin(rms)
-            fin_best = fin_range[min_index]
-
-            # Costruisco il nome del file per il ritaglio corrente
-            nome_ritaglio = f"{original_name}_{ini:09d}_{fin_best - 1:09d}.wav"
-            print(nome_ritaglio)
-
-            # Evito un eventuale loop infinito: se il nuovo punto di taglio
-            # non fa avanzare l'indice, interrompo il ciclo
-            if fin_best <= ini:
-                break
-
-            # Ritaglio la porzione dal segnale e la salvo
-            ritaglio = self.data[ini:fin_best]
-            wavfile.write(nome_ritaglio, self.sampling_rate, ritaglio)
-
-            parameters[Path(nome_ritaglio).name] = {
-                "start": int(ini),
-                "end": int(fin_best - 1),
-                "cut_from": self.wav_file,
-            }
-
-            # Aggiorno ini per il prossimo ritaglio
-            ini = fin_best
-            counter += 1
-
-        # write file
-        try:
-            with open(data_file_path, "w", encoding="utf-8") as f_out:
-                json.dump(parameters, f_out, indent=0, ensure_ascii=False)
-
-            print(f"Risultati salvati in {data_file_path}")
-
-        except Exception as e:
-            QMessageBox.critical(
-                self,
-                "",
-                f"Errore nel salvataggio dei risultati: {e}",
-            )
-
-        QMessageBox.information(
-            self,
-            "",
-            f"{counter} file{'s' if counter > 1 else ''} saved",
-        )
-
-
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -641,7 +180,7 @@ class MainWindow(QMainWindow):
 
         splitter.addWidget(self.wav_list_widget)
         splitter.addWidget(self.text_edit)
-        splitter.setSizes([200, 400])
+        splitter.setSizes([400, 100])
 
         layout.addWidget(splitter)
 
@@ -805,6 +344,7 @@ class MainWindow(QMainWindow):
             self.show_oscillogram(wav_file_path=file_paths[0])
 
             # propose to cut the file if > 1 min
+            """
             if duration > 60:
                 msg = QMessageBox()
                 msg.setIcon(QMessageBox.Information)
@@ -823,6 +363,7 @@ class MainWindow(QMainWindow):
                             self.modules[module_name].Main([file_path])
                         )
                         self.plugin_widgets[-1].show()
+            """
 
     def open_wav_dir(self):
         """
@@ -908,6 +449,7 @@ class MainWindow(QMainWindow):
         ]
         if checked_wav_files:
             self.wav_cutting_widget = Wav_cutting(checked_wav_files[0])
+            self.wav_cutting_widget.show()
         else:
             self.text_edit.append("No WAV file selected!")
 
