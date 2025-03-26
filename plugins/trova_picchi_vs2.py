@@ -154,17 +154,17 @@ class Main(QWidget):
             },
             "from_peak_to_end": {
                 "type": "QDoubleSpinBox",
-                "label": "Max dist (ms)",
+                "label": "Max dist (s)",
                 "row": 5,
                 "col": 2,
                 "row_span": 1,
                 "col_span": 1,
                 "default": [
-                    "1000",
-                    "0",
-                    "50",
-                    "10",
-                    "2000",
+                    "1",
+                    "3",
+                    ".1",
+                    "0.005",
+                    "2",
                 ],  # value, num decimali, step, min, max
                 "linked_fnc": "detect_calls",
                 "widget": None,
@@ -241,20 +241,20 @@ class Main(QWidget):
                     widget.setText(props["default"])
 
             elif props["type"] == "QDoubleSpinBox":
-                widget = QDoubleSpinBox()
                 label = QLabel(props["label"])
                 self.layout.addWidget(
                     label, props["row"] - 1, props["col"], 1, props["col_span"]
                 )
-                self.layout.addWidget(
-                    widget, props["row"], props["col"], 1, props["col_span"]
-                )
+
+                widget = QDoubleSpinBox()
+
                 if props["default"] is not None:
-                    widget.setValue(float(props["default"][0]))
-                    widget.setDecimals(float(props["default"][1]))
-                    widget.setSingleStep(float(props["default"][2]))
                     widget.setMinimum(float(props["default"][3]))
                     widget.setMaximum(float(props["default"][4]))
+                    widget.setDecimals(float(props["default"][1]))
+                    widget.setSingleStep(float(props["default"][2]))
+
+                    widget.setValue(float(props["default"][0]))
                 if "linked_fnc" in props and hasattr(self, props["linked_fnc"]):
                     linked_function = getattr(
                         self, props["linked_fnc"]
@@ -262,6 +262,11 @@ class Main(QWidget):
                     widget.valueChanged.connect(
                         linked_function
                     )  # Connetti il pulsante alla funzione
+
+                self.layout.addWidget(
+                    widget, props["row"], props["col"], 1, props["col_span"]
+                )
+
             else:
                 continue  # Ignora eventuali tipi non definiti
             if widget:
@@ -603,8 +608,13 @@ class Main(QWidget):
             return
         self.start_times = []
         self.end_times = []
-        before = int(self.widgets_rigaFinale["from_peak_to_end"]["widget"].text())
-        before = int(before * self.sampling_rate / (self.overlap * 1000))
+
+        print(self.widgets_rigaFinale["from_peak_to_end"]["widget"].value())
+        print(f"{self.overlap=}")
+
+        # before = int(float(self.widgets_rigaFinale["from_peak_to_end"]["widget"].text()))
+        max_dist = self.widgets_rigaFinale["from_peak_to_end"]["widget"].value()
+        before = int(max_dist * self.sampling_rate / (self.overlap))
         after = before
         print("after & Before", after)
         print("len(rms)", len(self.rms))

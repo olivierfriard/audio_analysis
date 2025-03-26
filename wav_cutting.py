@@ -184,9 +184,14 @@ class Wav_cutting(QWidget):
         original_name = f"{Path(self.nome_subcartella) / Path(self.wav_file).stem}"
 
         # set duration in base of number of chunks
+<<<<<<< HEAD
         n_chunks = self.n_chunks_sb.value()
         self.durata_ritaglio = round(
             len(self.data) / self.sampling_rate / n_chunks
+=======
+        self.durata_ritaglio = (
+            len(self.data) / self.sampling_rate / self.n_chunks_sb.value()
+>>>>>>> f30c02d33cbf6533cb58b601701d2dbb45556e66
         )
         print(self.durata_ritaglio)
         ini = 0
