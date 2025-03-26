@@ -15,7 +15,7 @@ from PySide6.QtWidgets import (
     QSpinBox,
     QFileDialog,
 )
-from PySide6.QtCore import Qt, Signal, Slot
+from PySide6.QtCore import Signal, Slot
 
 
 class Wav_cutting(QWidget):
@@ -260,3 +260,5 @@ class Wav_cutting(QWidget):
         # delete file .tmp
         if Path(self.wav_file).exists() and Path(self.wav_file).suffix == ".tmp":
             Path(self.wav_file).unlink()
+
+        self.cut_ended_signal.emit()

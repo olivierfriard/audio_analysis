@@ -276,4 +276,9 @@ class OscillogramWindow(QWidget):
         self.wav_cutting_widget = Wav_cutting(
             str(Path(self.wav_file).with_suffix(".tmp"))
         )
+        self.wav_cutting_widget.cut_ended_signal.connect(self.cut_ended)
         self.wav_cutting_widget.show()
+
+    def cut_ended(self):
+        self.wav_cutting_widget.close()
+        self.close()
