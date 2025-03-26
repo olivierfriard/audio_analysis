@@ -42,7 +42,9 @@ class Main(QWidget):
         self.start_times = []
         self.end_times = []
 
-        self.setWindowTitle(f"{Path(__file__).stem.replace('_', ' ')} - {Path(self.wav_file).stem}")
+        self.setWindowTitle(
+            f"{Path(__file__).stem.replace('_', ' ')} - {Path(self.wav_file).stem}"
+        )
 
         # Layout principale a griglia (10 colonne)
         self.layout = QGridLayout()
@@ -218,23 +220,35 @@ class Main(QWidget):
                     props["col_span"],
                 )
                 if "linked_fnc" in props and hasattr(self, props["linked_fnc"]):
-                    linked_function = getattr(self, props["linked_fnc"])  # Recupera la funzione
-                    widget.clicked.connect(linked_function)  # Connetti il pulsante alla funzione
+                    linked_function = getattr(
+                        self, props["linked_fnc"]
+                    )  # Recupera la funzione
+                    widget.clicked.connect(
+                        linked_function
+                    )  # Connetti il pulsante alla funzione
 
             elif props["type"] == "QLineEdit":
                 widget = QLineEdit()
                 label = QLabel(props["label"])
-                self.layout.addWidget(label, props["row"] - 1, props["col"], 1, props["col_span"])
+                self.layout.addWidget(
+                    label, props["row"] - 1, props["col"], 1, props["col_span"]
+                )
                 label.setFixedHeight(10)
-                self.layout.addWidget(widget, props["row"], props["col"], 1, props["col_span"])
+                self.layout.addWidget(
+                    widget, props["row"], props["col"], 1, props["col_span"]
+                )
                 if props["default"] is not None:
                     widget.setText(props["default"])
 
             elif props["type"] == "QDoubleSpinBox":
                 widget = QDoubleSpinBox()
                 label = QLabel(props["label"])
-                self.layout.addWidget(label, props["row"] - 1, props["col"], 1, props["col_span"])
-                self.layout.addWidget(widget, props["row"], props["col"], 1, props["col_span"])
+                self.layout.addWidget(
+                    label, props["row"] - 1, props["col"], 1, props["col_span"]
+                )
+                self.layout.addWidget(
+                    widget, props["row"], props["col"], 1, props["col_span"]
+                )
                 if props["default"] is not None:
                     widget.setValue(float(props["default"][0]))
                     widget.setDecimals(float(props["default"][1]))
@@ -242,8 +256,12 @@ class Main(QWidget):
                     widget.setMinimum(float(props["default"][3]))
                     widget.setMaximum(float(props["default"][4]))
                 if "linked_fnc" in props and hasattr(self, props["linked_fnc"]):
-                    linked_function = getattr(self, props["linked_fnc"])  # Recupera la funzione
-                    widget.valueChanged.connect(linked_function)  # Connetti il pulsante alla funzione
+                    linked_function = getattr(
+                        self, props["linked_fnc"]
+                    )  # Recupera la funzione
+                    widget.valueChanged.connect(
+                        linked_function
+                    )  # Connetti il pulsante alla funzione
             else:
                 continue  # Ignora eventuali tipi non definiti
             if widget:
@@ -262,23 +280,35 @@ class Main(QWidget):
                     props["col_span"],
                 )
                 if "linked_fnc" in props and hasattr(self, props["linked_fnc"]):
-                    linked_function = getattr(self, props["linked_fnc"])  # Recupera la funzione
-                    widget.clicked.connect(linked_function)  # Connetti il pulsante alla funzione
+                    linked_function = getattr(
+                        self, props["linked_fnc"]
+                    )  # Recupera la funzione
+                    widget.clicked.connect(
+                        linked_function
+                    )  # Connetti il pulsante alla funzione
                 self.widgets_rigaFinale[key]["widget"] = widget
             elif props["type"] == "QLineEdit":
                 widget = QLineEdit()
                 label = QLabel(props["label"])
-                self.layout.addWidget(label, props["row"] - 1, props["col"], 1, props["col_span"])
+                self.layout.addWidget(
+                    label, props["row"] - 1, props["col"], 1, props["col_span"]
+                )
                 label.setFixedHeight(10)
-                self.layout.addWidget(widget, props["row"], props["col"], 1, props["col_span"])
+                self.layout.addWidget(
+                    widget, props["row"], props["col"], 1, props["col_span"]
+                )
                 if props["default"] is not None:
                     widget.setText(props["default"])
 
             elif props["type"] == "QDoubleSpinBox":
                 widget = QDoubleSpinBox()
                 label = QLabel(props["label"])
-                self.layout.addWidget(label, props["row"] - 1, props["col"], 1, props["col_span"])
-                self.layout.addWidget(widget, props["row"], props["col"], 1, props["col_span"])
+                self.layout.addWidget(
+                    label, props["row"] - 1, props["col"], 1, props["col_span"]
+                )
+                self.layout.addWidget(
+                    widget, props["row"], props["col"], 1, props["col_span"]
+                )
                 if props["default"] is not None:
                     widget.setValue(float(props["default"][0]))
                     widget.setDecimals(float(props["default"][1]))
@@ -286,8 +316,12 @@ class Main(QWidget):
                     widget.setMinimum(float(props["default"][3]))
                     widget.setMaximum(float(props["default"][4]))
                 if "linked_fnc" in props and hasattr(self, props["linked_fnc"]):
-                    linked_function = getattr(self, props["linked_fnc"])  # Recupera la funzione
-                    widget.valueChanged.connect(linked_function)  # Connetti il pulsante alla funzione
+                    linked_function = getattr(
+                        self, props["linked_fnc"]
+                    )  # Recupera la funzione
+                    widget.valueChanged.connect(
+                        linked_function
+                    )  # Connetti il pulsante alla funzione
 
             else:
                 continue
@@ -301,13 +335,17 @@ class Main(QWidget):
         self.layout.setRowStretch(4, 0)  # Etichette
         self.layout.setRowStretch(5, 1)  # Pulsanti
         for col in range(10):  # Supponiamo 10 colonne
-            self.layout.setColumnStretch(col, 1)  # Tutte le colonne hanno lo stesso peso
+            self.layout.setColumnStretch(
+                col, 1
+            )  # Tutte le colonne hanno lo stesso peso
 
         # 🔹 Creazione della figura matplotlib (grafico)
         self.figure, self.ax = plt.subplots(figsize=(10, 4))
         self.figure.subplots_adjust(bottom=0.2)
         self.canvas = FigureCanvas(self.figure)
-        self.layout.addWidget(self.canvas, 2, 0, 1, 10)  # Riga 3, occupa tutte le colonne
+        self.layout.addWidget(
+            self.canvas, 2, 0, 1, 10
+        )  # Riga 3, occupa tutte le colonne
 
         # 🔹 Slider per la navigazione nel tempo (Riga 3)
         self.slider = QSlider(Qt.Horizontal)
@@ -317,7 +355,9 @@ class Main(QWidget):
         self.slider.setTickPosition(QSlider.TicksBelow)
         self.slider.setTickInterval(10)
         self.slider.valueChanged.connect(self.on_slider)
-        self.layout.addWidget(self.slider, 3, 0, 1, 10)  # Riga 4, occupa tutte le colonne
+        self.layout.addWidget(
+            self.slider, 3, 0, 1, 10
+        )  # Riga 4, occupa tutte le colonne
 
         # 🔹 Attivazione di SpanSelector per la selezione
         self.selected_region = []
@@ -370,7 +410,9 @@ class Main(QWidget):
         # Normalizza il segnale
         self.data = self.data / np.max(np.abs(self.data))
         # Crea variable tempo
-        self.time = np.linspace(0, len(self.data) / self.sampling_rate, num=len(self.data))
+        self.time = np.linspace(
+            0, len(self.data) / self.sampling_rate, num=len(self.data)
+        )
         self.binary_song = np.zeros(len(self.time))
         self.xmin = 0
         self.xmax = self.time[-1]
@@ -383,7 +425,9 @@ class Main(QWidget):
     def plot_wav(self, xmin, xmax):
         self.ax.cla()  # Cancella il grafico precedente
         self.ax.plot(self.time, self.data, linewidth=0.5, color="black", alpha=0.5)
-        self.ax.plot(self.time, self.binary_song, linewidth=0.5, color="black", alpha=0.5)
+        self.ax.plot(
+            self.time, self.binary_song, linewidth=0.5, color="black", alpha=0.5
+        )
 
         if len(self.rms) > 0:
             self.ax.plot(self.rms_times, self.rms, linewidth=1, color="red")
@@ -480,15 +524,21 @@ class Main(QWidget):
                 return
 
             # Calcola l'inviluppo RMS con i nuovi valori
-            self.rms = librosa.feature.rms(y=self.data, frame_length=self.window_size, hop_length=self.overlap)[0]
-            self.rms_times = librosa.frames_to_time(np.arange(len(self.rms)), sr=self.sampling_rate, hop_length=self.overlap)
+            self.rms = librosa.feature.rms(
+                y=self.data, frame_length=self.window_size, hop_length=self.overlap
+            )[0]
+            self.rms_times = librosa.frames_to_time(
+                np.arange(len(self.rms)), sr=self.sampling_rate, hop_length=self.overlap
+            )
             self.rms = self.amp_rms * self.rms
             self.xmin = 0
             self.xmax = self.duration
             self.plot_wav(self.xmin, self.xmax)
 
         except ValueError:
-            print("Errore: Assicurati che Window Size e Overlap siano numeri interi validi.")
+            print(
+                "Errore: Assicurati che Window Size e Overlap siano numeri interi validi."
+            )
 
     def fd_peaks_spinbox(self, value):
         if self.xmin > 0 or self.xmax < self.duration:
@@ -522,8 +572,12 @@ class Main(QWidget):
         mask_in = (self.peaks_times >= xmin) & (self.peaks_times <= xmax)
 
         self.amp_threshold = self.widgets_riga1_2["min_amp"]["widget"].value()
-        self.min_distance_sec = np.float64(self.widgets_riga1_2["min_dist"]["widget"].text())
-        self.min_distance_samples = int(self.min_distance_sec * (self.sampling_rate / self.overlap))  # Converti in campioni
+        self.min_distance_sec = np.float64(
+            self.widgets_riga1_2["min_dist"]["widget"].text()
+        )
+        self.min_distance_samples = int(
+            self.min_distance_sec * (self.sampling_rate / self.overlap)
+        )  # Converti in campioni
 
         mask_rms = (self.rms_times >= xmin) & (self.rms_times <= xmax)
         rms_selected = self.rms[mask_rms]
@@ -567,7 +621,9 @@ class Main(QWidget):
                 c = id0 + ss
                 if c >= len(self.rms_times) - 2:
                     break
-                x = np.sum(self.rms[c] - self.rms[c + 1 : min(c + before, len(self.rms))])
+                x = np.mean(
+                    self.rms[c] - self.rms[c + 1 : min(c + before, len(self.rms))]
+                )
                 if x < 0:
                     s_min = x
                     s_idmin = c
@@ -579,7 +635,7 @@ class Main(QWidget):
 
             for ee in range(after):
                 e = id1 + ee
-                x = np.sum(self.rms[e] - self.rms[e + 1 : e + after])
+                x = np.mean(self.rms[e] - self.rms[e + 1 : e + after])
 
                 if x < e_min:
                     e_min = x
@@ -647,7 +703,9 @@ class Main(QWidget):
 
             # 🔹 Verifica che l'intervallo sia valido
             if ini < 0 or fine > len(self.data):
-                print(f"Il picco {self.peaks_times[i]:.5f}s supera i limiti del file audio! Saltato.")
+                print(
+                    f"Il picco {self.peaks_times[i]:.5f}s supera i limiti del file audio! Saltato."
+                )
                 continue
 
             ritaglio = self.data[ini:fine]
@@ -658,7 +716,10 @@ class Main(QWidget):
             # add start position of cut file
             sample_number += self.start
 
-            nome_ritaglio = data_directory / f"{Path(self.wav_file).stem}_sample_{sample_number:09d}.wav"
+            nome_ritaglio = (
+                data_directory
+                / f"{Path(self.wav_file).stem}_sample_{sample_number:09d}.wav"
+            )
 
             # Salva il file ritagliato
             wavfile.write(nome_ritaglio, self.sampling_rate, ritaglio)
@@ -680,9 +741,15 @@ class Main(QWidget):
 
             parameters[Path(self.wav_file).name]["window size"] = self.window_size
             parameters[Path(self.wav_file).name]["overlap"] = self.overlap
-            parameters[Path(self.wav_file).name]["amplitude threshold"] = self.amp_threshold
-            parameters[Path(self.wav_file).name]["minimum distance"] = self.min_distance_sec
-            parameters[Path(self.wav_file).name]["peaks_times"] = self.peaks_times.tolist()
+            parameters[Path(self.wav_file).name]["amplitude threshold"] = (
+                self.amp_threshold
+            )
+            parameters[Path(self.wav_file).name]["minimum distance"] = (
+                self.min_distance_sec
+            )
+            parameters[Path(self.wav_file).name]["peaks_times"] = (
+                self.peaks_times.tolist()
+            )
 
         else:
             # parameters for current file
@@ -713,12 +780,20 @@ class Main(QWidget):
                 sd.stop()
             else:
                 print(f"Play audio from {self.xmin} s to {self.xmax} s")
-                segment = self.data[int(self.xmin * self.sampling_rate) : int(self.xmax * self.sampling_rate)]
+                segment = self.data[
+                    int(self.xmin * self.sampling_rate) : int(
+                        self.xmax * self.sampling_rate
+                    )
+                ]
                 sd.play(segment, samplerate=self.sampling_rate)
 
         except Exception:
             print(f"Play audio from {self.xmin} s to {self.xmax} s")
-            segment = self.data[int(self.xmin * self.sampling_rate) : int(self.xmax * self.sampling_rate)]
+            segment = self.data[
+                int(self.xmin * self.sampling_rate) : int(
+                    self.xmax * self.sampling_rate
+                )
+            ]
             sd.play(segment, samplerate=self.sampling_rate)
 
     def stopplaying(self):
