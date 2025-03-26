@@ -193,7 +193,7 @@ class Wav_cutting(QWidget):
         counter = 0  # per tenere traccia del numero di ritagli salvati
         while ini < len(self.data):
             # Calcolo della fine teorica del segmento di durata self.durata_ritaglio
-            if counter == n_chunks or fin > len(self.data):
+            if counter == n_chunks or int(ini + self.sampling_rate * self.durata_ritaglio) > len(self.data):
                 fin = len(self.data)
             else:
                 fin = int(ini + self.sampling_rate * self.durata_ritaglio)
