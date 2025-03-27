@@ -384,9 +384,10 @@ class Main(QWidget):
 
         self.start = 0
         # check if wav was cut
-        data_file_path = Path(self.wav_file).parent / Path(self.wav_file).with_suffix(
-            ".json"
-        )
+        data_file_path = Path(self.wav_file).parent / Path(
+            Path(self.wav_file).parent.name
+        ).with_suffix(".json")
+
         if data_file_path.is_file():
             # read file content
             with open(data_file_path, "r", encoding="utf-8") as f_in:
