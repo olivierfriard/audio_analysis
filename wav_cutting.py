@@ -177,7 +177,9 @@ class Wav_cutting(QWidget):
         n_chunks = self.n_chunks_sb.value()
         self.durata_ritaglio = round(len(self.data) / self.sampling_rate / n_chunks)
         print(self.durata_ritaglio)
-
+        
+        intervallo = 0.3 # intervallo entro il quale trovare il taglio (in secondi)
+        
         cut_file_list: list = []
         ini = 0
         counter = 0  # per tenere traccia del numero di ritagli salvati
@@ -191,13 +193,13 @@ class Wav_cutting(QWidget):
                 fin = int(ini + self.sampling_rate * self.durata_ritaglio)
 
             # Definisco l'intervallo ±0.1 secondi attorno al punto fin
-            offset = int(self.sampling_rate * 0.1)
+            offset = int(self.sampling_rate * intervallo/2)
             start_range = max(fin - offset, 0)
             end_range = min(fin + offset, len(self.data))
             fin_range = np.arange(start_range, end_range)
 
             # Calcolo del RMS nel range definito
-            frame_length = int(self.sampling_rate / 100)
+            frame_length = int(self.sampling_rate /100)
             hop_length = int(self.sampling_rate / 100)
             rms = librosa.feature.rms(
                 y=self.data[fin_range], frame_length=frame_length, hop_length=hop_length
@@ -206,6 +208,7 @@ class Wav_cutting(QWidget):
             # Individuo l'indice in cui il valore RMS è minimo
             min_index = np.argmin(rms)
             fin_best = fin_range[min_index]
+            print("rms", len(rms),"fin_best", fin_best)
 
             # Costruisco il nome del file per il ritaglio corrente
             nome_ritaglio = f"{original_name}_{ini:09d}_{fin_best - 1:09d}.wav"
