@@ -382,7 +382,6 @@ class MainWindow(QMainWindow):
         for file_path in sorted(
             [f for f in Path(directory).glob("*") if f.suffix.lower() == ".wav"]
         ):
-            # get sample_rate
             sample_rate, duration = self.get_rate_duration(str(file_path))
             self.wav_list[str(file_path)] = {
                 "sample rate": sample_rate,
@@ -401,6 +400,7 @@ class MainWindow(QMainWindow):
     def show_oscillogram(self, wav_file_path: str = ""):
         if wav_file_path:
             self.oscillogram_window = OscillogramWindow(wav_file_path)
+            self.oscillogram_window.load_wav_signal.connect(self.load_wav)
             self.oscillogram_window.show()
         else:
             # check if wav checked in treewidget
@@ -417,6 +417,20 @@ class MainWindow(QMainWindow):
                     osc_win.show()
             else:
                 self.text_edit.append("No WAV file selected!")
+
+    def load_wav(self, file_list: list):
+        """
+        load wav file in tree widget
+        """
+        self.wav_list = {}
+        for file_path in file_list:
+            sample_rate, duration = self.get_rate_duration(str(file_path))
+            self.wav_list[str(file_path)] = {
+                "sample rate": sample_rate,
+                "duration": duration,
+            }
+
+        self.update_wav_list()
 
     def resampling(self):
         """

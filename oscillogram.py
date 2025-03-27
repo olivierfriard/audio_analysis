@@ -17,7 +17,8 @@ from PySide6.QtWidgets import (
     QTextEdit,
     QMessageBox,
 )
-from PySide6.QtCore import Qt, Signal, Slot
+from PySide6.QtCore import Qt
+from PySide6.QtCore import Signal, Slot
 
 from wav_cutting import Wav_cutting
 
@@ -52,6 +53,8 @@ class AmplifyDialog(QDialog):
 
 
 class OscillogramWindow(QWidget):
+    load_wav_signal = Signal(list)
+
     def __init__(self, wav_file: str):
         super().__init__()
 
@@ -265,13 +268,17 @@ class OscillogramWindow(QWidget):
         cut and save WAV files
         """
 
-        # save current wav file
-        # wavfile.write(save_path, self.new_sampling_rate, self.data_resampled)
-
         # save data in a wav temporary file (.tmp)
-        wavfile.write(
-            Path(self.wav_file).with_suffix(".tmp"), self.sampling_rate, self.data
-        )
+        try:
+            wavfile.write(
+                Path(self.wav_file).with_suffix(".tmp"), self.sampling_rate, self.data
+            )
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Error",
+                f"The file {Path(self.wav_file).with_suffix('.tmp')} cannot be saved.\n{e}",
+            )
 
         self.wav_cutting_widget = Wav_cutting(
             str(Path(self.wav_file).with_suffix(".tmp"))
@@ -279,9 +286,13 @@ class OscillogramWindow(QWidget):
         self.wav_cutting_widget.cut_ended_signal.connect(self.cut_ended)
         self.wav_cutting_widget.show()
 
-    def cut_ended(self):
+    @Slot(list)
+    def cut_ended(self, file_list: list):
         """
         receive signal from Wav_cutting
         """
         self.wav_cutting_widget.close()
+
+        self.load_wav_signal.emit(file_list)
+
         self.close()

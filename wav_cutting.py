@@ -19,7 +19,7 @@ from PySide6.QtCore import Signal
 
 
 class Wav_cutting(QWidget):
-    cut_ended_signal = Signal()
+    cut_ended_signal = Signal(list)
 
     def __init__(self, wav_file: str):
         super().__init__()
@@ -177,6 +177,8 @@ class Wav_cutting(QWidget):
         n_chunks = self.n_chunks_sb.value()
         self.durata_ritaglio = round(len(self.data) / self.sampling_rate / n_chunks)
         print(self.durata_ritaglio)
+
+        cut_file_list: list = []
         ini = 0
         counter = 0  # per tenere traccia del numero di ritagli salvati
         while ini < len(self.data):
@@ -218,6 +220,9 @@ class Wav_cutting(QWidget):
             ritaglio = self.data[ini:fin_best]
             wavfile.write(nome_ritaglio, self.sampling_rate, ritaglio)
 
+            # add file to list of files
+            cut_file_list.append(nome_ritaglio)
+
             parameters[Path(nome_ritaglio).name] = {
                 "start": int(ini),
                 "end": int(fin_best - 1),
@@ -239,7 +244,7 @@ class Wav_cutting(QWidget):
             QMessageBox.critical(
                 self,
                 "",
-                f"Errore nel salvataggio dei risultati: {e}",
+                f"Error saving the {data_file_path} file: {e}",
             )
 
         QMessageBox.information(
@@ -252,4 +257,4 @@ class Wav_cutting(QWidget):
         if Path(self.wav_file).exists() and Path(self.wav_file).suffix == ".tmp":
             Path(self.wav_file).unlink()
 
-        self.cut_ended_signal.emit()
+        self.cut_ended_signal.emit(cut_file_list)
