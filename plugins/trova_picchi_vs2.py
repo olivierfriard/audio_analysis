@@ -388,12 +388,22 @@ class Main(QWidget):
             Path(self.wav_file).parent.name
         ).with_suffix(".json")
 
+        print(f"parameters file: {data_file_path}")
+
         if data_file_path.is_file():
             # read file content
             with open(data_file_path, "r", encoding="utf-8") as f_in:
                 parameters = json.load(f_in)
             if Path(self.wav_file).name in parameters:
                 self.start = parameters[Path(self.wav_file).name].get("start", 0)
+            else:
+                QMessageBox.critical(
+                    self,
+                    "Error",
+                    f"The {Path(self.wav_file).name} was not found in {data_file_path} file.\nCannot load WAV file",
+                )
+                return
+
         else:  # no json, file not cut
             QMessageBox.critical(
                 self,
@@ -401,6 +411,8 @@ class Main(QWidget):
                 f"The {data_file_path} file was not found.\nCannot load WAV file",
             )
             return
+
+        print(f"start position of file: {self.start}")
 
         self.amp_rms = 1.5  # fattore di moltiplicazione dell'inviluppo, per accentuare variazione in ampiezza
         self.sampling_rate, self.data = wavfile.read(wav_file)

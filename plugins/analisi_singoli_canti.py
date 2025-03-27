@@ -440,18 +440,21 @@ class Main(QWidget):
         Salva i risultati delle analisi nel file .json
         """
 
+        # read sample position in file name
         sample = int(Path(self.wav_file).stem.split("_")[-1])
 
-        save_path = Path(self.wav_file).parent.parent / Path(self.wav_file).with_suffix(
-            ".json"
-        )
+        data_file_path = Path(self.wav_file).parent.parent / Path(
+            Path(self.wav_file).parent.parent.name
+        ).with_suffix(".json")
 
-        print(f"{save_path=}")
+        print(f"{data_file_path=}")
         # self.run_analysis()
 
         # test if data.json exists
-        if not save_path.is_file():
-            QMessageBox.warning(self, "", "The json file does not exist")
+        if not data_file_path.is_file():
+            QMessageBox.warning(
+                self, "", f"The parameters file {data_file_path} does not exist"
+            )
             return
 
         self.results_dict["file"] = Path(self.wav_file).stem
@@ -460,7 +463,7 @@ class Main(QWidget):
         self.results_dict["pulse_number"] = len(self.peaks_times)
 
         # read json content
-        with open(save_path, "r", encoding="utf-8") as f_in:
+        with open(data_file_path, "r", encoding="utf-8") as f_in:
             parameters = json.load(f_in)
 
         # check if file in json
@@ -469,7 +472,7 @@ class Main(QWidget):
             QMessageBox.warning(
                 self,
                 "",
-                f"{file_name} not found in json file",
+                f"{file_name} not found in {data_file_path} file",
             )
             return
 
@@ -511,15 +514,15 @@ class Main(QWidget):
 
         # save in data.json
         try:
-            with open(save_path, "w", encoding="utf-8") as f_out:
+            with open(data_file_path, "w", encoding="utf-8") as f_out:
                 json.dump(parameters, f_out, indent=0, ensure_ascii=False)
 
-            print(f"Risultati salvati in {save_path}")
+            print(f"Risultati salvati in {data_file_path}")
         except Exception as e:
             print(f"Errore nel salvataggio dei risultati: {e}")
 
         # Save the dictionary to a pickle file
-        with open(save_path.with_suffix(".pkl"), "wb") as f_out:
+        with open(data_file_path.with_suffix(".pkl"), "wb") as f_out:
             pickle.dump(parameters, f_out)
 
     def next_file_clicked(self):
