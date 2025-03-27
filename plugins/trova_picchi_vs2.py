@@ -645,11 +645,12 @@ class Main(QWidget):
 
             for ss in range(before):
                 c = id0 + ss
-                if c >= len(self.rms_times) - 2:
-                    break
+                #if c >= len(self.rms_times) - 2:
+                #    break
                 x = np.mean(
                     self.rms[c] - self.rms[c + 1 : min(c + before, len(self.rms))]
                 )
+                
                 if x < s_min:
                     s_min = x
                     s_idmin = c
@@ -661,17 +662,17 @@ class Main(QWidget):
 
             for ee in range(after):
                 e = id1 + ee
-                x = np.mean(self.rms[e] - self.rms[e + 1 : e + after])
-
-                if x < e_min:
-                    e_min = x
-                    e_idmin = e
-                    # print("e_min", e_min)
-                    # break
-
+                if e < len(self.rms) - 1:
+                    e_fin = min(len(self.rms), e-1)
+                    x = np.mean(self.rms[e] - self.rms[ee:e_fin])
+                    if x < e_min:
+                        e_min = x
+                        e_idmin = e
+            else:
+                    e_idmin = len(self.rms) - 1
+                    
+                    
             self.end_times.append(self.rms_times[e_idmin])
-        # print("ss", start_times)
-        # print("ee", end_times)
         self.binary_song = np.zeros_like(self.time)
         for start, end in zip(self.start_times, self.end_times):
             mask = (self.time >= start) & (self.time <= end)
@@ -828,7 +829,8 @@ class Main(QWidget):
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    main_widget = Main(wav_file_list=["GeCorn_2025-01-25_09.wav"])
+    main_widget = Main(wav_file_list=["GeCorn_2025-01-25_09_000000000_002332908.wav"])
+    #main_widget = Main(wav_file_list=["GeCorn_2025-01-25_09.wav"])
     # main_widget = Main(wav_file_list=["Blommersia_blommersae.wav"])
     main_widget.show()
 
