@@ -8,6 +8,7 @@ import librosa
 from PySide6.QtWidgets import (
     QWidget,
     QPushButton,
+    QLineEdit,
     QVBoxLayout,
     QLabel,
     QMessageBox,
@@ -79,6 +80,14 @@ class Wav_cutting(QWidget):
         self.n_chunks_sb.setSingleStep(1)
         # self.n_chunks_sb.valueChanged.connect(self.update_label)
         hlayout.addWidget(self.n_chunks_sb)
+        hlayout.addStretch()
+        layout.addLayout(hlayout)
+
+
+        hlayout.addWidget(QLabel("offset (s)"))
+        self.offset = QLineEdit()
+        self.offset.setText("0.4")
+        hlayout.addWidget(self.offset)
         hlayout.addStretch()
         layout.addLayout(hlayout)
 
@@ -175,11 +184,10 @@ class Wav_cutting(QWidget):
 
         # set duration in base of number of chunks
         n_chunks = self.n_chunks_sb.value()
+        intervallo = float(self.offset.text())
         self.durata_ritaglio = round(len(self.data) / self.sampling_rate / n_chunks)
         print(self.durata_ritaglio)
-        
-        intervallo = 0.3 # intervallo entro il quale trovare il taglio (in secondi)
-        
+         
         cut_file_list: list = []
         ini = 0
         counter = 0  # per tenere traccia del numero di ritagli salvati
@@ -197,10 +205,10 @@ class Wav_cutting(QWidget):
             start_range = max(fin - offset, 0)
             end_range = min(fin + offset, len(self.data))
             fin_range = np.arange(start_range, end_range)
-
+            print("offset", offset, "start", start_range,"end",end_range)
             # Calcolo del RMS nel range definito
             frame_length = int(self.sampling_rate /100)
-            hop_length = int(self.sampling_rate / 100)
+            hop_length = 1 #int(self.sampling_rate)
             rms = librosa.feature.rms(
                 y=self.data[fin_range], frame_length=frame_length, hop_length=hop_length
             )[0]
