@@ -490,9 +490,13 @@ class MainWindow(QMainWindow):
         else:
             QMessageBox.warning(self, "", "No WAV file selected")
 
-
-if __name__ == "__main__":
+def run():
     app = QApplication(sys.argv)
     window = MainWindow()
     window.show()
-    sys.exit(app.exec())
+    sys.exit(app.exec())    
+
+
+if __name__ == "__main__":
+    run()
+
