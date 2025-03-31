@@ -2,6 +2,7 @@
 name = "analisi_canti"
 version = "0.0.4"
 description = "Analisi canti"
+authors = [{ name="Sergio Castellano", email="sergio.castellano@unito.it" }, { name="Olivier Friard", email="olivier.friard@unito.it" }]
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
@@ -14,13 +15,16 @@ dependencies = [
     "wavfile>=4.7.2",
 ]
 
+license = "GPL-3.0-only"
+
 classifiers=[
         "Operating System :: OS Independent",
         "Intended Audience :: Science/Research",
         "Intended Audience :: Education",
         "Programming Language :: Python :: 3.13",
-        "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
         "Topic :: Scientific/Engineering",
         "Topic :: Scientific/Engineering :: Visualization",
         "Operating System :: OS Independent"
     ]
+
+
