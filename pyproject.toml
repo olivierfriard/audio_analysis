@@ -1,7 +1,7 @@
 [project]
-name = "audio-analysis"
-version = "0.1.0"
-description = "Add your description here"
+name = "analisi_canti"
+version = "0.0.4"
+description = "Analisi canti"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
@@ -13,3 +13,14 @@ dependencies = [
     "sounddevice>=0.5.1",
     "wavfile>=4.7.2",
 ]
+
+classifiers=[
+        "Operating System :: OS Independent",
+        "Intended Audience :: Science/Research",
+        "Intended Audience :: Education",
+        "Programming Language :: Python :: 3.13",
+        "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+        "Topic :: Scientific/Engineering",
+        "Topic :: Scientific/Engineering :: Visualization",
+        "Operating System :: OS Independent"
+    ]
