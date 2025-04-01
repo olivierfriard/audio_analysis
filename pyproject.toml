@@ -1,6 +1,6 @@
 [project]
 name = "analisi_canti"
-version = "0.0.5"
+version = "0.0.6"
 description = "Analisi canti"
 authors = [{ name="Sergio Castellano", email="sergio.castellano@unito.it" }, { name="Olivier Friard", email="olivier.friard@unito.it" }]
 readme = "README.md"
@@ -29,4 +29,4 @@ classifiers=[
 
 
 [project.scripts]
-analisi_canti = "analisi_canti:main"
+analisi_canti = "analisi_canti.main:run"
