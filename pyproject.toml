@@ -1,10 +1,10 @@
 [project]
 name = "analisi_canti"
-version = "0.0.4"
+version = "0.0.5"
 description = "Analisi canti"
 authors = [{ name="Sergio Castellano", email="sergio.castellano@unito.it" }, { name="Olivier Friard", email="olivier.friard@unito.it" }]
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.12"
 dependencies = [
     "librosa>=0.10.2.post1",
     "matplotlib>=3.10.0",
@@ -28,3 +28,5 @@ classifiers=[
     ]
 
 
+[project.scripts]
+analisi_canti = "analisi_canti:main"
