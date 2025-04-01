@@ -37,9 +37,9 @@ __version__ = "0.0.4"
 __version_date__ = "2025-03-11"
 
 
-from oscillogram import OscillogramWindow
+from .oscillogram import OscillogramWindow
 
-from wav_cutting import Wav_cutting
+from .wav_cutting import Wav_cutting
 
 
 class ResamplingWindow(QWidget):

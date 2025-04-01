@@ -20,7 +20,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt
 from PySide6.QtCore import Signal, Slot
 
-from wav_cutting import Wav_cutting
+from .wav_cutting import Wav_cutting
 
 
 class AmplifyDialog(QDialog):
