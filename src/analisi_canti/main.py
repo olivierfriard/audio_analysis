@@ -230,7 +230,8 @@ class MainWindow(QMainWindow):
 
         # Load modules from plugins directory
         self.modules: dict = {}
-        for file_ in sorted(Path("plugins").glob("*.py")):
+        print(f"{__file__=}")
+        for file_ in sorted((Path(__file__).parent / Path("plugins")).glob("*.py")):
             module_name = file_.stem  # python file name without '.py'
             spec = importlib.util.spec_from_file_location(module_name, file_)
             self.modules[module_name] = importlib.util.module_from_spec(spec)
