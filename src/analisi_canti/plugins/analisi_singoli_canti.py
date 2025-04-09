@@ -450,7 +450,7 @@ class Main(QWidget):
         print(f"{data_file_path=}")
         # self.run_analysis()
 
-        # test if data.json exists
+        # test if .json exists
         if not data_file_path.is_file():
             QMessageBox.warning(
                 self, "", f"The parameters file {data_file_path} does not exist"
@@ -512,7 +512,7 @@ class Main(QWidget):
             self.results_dict["spectrum_peaks"]
         )
 
-        # save in data.json
+        # save in .json
         try:
             with open(data_file_path, "w", encoding="utf-8") as f_out:
                 json.dump(parameters, f_out, indent=0, ensure_ascii=False)
