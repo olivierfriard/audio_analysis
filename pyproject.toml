@@ -1,6 +1,6 @@
 [project]
 name = "analisi_canti"
-version = "0.0.8"
+version = "0.0.9"
 description = "Analisi canti"
 authors = [{ name="Sergio Castellano", email="sergio.castellano@unito.it" }, { name="Olivier Friard", email="olivier.friard@unito.it" }]
 readme = "README.md"
@@ -8,7 +8,6 @@ requires-python = ">=3.12"
 dependencies = [
     "librosa>=0.10.2.post1",
     "matplotlib>=3.10.0",
-    "pyinstaller>=6.12.0",
     "pyside6>=6.8.2.1",
     "scipy>=1.15.1",
     "sounddevice>=0.5.1",
