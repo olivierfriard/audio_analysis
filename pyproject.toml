@@ -1,6 +1,6 @@
 [project]
 name = "analisi_canti"
-version = "0.0.9"
+version = "0.0.10"
 description = "Analisi canti"
 authors = [{ name="Sergio Castellano", email="sergio.castellano@unito.it" }, { name="Olivier Friard", email="olivier.friard@unito.it" }]
 readme = "README.md"
