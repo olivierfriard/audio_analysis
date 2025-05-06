@@ -33,7 +33,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction
 import librosa
 
-__version__ = "0.0.11"
+__version__ = "0.0.12"
 __version_date__ = "2025-05-06"
 
 
@@ -137,7 +137,7 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        self.setWindowTitle("Audio Analysis")
+        self.setWindowTitle(f"Audio Analysis - v.{__version__}")
         self.wav_file = None
 
         self.wav_list: dict = {}

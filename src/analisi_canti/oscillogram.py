@@ -60,6 +60,7 @@ class OscillogramWindow(QWidget):
         self.wav_file = wav_file
 
         self.mem_data = None
+        self.mem_amplif_factor = None
 
         self.setWindowTitle(f"Oscillogram for {Path(wav_file).stem}")
         # self.setGeometry(200, 200, 800, 500)
@@ -69,9 +70,13 @@ class OscillogramWindow(QWidget):
 
         self.time = np.linspace(0, self.duration, num=len(self.data))
 
-        # Create a shortcut: Ctrl+H
+        # Create a shortcut for undo amplification: Ctrl+Z
         shortcut = QShortcut(QKeySequence("Ctrl+Z"), self)
         shortcut.activated.connect(self.undo_amplification)
+
+        # Create a shortcut for redoing amplification: Ctrl+R
+        shortcut2 = QShortcut(QKeySequence("Ctrl+R"), self)
+        shortcut2.activated.connect(self.redo_amplification)
 
         # Layout principale a griglia
         self.layout = QGridLayout()
@@ -191,6 +196,14 @@ class OscillogramWindow(QWidget):
         else:
             print("undo not possible")
 
+    def redo_amplification(self):
+        """
+        redo amplif with memorized amplification factor
+        """
+        if self.mem_amplif_factor is None:
+            return
+        self.apply_amplification(self.mem_amplif_factor)
+
     def on_select(self, xmin, xmax):
         """
         Evidenzia l'area selezionata con il mouse.
@@ -292,6 +305,7 @@ class OscillogramWindow(QWidget):
         self.amplify_dialog.exec()
         """
 
+        self.mem_amplif_factor = value
         self.apply_amplification(value)
 
     def apply_amplification(self, factor):
