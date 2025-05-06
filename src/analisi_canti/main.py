@@ -33,8 +33,8 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction
 import librosa
 
-__version__ = "0.0.5"
-__version_date__ = "2025-04-01"
+__version__ = "0.0.10"
+__version_date__ = "2025-04-09"
 
 
 from .oscillogram import OscillogramWindow
@@ -491,13 +491,13 @@ class MainWindow(QMainWindow):
         else:
             QMessageBox.warning(self, "", "No WAV file selected")
 
+
 def run():
     app = QApplication(sys.argv)
     window = MainWindow()
     window.show()
-    sys.exit(app.exec())    
+    sys.exit(app.exec())
 
 
 if __name__ == "__main__":
     run()
-
