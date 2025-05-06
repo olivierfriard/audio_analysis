@@ -11,11 +11,8 @@ from PySide6.QtWidgets import (
     QGridLayout,
     QSlider,
     QPushButton,
-    QVBoxLayout,
-    QLabel,
-    QDialog,
-    QTextEdit,
     QMessageBox,
+    QInputDialog,
 )
 from PySide6.QtCore import Qt
 from PySide6.QtCore import Signal, Slot
@@ -23,6 +20,7 @@ from PySide6.QtCore import Signal, Slot
 from .wav_cutting import Wav_cutting
 
 
+"""
 class AmplifyDialog(QDialog):
     def __init__(self, parent):
         super().__init__(parent)
@@ -50,6 +48,7 @@ class AmplifyDialog(QDialog):
             self.accept()  # Chiude la finestra in modo corretto
         except ValueError:
             QMessageBox.warning(self, "Error", "Invalid amplification factor")
+"""
 
 
 class OscillogramWindow(QWidget):
@@ -124,12 +123,13 @@ class OscillogramWindow(QWidget):
         # self.ax.grid()
 
         # Imposta il range iniziale della finestra
-        self.xmin, self.xmax = (
-            0,
-            self.duration,
-        )  # Inizialmente mostra tutta la registrazione
+        self.xmin = 0
+        self.xmax = self.duration  # Inizialmente mostra tutta la registrazione
         self.xrange = self.xmax - self.xmin
         self.ax.set_xlim(self.xmin, self.xmax)
+
+        self.plot_xmin = self.xmin
+        self.plot_xmax = self.xmax
 
         # Aggiunta della selezione interattiva
         self.selected_region = None
@@ -173,7 +173,8 @@ class OscillogramWindow(QWidget):
         if self.selected_region:
             self.selected_region.remove()  # Rimuove l'area precedente
         self.selected_region = self.ax.axvspan(xmin, xmax, color="red", alpha=0.3)
-        self.xmin, self.xmax = xmin, xmax
+        self.xmin = xmin
+        self.xmax = xmax
         self.canvas.draw_idle()
         self.zoomIn_button.setEnabled(True)
 
@@ -182,6 +183,9 @@ class OscillogramWindow(QWidget):
             range = self.xmax - self.xmin
             self.slider.setValue(int((self.xmin / (self.duration - range)) * 100))
             self.ax.set_xlim(self.xmin, self.xmax)
+
+            self.plot_xmin = self.xmin
+            self.plot_xmax = self.xmax
 
         # Rimuove la selezione rossa se esiste
         if self.selected_region:
@@ -195,6 +199,9 @@ class OscillogramWindow(QWidget):
     def zoomOut_wav(self):
         self.xmin = 0
         self.xmax = self.duration
+        self.plot_xmin = self.xmin
+        self.plot_xmax = self.xmax
+
         self.ax.set_xlim(self.xmin, self.xmax)  # Applica il reset
         self.slider.setValue(100)  # Imposta lo slider al massimo (100%)
         self.canvas.draw_idle()  # Aggiorna il grafico
@@ -234,20 +241,47 @@ class OscillogramWindow(QWidget):
         self.canvas.draw_idle()
 
     def open_amplify_dialog(self):
+        """
+        ask user to select an amplification factor
+
+        """
+        value, ok = QInputDialog.getDouble(
+            None,
+            "Enter Value",
+            "Enter a floating point number:",
+            value=1,  # default value
+            minValue=0.0,  # minimum allowed
+            maxValue=1000.0,  # maximum allowed
+            decimals=2,  # number of decimals
+        )
+
+        if not ok:
+            return
+
+        """
         self.amplify_dialog = AmplifyDialog(self)
         self.amplify_dialog.exec()
+        """
+
+        self.apply_amplification(value)
 
     def apply_amplification(self, factor):
+        """
+        amplify the region between xmin and xmax
+        """
         ini = int(self.xmin * self.sampling_rate)
         fin = int(self.xmax * self.sampling_rate)
         segnale = self.data[ini:fin]
         segnale = np.clip(segnale * factor, -32768, 32767).astype(np.int16)
         self.data[ini:fin] = segnale
+
         self.ax.clear()
         self.ax.plot(self.time, self.data, linewidth=0.5, color="black")
         self.ax.set_xlabel("Time (s)")
         self.ax.set_ylabel("Amplitude")
-        # self.ax.set_xlim(self.xmin, self.xmax)
+
+        self.ax.set_xlim(self.plot_xmin, self.plot_xmax)
+
         self.canvas.draw()
 
         print(f"{self.selected_region=}")
