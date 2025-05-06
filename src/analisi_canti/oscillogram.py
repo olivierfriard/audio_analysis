@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.widgets import SpanSelector
 import numpy as np
-import sounddevice as sd
+import sounddevice as sd  # sudo apt install libportaudio2
 
 from PySide6.QtWidgets import (
     QWidget,
