@@ -1,3 +1,7 @@
+"""
+Plugin for analysis of single song
+"""
+
 import sys
 import json
 import numpy as np

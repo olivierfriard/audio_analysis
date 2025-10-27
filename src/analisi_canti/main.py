@@ -247,7 +247,9 @@ class MainWindow(QMainWindow):
             self.actions.append(action)
 
     def closeEvent(self, event):
-        """Close all child windows explicitly"""
+        """
+        Close all child windows explicitly
+        """
         for widget in QApplication.topLevelWidgets():
             if widget is not self:
                 widget.close()
