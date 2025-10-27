@@ -37,6 +37,7 @@ class Main(QWidget):
         super().__init__()
 
         if wav_file_list:
+            self.wav_file_list = wav_file_list
             self.wav_file = wav_file_list[0]
         else:
             QMessageBox.critical(
@@ -456,6 +457,7 @@ class Main(QWidget):
         else:
             self.span_region = []
         self.selected_times = []
+        
         def onclick(event):
             if event.inaxes != self.ax:
                 return
@@ -466,6 +468,7 @@ class Main(QWidget):
             self.selected_times.append(x_clicked)
 
             # Se abbiamo una coppia (inizio + fine)
+            print(self.selected_times)
             if len(self.selected_times) == 2:
                 xbegin, xend = sorted(self.selected_times)
                 print(self.selected_times)
@@ -484,7 +487,6 @@ class Main(QWidget):
             self,
             "Selezione in corso",
             "Clicca due volte sul grafico per selezionare inizio e fine di un canto.\n"
-            "Ogni nuova coppia definisce un nuovo intervallo.\nChiudi la finestra o premi STOP per uscire dalla modalità.",
         )
 
 
