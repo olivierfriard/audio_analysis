@@ -164,7 +164,7 @@ class Main(QWidget):
                     "3",
                     ".1",
                     "0.005",
-                    "2",
+                    "10",
                 ],  # value, num decimali, step, min, max
                 "linked_fnc": "detect_calls",
                 "widget": None,
