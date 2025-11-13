@@ -39,6 +39,8 @@ class Main(QWidget):
             )
             return
 
+        self.overlap = None
+
         self.start_times = []
         self.end_times = []
 
@@ -128,13 +130,15 @@ class Main(QWidget):
                 "widget": None,
             },
             "min_dist": {
-                "type": "QLineEdit",
+                "type": "QDoubleSpinBox",
                 "label": "Min distance (s)",
                 "row": 1,
                 "col": 9,
                 "row_span": 1,
                 "col_span": 1,
-                "default": "0.300",
+                #"default": "0.300",
+                "default": ["0.3", "3", "0.100", "0.0", "1"],
+                "linked_fnc": "fd_peaks_spinbox",
                 "widget": None,
             },
         }
@@ -586,6 +590,15 @@ class Main(QWidget):
         """
         Find (f) or delete (d) peaks
         """
+        if self.overlap is None:
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Information)
+            msg.setText("Set envelope before")
+            msg.setWindowTitle("Critical")
+            msg.addButton("OK", QMessageBox.YesRole)
+            msg.exec()
+            return
+
         if self.xmin > 0 or self.xmax < self.duration:
             xmin, xmax = self.xmin, self.xmax
         else:
