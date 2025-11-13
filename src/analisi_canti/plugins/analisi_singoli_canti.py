@@ -506,9 +506,13 @@ class Main(QWidget):
         parameters[file_name]["songs"][str(sample)]["pulse_number"] = len(
             self.peaks_times
         )
+
         parameters[file_name]["songs"][str(sample)]["peaks_times"] = (
             self.peaks_times.tolist()
         )
+        parameters[file_name]["songs"][str(sample)]["FFT_length"] = self.fft_length_input.value()
+        parameters[file_name]["songs"][str(sample)]["FFT_overlap"] = self.fft_overlap_input.value()
+
         parameters[file_name]["songs"][str(sample)]["spectrum"] = self.results_dict[
             "spectrum"
         ]

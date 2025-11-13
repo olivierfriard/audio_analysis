@@ -845,6 +845,8 @@ class Main(QWidget):
         self.results_dict["sampling_rate"] = self.sampling_rate
         self.results_dict["call_duration"] = self.selected_times[1] - self.selected_times[0]
         self.results_dict["pulse_number"] = len(self.peaks_times)
+        self.results_dict["FFT_length"] = self.fft_length
+        self.results_dict["FFT_overlap"] = self.fft_overlap
         self.results_dict["peaks_times"] = self.peaks_times.tolist()
         self.results_dict["spectrum"] = self.results_dict.get("spectrum", [])
         self.results_dict["spectrum_peaks"] = self.results_dict.get("spectrum_peaks", [])
