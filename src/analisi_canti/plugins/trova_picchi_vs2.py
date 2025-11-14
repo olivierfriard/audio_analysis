@@ -164,7 +164,7 @@ class Main(QWidget):
                     "3",
                     ".1",
                     "0.005",
-                    "2",
+                    "4",
                 ],  # value, num decimali, step, min, max
                 "linked_fnc": "detect_calls",
                 "widget": None,
@@ -633,10 +633,10 @@ class Main(QWidget):
         before = int(max_dist * self.sampling_rate / (self.overlap))
         after = before
         print("after & Before", after)
-        print("len(rms)", len(self.rms))
+        #print("len(rms)", len(self.rms))
         # Trova la posizione di ogni picco in `rms_times`
         rms_peaks = np.searchsorted(self.rms_times, self.peaks_times)
-        print("rms", rms_peaks)
+        #print("rms", rms_peaks)
         for ic in range(len(rms_peaks)):
             s_min = 1
             e_min = 1
@@ -665,10 +665,12 @@ class Main(QWidget):
                 if e < len(self.rms) - 1:
                     e_fin = min(len(self.rms), e-1)
                     x = np.mean(self.rms[e] - self.rms[ee:e_fin])
+                    
                     if x < e_min:
+                        print("e_fin", e_fin, "x", x)
                         e_min = x
                         e_idmin = e
-            else:
+                else:
                     e_idmin = len(self.rms) - 1
                     
                     
