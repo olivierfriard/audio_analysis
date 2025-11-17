@@ -1,3 +1,7 @@
+"""
+Plugin for analysis of single song
+"""
+
 import sys
 import json
 import numpy as np
@@ -450,7 +454,7 @@ class Main(QWidget):
         print(f"{data_file_path=}")
         # self.run_analysis()
 
-        # test if data.json exists
+        # test if .json exists
         if not data_file_path.is_file():
             QMessageBox.warning(
                 self, "", f"The parameters file {data_file_path} does not exist"
@@ -502,9 +506,13 @@ class Main(QWidget):
         parameters[file_name]["songs"][str(sample)]["pulse_number"] = len(
             self.peaks_times
         )
+
         parameters[file_name]["songs"][str(sample)]["peaks_times"] = (
             self.peaks_times.tolist()
         )
+        parameters[file_name]["songs"][str(sample)]["FFT_length"] = self.fft_length_input.value()
+        parameters[file_name]["songs"][str(sample)]["FFT_overlap"] = self.fft_overlap_input.value()
+
         parameters[file_name]["songs"][str(sample)]["spectrum"] = self.results_dict[
             "spectrum"
         ]
@@ -512,7 +520,7 @@ class Main(QWidget):
             self.results_dict["spectrum_peaks"]
         )
 
-        # save in data.json
+        # save in .json
         try:
             with open(data_file_path, "w", encoding="utf-8") as f_out:
                 json.dump(parameters, f_out, indent=0, ensure_ascii=False)

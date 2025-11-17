@@ -33,8 +33,8 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction
 import librosa
 
-__version__ = "0.0.5"
-__version_date__ = "2025-04-01"
+__version__ = "0.0.15"
+__version_date__ = "2025-11-13"
 
 
 from .oscillogram import OscillogramWindow
@@ -137,7 +137,7 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        self.setWindowTitle("Audio Analysis")
+        self.setWindowTitle(f"Audio Analysis - v.{__version__}")
         self.wav_file = None
 
         self.wav_list: dict = {}
@@ -230,7 +230,7 @@ class MainWindow(QMainWindow):
 
         # Load modules from plugins directory
         self.modules: dict = {}
-        print(f"{__file__=}")
+
         for file_ in sorted((Path(__file__).parent / Path("plugins")).glob("*.py")):
             module_name = file_.stem  # python file name without '.py'
             spec = importlib.util.spec_from_file_location(module_name, file_)
@@ -247,7 +247,9 @@ class MainWindow(QMainWindow):
             self.actions.append(action)
 
     def closeEvent(self, event):
-        """Close all child windows explicitly"""
+        """
+        Close all child windows explicitly
+        """
         for widget in QApplication.topLevelWidgets():
             if widget is not self:
                 widget.close()
@@ -491,13 +493,13 @@ class MainWindow(QMainWindow):
         else:
             QMessageBox.warning(self, "", "No WAV file selected")
 
+
 def run():
     app = QApplication(sys.argv)
     window = MainWindow()
     window.show()
-    sys.exit(app.exec())    
+    sys.exit(app.exec())
 
 
 if __name__ == "__main__":
     run()
-

@@ -6,4 +6,5 @@ __pycache__/
 plugins/__pycache__/
 dist/
 build/
+*/*.egg-info
 
