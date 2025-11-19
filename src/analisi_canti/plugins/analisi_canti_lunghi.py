@@ -168,7 +168,7 @@ class Main(QWidget):
                 "row_span": 1,
                 "col_span": 1,
                 #"default": "0.001",
-                "default": ["0.001", "3", "0.005", "0.0", "1"],
+                "default": ["0.001", "3", "0.001", "0.0", "1"],
                 "linked_fnc": "fd_peaks_spinbox",
                 "widget": None,
             },
