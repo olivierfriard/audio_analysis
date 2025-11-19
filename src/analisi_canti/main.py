@@ -33,8 +33,8 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction
 import librosa
 
-__version__ = "0.0.17"
-__version_date__ = "2025-11-17"
+__version__ = "0.0.18"
+__version_date__ = "2025-11-19"
 
 
 from .oscillogram import OscillogramWindow
