@@ -41,8 +41,8 @@ class Main(QWidget):
 
         self.overlap = None
 
-        self.start_times = []
-        self.end_times = []
+        #self.start_times = []
+        #self.end_times = []
 
         self.setWindowTitle(
             f"{Path(__file__).stem.replace('_', ' ')} - {Path(self.wav_file).stem}"
@@ -137,7 +137,7 @@ class Main(QWidget):
                 "row_span": 1,
                 "col_span": 1,
                 #"default": "0.300",
-                "default": ["0.3", "3", "0.100", "0.0", "1"],
+                "default": ["0.3", "3", "0.100", "0.0", "3"],
                 "linked_fnc": "fd_peaks_spinbox",
                 "widget": None,
             },
@@ -427,6 +427,9 @@ class Main(QWidget):
         self.rms_times = np.array([])
         self.rms = np.array([])
         self.peaks = np.array([])
+        self.peaks_times_calls = np.array([])
+        self.start_times = np.array([])   # inizio canto per ogni picco
+        self.end_times = np.array([])  
 
         # Se il file è stereo, usa solo un canale
         if len(self.data.shape) > 1:
@@ -572,7 +575,14 @@ class Main(QWidget):
             xmin, xmax = 0, self.duration
         mask_in = (self.peaks_times >= xmin) & (self.peaks_times <= xmax)
         self.peaks_times = self.peaks_times[~mask_in]
-        self.fd_peaks()
+        self.start_times = self.start_times[~mask_in]
+        self.end_times = self.end_times[~mask_in]
+
+        print(f"Len(end_times)= {len(self.end_times)}")
+        print(f"Len(start_times)= {len(self.start_times)}")
+
+
+        #self.fd_peaks()
 
     def fd_peaks_button(self):
         if self.xmin > 0 or self.xmax < self.duration:
@@ -581,6 +591,12 @@ class Main(QWidget):
             xmin, xmax = 0, self.duration
         mask_in = (self.peaks_times >= xmin) & (self.peaks_times <= xmax)
         self.peaks_times = self.peaks_times[~mask_in]
+        self.start_times = self.start_times[~mask_in]
+        self.end_times = self.end_times[~mask_in]
+
+        print(f"Len(end_times)= {len(self.end_times)}")
+        print(f"Len(start_times)= {len(self.start_times)}")
+        
         if np.any(mask_in):  # Se ci sono picchi nell'intervallo, li rimuove
             self.plot_wav(self.zmin, self.zmax)
         else:
@@ -603,7 +619,7 @@ class Main(QWidget):
             xmin, xmax = self.xmin, self.xmax
         else:
             xmin, xmax = 0, self.duration
-        mask_in = (self.peaks_times >= xmin) & (self.peaks_times <= xmax)
+        
 
         self.amp_threshold = self.widgets_riga1_2["min_amp"]["widget"].value()
         self.min_distance_sec = np.float64(
@@ -622,10 +638,15 @@ class Main(QWidget):
             rms_selected,
             height=self.amp_threshold,
             distance=self.min_distance_samples,
-            prominence=0.01,
-        )
-        new_peaks_times = rms_times_selected[peaks]
+            prominence=0 )
+        
+        new_peaks_times = rms_times_selected[peaks]        
         self.peaks_times = np.sort(np.concatenate((self.peaks_times, new_peaks_times)))
+        
+
+        self.start_times = np.full(len(self.peaks_times), np.nan, dtype=float)
+        self.end_times = np.full(len(self.peaks_times), np.nan, dtype=float)
+        self.binary_song = np.zeros_like(self.time)
         self.plot_wav(self.zmin, self.zmax)
 
     def detect_calls(self):
@@ -635,21 +656,43 @@ class Main(QWidget):
 
         if len(self.peaks_times) == 0:
             return
-        self.start_times = []
-        self.end_times = []
+
+        # Limita l’analisi all’intervallo visibile [xmin, xmax]
+        if self.xmin > 0 or self.xmax < self.duration:
+            xmin, xmax = self.xmin, self.xmax
+        else:
+            xmin, xmax = 0, self.duration
+
+        mask = (self.peaks_times >= xmin) & (self.peaks_times <= xmax)
+        print(f"mask={mask}")
+        self.peaks_times_calls = self.peaks_times[mask]   # solo i picchi nella finestra
+        
+        # azzero inizio e fine canto nella finestra
+        
+        print(f"Len(end_times)= {len(self.end_times)}")
+        print(f"Len(start_times)= {len(self.start_times)}")
+
+        self.start_times = self.start_times[~mask]
+        self.end_times = self.end_times[~mask]
+
+        if len(self.peaks_times_calls) == 0:
+            # nessun picco nella finestra selezionata
+            return
+
+        new_start_times = []
+        new_end_times = []
 
         print(self.widgets_rigaFinale["from_peak_to_end"]["widget"].value())
         print(f"{self.overlap=}")
 
-        # before = int(float(self.widgets_rigaFinale["from_peak_to_end"]["widget"].text()))
         max_dist = self.widgets_rigaFinale["from_peak_to_end"]["widget"].value()
         before = int(max_dist * self.sampling_rate / (self.overlap))
         after = before
         print("after & Before", after)
-        #print("len(rms)", len(self.rms))
-        # Trova la posizione di ogni picco in `rms_times`
-        rms_peaks = np.searchsorted(self.rms_times, self.peaks_times)
-        #print("rms", rms_peaks)
+
+        # Trova la posizione di ogni picco (solo quelli selezionati) in `rms_times`
+        rms_peaks = np.searchsorted(self.rms_times, self.peaks_times_calls)
+
         for ic in range(len(rms_peaks)):
             s_min = 1
             e_min = 1
@@ -659,7 +702,7 @@ class Main(QWidget):
             for ss in range(before):
                 c = id0 + ss
                 # if c >= len(self.rms_times) - 2:
-                #    break
+                #     break
                 x = np.mean(
                     self.rms[c] - self.rms[c + 1 : min(c + before, len(self.rms))]
                 )
@@ -668,7 +711,7 @@ class Main(QWidget):
                     s_min = x
                     s_idmin = c
 
-            self.start_times.append(self.rms_times[s_idmin])
+            new_start_times.append(self.rms_times[s_idmin])
 
             id1 = rms_peaks[ic] + 1
             e_idmin = id1
@@ -678,28 +721,34 @@ class Main(QWidget):
                 if e < len(self.rms) - 1:
                     e_fin = min(len(self.rms), e - 1)
                     x = np.mean(self.rms[e] - self.rms[ee:e_fin])
-                    
+
                     if x < e_min:
-                        print("e_fin", e_fin, "x", x)
+                        #print("e_fin", e_fin, "x", x)
                         e_min = x
                         e_idmin = e
                 else:
                     e_idmin = len(self.rms) - 1
 
-            self.end_times.append(self.rms_times[e_idmin])
+            new_end_times.append(self.rms_times[e_idmin])
+        
+        self.start_times = np.sort(np.concatenate((self.start_times, new_start_times)))
+        self.end_times = np.sort(np.concatenate((self.end_times, new_end_times)))
+        # Ricostruisci la traccia binaria solo per i canti trovati in finestra
         self.binary_song = np.zeros_like(self.time)
         for start, end in zip(self.start_times, self.end_times):
             mask = (self.time >= start) & (self.time <= end)
             self.binary_song[mask] = 1
 
+        # IMPORTANTE: disegna usando ancora la finestra visibile
         self.plot_wav(self.xmin, self.xmax)
 
     def save_calls(self):
         """
         Salva i segmenti audio attorno ai picchi selezionati in file separati.
         """
+        valid_idx = np.where(~np.isnan(self.start_times) & ~np.isnan(self.end_times))[0]
 
-        if not self.start_times:
+        if len(valid_idx) == 0:
             msg = QMessageBox()
             msg.setIcon(QMessageBox.Information)
             msg.setText("No calls found. Use the 'Detect calls' function first.")
@@ -743,7 +792,7 @@ class Main(QWidget):
 
         print(f"Salvando i canti nella cartella: {data_directory}")
 
-        for i in range(len(self.peaks_times)):
+        for i in valid_idx:
             # Calcola l'inizio e la fine del ritaglio
             ini = int(self.start_times[i] * self.sampling_rate)
             fine = int(self.end_times[i] * self.sampling_rate)
@@ -849,7 +898,9 @@ class Main(QWidget):
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    main_widget = Main(wav_file_list=["GeCorn_2025-01-25_09_000000000_002332908.wav"])
+    
+    wav_path = r"C:\Users\Sergio\audio_analysis\src\analisi_canti\plugins\MantBets_2025-04-15_08_000000000_011099134\MantBets_2025-04-15_08_000000000_011099134.wav"
+    main_widget = Main(wav_file_list=[wav_path])
     # main_widget = Main(wav_file_list=["GeCorn_2025-01-25_09.wav"])
     # main_widget = Main(wav_file_list=["Blommersia_blommersae.wav"])
     main_widget.show()
