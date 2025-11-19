@@ -844,6 +844,7 @@ class Main(QWidget):
         self.results_dict["file"] = Path(self.wav_file).stem
         self.results_dict["sampling_rate"] = self.sampling_rate
         self.results_dict["call_duration"] = self.selected_times[1] - self.selected_times[0]
+        self.results_dict["call_start"] = self.selected_times[0]
         self.results_dict["pulse_number"] = len(self.peaks_times)
         self.results_dict["FFT_length"] = self.fft_length
         self.results_dict["FFT_overlap"] = self.fft_overlap
