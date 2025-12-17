@@ -195,6 +195,7 @@ class Main(QWidget):
                 "row_span": 1,
                 "col_span": 1,
                 "default": ["256", "512", "1024", "2048"],
+                "default_item": '512',
                 "linked_fnc": "fft_changed",  
                 "widget": None,
             },
@@ -323,6 +324,10 @@ class Main(QWidget):
                 self.layout.addWidget(widget, props["row"], props["col"], 1, props["col_span"])
                 if props["default"]:
                     widget.addItems(props["default"])
+                if "default_item" in props:
+                    print(props["default_item"])
+                    widget.setCurrentText(props["default_item"])
+
                 if "linked_fnc" in props and hasattr(self, props["linked_fnc"]):
                     linked_function = getattr(self, props["linked_fnc"])
                     widget.currentTextChanged.connect(linked_function)
@@ -395,6 +400,12 @@ class Main(QWidget):
                 self.layout.addWidget(widget, props["row"], props["col"], 1, props["col_span"])
                 if props["default"]:
                     widget.addItems(props["default"])
+
+                if "default_item" in props:
+                    print(props["default_item"])
+                    widget.setCurrentText(props["default_item"])
+
+
                 if "linked_fnc" in props and hasattr(self, props["linked_fnc"]):
                     linked_function = getattr(self, props["linked_fnc"])
                     widget.currentTextChanged.connect(linked_function)

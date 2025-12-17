@@ -495,8 +495,8 @@ class Main(QWidget):
         parameters[file_name]["songs"][str(sample)]["signal_to_noise_ratio"] = (
             self.signal_to_noise_ratio
         )
-        parameters[file_name]["songs"][str(sample)]["fft_length"] = self.fft_length
-        parameters[file_name]["songs"][str(sample)]["fft_overlap"] = self.fft_overlap
+        #parameters[file_name]["songs"][str(sample)]["fft_length"] = self.fft_length
+        #parameters[file_name]["songs"][str(sample)]["fft_overlap"] = self.fft_overlap
         parameters[file_name]["songs"][str(sample)]["sampling rate"] = (
             self.sampling_rate
         )
@@ -510,8 +510,8 @@ class Main(QWidget):
         parameters[file_name]["songs"][str(sample)]["peaks_times"] = (
             self.peaks_times.tolist()
         )
-        parameters[file_name]["songs"][str(sample)]["FFT_length"] = self.fft_length_input.value()
-        parameters[file_name]["songs"][str(sample)]["FFT_overlap"] = self.fft_overlap_input.value()
+        parameters[file_name]["songs"][str(sample)]["FFT_length"] = self.control_panel.fft_length_input.value()
+        parameters[file_name]["songs"][str(sample)]["FFT_overlap"] = self.control_panel.fft_overlap_input.value()
 
         parameters[file_name]["songs"][str(sample)]["spectrum"] = self.results_dict[
             "spectrum"
