@@ -245,7 +245,9 @@ class Wav_cutting(QWidget):
             )
 
             # add file to list of files
-            cut_file_list.append(nome_ritaglio)
+            cut_file_list.append(
+                str(Path(self.wav_file).with_suffix("") / nome_ritaglio)
+            )
 
             parameters["chunks"][Path(nome_ritaglio).name] = {
                 "start": int(ini),
