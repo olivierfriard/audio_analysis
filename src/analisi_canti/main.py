@@ -305,7 +305,41 @@ class MainWindow(QMainWindow):
         """
         update wav treewidget with list of wav
         """
+
+        """
+        Update wav treewidget with wav file and its chunks.
+        """
+        """
+        Update wav treewidget with wav files and their chunks.
+        """
         self.wav_list_widget.clear()
+
+        for wav_file_path, wav_data in self.wav_list.items():
+            parent_item = QTreeWidgetItem(
+                [
+                    Path(wav_file_path).name,
+                    str(wav_data["duration"]),
+                    str(wav_data["sample rate"]),
+                ]
+            )
+            parent_item.setCheckState(0, Qt.Unchecked)
+            parent_item.setData(0, Qt.UserRole, wav_file_path)
+            self.wav_list_widget.addTopLevelItem(parent_item)
+
+            for chunk_name, chunk_data in wav_data.get("chunks", {}).items():
+                child_item = QTreeWidgetItem(
+                    [
+                        chunk_name,
+                        str(chunk_data["start"]),
+                        str(chunk_data["end"]),
+                    ]
+                )
+                child_item.setData(0, Qt.UserRole, chunk_data)
+                parent_item.addChild(child_item)
+
+            parent_item.setExpanded(True)
+
+        """self.wav_list_widget.clear()
         for wav_file_path in self.wav_list:
             item = QTreeWidgetItem(
                 [
@@ -315,7 +349,7 @@ class MainWindow(QMainWindow):
                 ]
             )
             item.setCheckState(0, Qt.Unchecked)
-            self.wav_list_widget.addTopLevelItem(item)
+            self.wav_list_widget.addTopLevelItem(item)"""
 
     def create_json_file(self, path) -> int:
         """
@@ -323,9 +357,9 @@ class MainWindow(QMainWindow):
         """
         sample_rate, duration = self.get_rate_duration(path)
 
-        json_file_path = path.with_suffix("") / f"{path.stem}.json"
+        self.json_file_path = path.with_suffix("") / f"{path.stem}.json"
         try:
-            with open(json_file_path, "w") as f_out:
+            with open(self.json_file_path, "w") as f_out:
                 json.dump(
                     {
                         "wav_file_name": str(path),
@@ -362,9 +396,19 @@ class MainWindow(QMainWindow):
         if Path(file_path).suffix in (".wav", ".WAV"):
             # check if directory exists
             if not Path(file_path).with_suffix("").is_dir():
-                QMessageBox.warning(self, "", "No WAV file selected")
+                QMessageBox.warning(self, "", "No project found")
+            else:
+                self.json_file_path = Path(file_path).with_suffix("") / Path(
+                    file_path
+                ).with_suffix(".json")
+                r = self.read_json_file(self.json_file_path)
+                wav_file_path = r["wav_file_name"]
+                self.wav_list[wav_file_path] = r
+                self.update_wav_list()
+                self.show_oscillogram(wav_file_path=wav_file_path)
 
         if Path(file_path).suffix in (".json"):
+            self.json_file_path = Path(file_path)
             r = self.read_json_file(file_path)
             wav_file_path = r["wav_file_name"]
             self.wav_list[wav_file_path] = r
@@ -385,11 +429,11 @@ class MainWindow(QMainWindow):
             return
 
         path = Path(file_path)
+        json_file_path = path.with_suffix("") / f"{path.stem}.json"
         create_json_file_flag = False
         # check if directory exists
         if Path(file_path).with_suffix("").is_dir():
             # check if json file exists
-            json_file_path = path.with_suffix("") / f"{path.stem}.json"
             if not json_file_path.is_file():
                 create_json_file_flag = True
         else:
@@ -403,11 +447,6 @@ class MainWindow(QMainWindow):
                 return
 
         self.wav_list[file_path] = self.read_json_file(json_file_path)
-
-        """{
-            "sample rate": sample_rate,
-            "duration": duration,
-        }"""
 
         self.update_wav_list()
 
@@ -468,7 +507,15 @@ class MainWindow(QMainWindow):
 
     def load_wav(self, file_list: list):
         """
-        load wav file in tree widget
+        load wav file in wav_list dict
+        """
+        r = self.read_json_file(self.json_file_path)
+        wav_file_path = r["wav_file_name"]
+        self.wav_list[wav_file_path] = r
+        self.update_wav_list()
+
+        return
+
         """
         self.wav_list = {}
         for file_path in file_list:
@@ -477,6 +524,7 @@ class MainWindow(QMainWindow):
                 "sample rate": sample_rate,
                 "duration": duration,
             }
+        """
 
         self.update_wav_list()
 
