@@ -1,22 +1,22 @@
-from pathlib import Path
-from scipy.io import wavfile
-import shutil
-import numpy as np
 import json
-import librosa
+import shutil
+from pathlib import Path
 
-from PySide6.QtWidgets import (
-    QWidget,
-    QPushButton,
-    QLineEdit,
-    QVBoxLayout,
-    QLabel,
-    QMessageBox,
-    QHBoxLayout,
-    QSpinBox,
-    QFileDialog,
-)
+import librosa
+import numpy as np
 from PySide6.QtCore import Signal
+from PySide6.QtWidgets import (
+    QFileDialog,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QSpinBox,
+    QVBoxLayout,
+    QWidget,
+)
+from scipy.io import wavfile
 
 
 class Wav_cutting(QWidget):
@@ -82,7 +82,6 @@ class Wav_cutting(QWidget):
         hlayout.addWidget(self.n_chunks_sb)
         hlayout.addStretch()
         layout.addLayout(hlayout)
-
 
         hlayout.addWidget(QLabel("offset (s)"))
         self.offset = QLineEdit()
@@ -156,38 +155,48 @@ class Wav_cutting(QWidget):
         """
         Salva i ritagli assicurandosi che il taglio avvenga dove il segnale è minimo
         """
-        self.select_folder()
 
+        """
+        self.select_folder()
         # create the json file
         data_file_path = Path(self.nome_subcartella) / Path(
             Path(self.wav_file).name
         ).with_suffix(".json")
+        """
+
+        json_file_path = (
+            Path(self.wav_file).with_suffix("") / f"{Path(self.wav_file).stem}.json"
+        )
+
         # test if .json exists
-        if data_file_path.is_file():
+
+        if not json_file_path.is_file():
             msg = QMessageBox()
             msg.setIcon(QMessageBox.Information)
-            msg.setText(f"The {data_file_path} file already exists!")
+            msg.setText(f"The {json_file_path} file does not exist!")
             msg.setWindowTitle("Warning")
-
-            msg.addButton("Overwrite file", QMessageBox.YesRole)
-            msg.addButton("Cancel", QMessageBox.YesRole)
-
+            msg.addButton("OK", QMessageBox.YesRole)
             msg.exec()
-
             match msg.clickedButton().text():
-                case "Cancel":
+                case "OK":
                     return
 
-        parameters: dict = {}
+        with open(json_file_path, "r") as f_in:
+            parameters: dict = json.load(f_in)
 
-        original_name = f"{Path(self.nome_subcartella) / Path(self.wav_file).stem}"
+        if "chunks" not in parameters:
+            parameters["chunks"] = {}
+
+        '''original_name = f"{Path(self.nome_subcartella) / Path(self.wav_file).stem}"'''
+
+        original_name = Path(self.wav_file).stem
 
         # set duration in base of number of chunks
         n_chunks = self.n_chunks_sb.value()
         intervallo = float(self.offset.text())
         self.durata_ritaglio = round(len(self.data) / self.sampling_rate / n_chunks)
         print(self.durata_ritaglio)
-         
+
         cut_file_list: list = []
         ini = 0
         counter = 0  # per tenere traccia del numero di ritagli salvati
@@ -201,14 +210,14 @@ class Wav_cutting(QWidget):
                 fin = int(ini + self.sampling_rate * self.durata_ritaglio)
 
             # Definisco l'intervallo ±0.1 secondi attorno al punto fin
-            offset = int(self.sampling_rate * intervallo/2)
+            offset = int(self.sampling_rate * intervallo / 2)
             start_range = max(fin - offset, 0)
             end_range = min(fin + offset, len(self.data))
             fin_range = np.arange(start_range, end_range)
-            print("offset", offset, "start", start_range,"end",end_range)
+            print("offset", offset, "start", start_range, "end", end_range)
             # Calcolo del RMS nel range definito
-            frame_length = int(self.sampling_rate /100)
-            hop_length = 1 #int(self.sampling_rate)
+            frame_length = int(self.sampling_rate / 100)
+            hop_length = 1  # int(self.sampling_rate)
             rms = librosa.feature.rms(
                 y=self.data[fin_range], frame_length=frame_length, hop_length=hop_length
             )[0]
@@ -216,7 +225,7 @@ class Wav_cutting(QWidget):
             # Individuo l'indice in cui il valore RMS è minimo
             min_index = np.argmin(rms)
             fin_best = fin_range[min_index]
-            print("rms", len(rms),"fin_best", fin_best)
+            print("rms", len(rms), "fin_best", fin_best)
 
             # Costruisco il nome del file per il ritaglio corrente
             nome_ritaglio = f"{original_name}_{ini:09d}_{fin_best - 1:09d}.wav"
@@ -229,15 +238,19 @@ class Wav_cutting(QWidget):
 
             # Ritaglio la porzione dal segnale e la salvo
             ritaglio = self.data[ini:fin_best]
-            wavfile.write(nome_ritaglio, self.sampling_rate, ritaglio)
+            wavfile.write(
+                Path(self.wav_file).with_suffix("") / nome_ritaglio,
+                self.sampling_rate,
+                ritaglio,
+            )
 
             # add file to list of files
             cut_file_list.append(nome_ritaglio)
 
-            parameters[Path(nome_ritaglio).name] = {
+            parameters["chunks"][Path(nome_ritaglio).name] = {
                 "start": int(ini),
                 "end": int(fin_best - 1),
-                "cut_from": self.wav_file,
+                "cut_from": str(Path(self.wav_file).with_suffix(".wav")),
             }
 
             # Aggiorno ini per il prossimo ritaglio
@@ -246,16 +259,16 @@ class Wav_cutting(QWidget):
 
         # write file
         try:
-            with open(data_file_path, "w", encoding="utf-8") as f_out:
+            with open(json_file_path, "w", encoding="utf-8") as f_out:
                 json.dump(parameters, f_out, indent=0, ensure_ascii=False)
 
-            print(f"Risultati salvati in {data_file_path}")
+            print(f"Risultati salvati in {json_file_path}")
 
         except Exception as e:
             QMessageBox.critical(
                 self,
                 "",
-                f"Error saving the {data_file_path} file: {e}",
+                f"Error saving the {json_file_path} file: {e}",
             )
 
         QMessageBox.information(

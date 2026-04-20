@@ -4,41 +4,42 @@ main program of 'Analisi canti' package
 """
 
 import importlib.util
-from pathlib import Path
-import numpy as np
-import matplotlib.pyplot as plt
-from scipy.io import wavfile
+import json
 import sys
-from PySide6.QtWidgets import (
-    QApplication,
-    QMainWindow,
-    QTextEdit,
-    QFileDialog,
-    QWidget,
-    QVBoxLayout,
-    QHBoxLayout,
-    QSplitter,
-    QCheckBox,
-    QLabel,
-    QComboBox,
-    QPushButton,
-    QTreeWidget,
-    QTreeWidgetItem,
-    QHeaderView,
-    QMessageBox,
-    QSpacerItem,
-    QSizePolicy,
-)
+from pathlib import Path
+
+import librosa
+import matplotlib.pyplot as plt
+import numpy as np
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction
-import librosa
+from PySide6.QtWidgets import (
+    QApplication,
+    QCheckBox,
+    QComboBox,
+    QFileDialog,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QMainWindow,
+    QMessageBox,
+    QPushButton,
+    QSizePolicy,
+    QSpacerItem,
+    QSplitter,
+    QTextEdit,
+    QTreeWidget,
+    QTreeWidgetItem,
+    QVBoxLayout,
+    QWidget,
+)
+from scipy.io import wavfile
 
-__version__ = "0.0.20"
-__version_date__ = "2025-12-17"
+__version__ = "0.1.0"
+__version_date__ = "2026-04-20"
 
 
 from .oscillogram import OscillogramWindow
-
 from .wav_cutting import Wav_cutting
 
 
@@ -195,10 +196,22 @@ class MainWindow(QMainWindow):
         menubar = self.menuBar()
 
         # Menu File
+
         file_menu = menubar.addMenu("File")
+
+        open_wav_action = QAction("New project", self)
+        open_wav_action.triggered.connect(self.open_wav)
+        file_menu.addAction(open_wav_action)
+
+        open_project_action = QAction("Open project", self)
+        open_project_action.triggered.connect(self.open_project)
+        file_menu.addAction(open_project_action)
+
+        """
         open_wav_action = QAction("Open wav", self)
         open_wav_action.triggered.connect(self.open_wav)
         file_menu.addAction(open_wav_action)
+        """
 
         open_wav_dir_action = QAction("Open wav directory", self)
         open_wav_dir_action.triggered.connect(self.open_wav_dir)
@@ -288,19 +301,6 @@ class MainWindow(QMainWindow):
         duration = round(len(data) / sample_rate, 3)
         return sample_rate, duration
 
-        # get sample_rate with wave module
-        # disabled because give some errors
-        """
-        try:
-            with wave.open(wav_file_path, "rb") as wav_file:
-                sample_rate = wav_file.getframerate()
-                frames = wav_file.getnframes()
-                duration = round(frames / float(sample_rate), 3)
-            return sample_rate, duration
-        except Exception:
-            return "Not found", "Not found"
-        """
-
     def update_wav_list(self):
         """
         update wav treewidget with list of wav
@@ -309,7 +309,7 @@ class MainWindow(QMainWindow):
         for wav_file_path in self.wav_list:
             item = QTreeWidgetItem(
                 [
-                    wav_file_path,
+                    str(Path(wav_file_path).name),
                     str(self.wav_list[wav_file_path]["duration"]),
                     str(self.wav_list[wav_file_path]["sample rate"]),
                 ]
@@ -317,56 +317,101 @@ class MainWindow(QMainWindow):
             item.setCheckState(0, Qt.Unchecked)
             self.wav_list_widget.addTopLevelItem(item)
 
+    def create_json_file(self, path) -> int:
+        """
+        create json file corresponding to wav file
+        """
+        sample_rate, duration = self.get_rate_duration(path)
+
+        json_file_path = path.with_suffix("") / f"{path.stem}.json"
+        try:
+            with open(json_file_path, "w") as f_out:
+                json.dump(
+                    {
+                        "wav_file_name": str(path),
+                        "sample rate": sample_rate,
+                        "duration": duration,
+                    },
+                    f_out,
+                )
+            return 0
+        except Exception:
+            return 1
+
+    def read_json_file(self, json_file_path) -> dict:
+        """
+        read content of JSON file
+        """
+        with open(json_file_path, "r") as f_in:
+            return json.load(f_in)
+
+    def open_project(self):
+        """
+        open a json or wav file
+        """
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Open file",
+            "",
+            "Supported Files (*.wav *.json);;WAV Files (*.wav);;JSON Files (*.json)",
+        )
+        if not file_path:
+            print("DEBUG: Nessun file WAV selezionato.")
+            return
+
+        if Path(file_path).suffix in (".wav", ".WAV"):
+            # check if directory exists
+            if not Path(file_path).with_suffix("").is_dir():
+                QMessageBox.warning(self, "", "No WAV file selected")
+
+        if Path(file_path).suffix in (".json"):
+            r = self.read_json_file(file_path)
+            wav_file_path = r["wav_file_name"]
+            self.wav_list[wav_file_path] = r
+            self.update_wav_list()
+
+            self.show_oscillogram(wav_file_path=wav_file_path)
+
     def open_wav(self):
         """
         apre i file wav indicati dall'utente e estrae sample rate e durata
         """
 
-        file_paths, _ = QFileDialog.getOpenFileNames(
+        file_path, _ = QFileDialog.getOpenFileName(
             self, "Open WAV File", "", "WAV Files (*.wav)"
         )
-        if not file_paths:
+        if not file_path:
             print("DEBUG: Nessun file WAV selezionato.")
             return
 
-        for file_path in file_paths:
-            if file_path in self.wav_list:
-                self.text_edit.append(f"file {file_path} already loaded")
-                continue
+        path = Path(file_path)
+        create_json_file_flag = False
+        # check if directory exists
+        if Path(file_path).with_suffix("").is_dir():
+            # check if json file exists
+            json_file_path = path.with_suffix("") / f"{path.stem}.json"
+            if not json_file_path.is_file():
+                create_json_file_flag = True
+        else:
+            Path(file_path).with_suffix("").mkdir()
+            create_json_file_flag = True
 
-            sample_rate, duration = self.get_rate_duration(str(file_path))
+        if create_json_file_flag:
+            r = self.create_json_file(path)
+            if r:
+                print("Creation of JSON file failed")
+                return
 
-            self.wav_list[file_path] = {
-                "sample rate": sample_rate,
-                "duration": duration,
-            }
+        self.wav_list[file_path] = self.read_json_file(json_file_path)
+
+        """{
+            "sample rate": sample_rate,
+            "duration": duration,
+        }"""
 
         self.update_wav_list()
 
-        if len(file_paths) == 1:
-            self.show_oscillogram(wav_file_path=file_paths[0])
-
-            # propose to cut the file if > 1 min
-            """
-            if duration > 60:
-                msg = QMessageBox()
-                msg.setIcon(QMessageBox.Information)
-                msg.setText(
-                    "The duration of wav file is greater then 1 minute.\nDo you want to cut it?"
-                )
-                msg.setWindowTitle("Warning")
-                msg.addButton("Yes", QMessageBox.YesRole)
-                msg.addButton("No", QMessageBox.NoRole)
-                msg.exec()
-                match msg.clickedButton().text():
-                    case "Yes":
-                        module_name = "wav_cutting"
-                        self.text_edit.append(f"Running {module_name} plugin")
-                        self.plugin_widgets.append(
-                            self.modules[module_name].Main([file_path])
-                        )
-                        self.plugin_widgets[-1].show()
-            """
+        self.show_oscillogram(wav_file_path=file_path)
 
     def open_wav_dir(self):
         """
