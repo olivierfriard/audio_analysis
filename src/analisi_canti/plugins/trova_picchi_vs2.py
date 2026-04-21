@@ -9,11 +9,10 @@ import numpy as np
 import sounddevice as sd
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.widgets import SpanSelector
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QApplication,
     QDoubleSpinBox,
-    QFileDialog,
     QGridLayout,
     QLabel,
     QLineEdit,
@@ -27,6 +26,8 @@ from scipy.signal import find_peaks
 
 
 class Main(QWidget):
+    plugin_closed_signal = Signal()
+
     def __init__(self, wav_file_list: list):
         super().__init__()
 
@@ -760,44 +761,15 @@ class Main(QWidget):
             msg.exec()
             return
 
-        """
-        directory = QFileDialog.getExistingDirectory(self, "Select Directory", "")
-        parent_directory = Path(directory)
-        data_directory = parent_directory / Path(self.wav_file).stem
-
-        if data_directory.is_dir():
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Information)
-            msg.setText(f"The directory {data_directory} already exists!")
-            msg.setWindowTitle("Warning")
-
-            msg.addButton("Erase files", QMessageBox.YesRole)
-            msg.addButton("Cancel", QMessageBox.YesRole)
-
-            msg.exec()
-
-            match msg.clickedButton().text():
-                case "Erase files":
-                    shutil.rmtree(data_directory)
-                case "Cancel":
-                    return
-
-        data_directory.mkdir(exist_ok=True)  # Crea la cartella se non esiste
-        """
-
         data_directory = Path(self.wav_file).parent
-
-        # save parameters
 
         json_file_path = Path(self.wav_file).parent / Path(
             Path(self.wav_file).parent.name
         ).with_suffix(".json")
 
-        # self.save_parameters(parent_directory / "data.json")
-        self.save_parameters(json_file_path)
-
         print(f"Saving songs in  {data_directory}")
 
+        songs_list = []
         for i in valid_idx:
             # Calcola l'inizio e la fine del ritaglio
             ini = int(self.start_times[i] * self.sampling_rate)
@@ -825,9 +797,13 @@ class Main(QWidget):
 
             # Salva il file ritagliato
             wavfile.write(nome_ritaglio, self.sampling_rate, ritaglio)
-            print(f"Salvato: {nome_ritaglio}")
+            print(f"Saved: {nome_ritaglio}")
 
-    def save_parameters(self, file_path):
+            songs_list.append(nome_ritaglio.name)
+
+        self.save_parameters(json_file_path, songs_list)
+
+    def save_parameters(self, file_path, songs_list: list):
         """
         save parameters in json file
         """
@@ -857,6 +833,9 @@ class Main(QWidget):
             self.peaks_times.tolist()
         )
         parameters["chunks"][Path(self.wav_file).name]["songs"] = {}
+
+        for song in songs_list:
+            parameters["chunks"][Path(self.wav_file).name]["songs"][song] = {}
 
         # save file
         try:
@@ -894,6 +873,10 @@ class Main(QWidget):
 
     def stopplaying(self):
         sd.stop()
+
+    def closeEvent(self, event):
+        self.plugin_closed_signal.emit()
+        super().closeEvent(event)
 
 
 if __name__ == "__main__":
