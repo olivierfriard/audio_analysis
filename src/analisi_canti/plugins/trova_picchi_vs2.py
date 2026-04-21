@@ -1,33 +1,36 @@
-from pathlib import Path
-import sys
-import numpy as np
-import matplotlib.pyplot as plt
-import shutil
 import json
-from scipy.io import wavfile
-from scipy.signal import find_peaks
-from PySide6.QtWidgets import (
-    QApplication,
-    QFileDialog,
-    QWidget,
-    QLabel,
-    QLineEdit,
-    QPushButton,
-    QDoubleSpinBox,
-    QMessageBox,
-    QGridLayout,
-    QSlider,
-)
-from PySide6.QtCore import Qt
+import shutil
+import sys
+from pathlib import Path
+
+import librosa
+import matplotlib.pyplot as plt
+import numpy as np
+import sounddevice as sd
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.widgets import SpanSelector
-import librosa
-import sounddevice as sd
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import (
+    QApplication,
+    QDoubleSpinBox,
+    QFileDialog,
+    QGridLayout,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QSlider,
+    QWidget,
+)
+from scipy.io import wavfile
+from scipy.signal import find_peaks
 
 
 class Main(QWidget):
     def __init__(self, wav_file_list: list):
         super().__init__()
+
+        print(f"{wav_file_list=}")
 
         if wav_file_list:
             self.wav_file = wav_file_list[0]
@@ -41,8 +44,8 @@ class Main(QWidget):
 
         self.overlap = None
 
-        #self.start_times = []
-        #self.end_times = []
+        # self.start_times = []
+        # self.end_times = []
 
         self.setWindowTitle(
             f"{Path(__file__).stem.replace('_', ' ')} - {Path(self.wav_file).stem}"
@@ -136,7 +139,7 @@ class Main(QWidget):
                 "col": 9,
                 "row_span": 1,
                 "col_span": 1,
-                #"default": "0.300",
+                # "default": "0.300",
                 "default": ["0.3", "3", "0.100", "0.0", "3"],
                 "linked_fnc": "fd_peaks_spinbox",
                 "widget": None,
@@ -398,8 +401,10 @@ class Main(QWidget):
             # read file content
             with open(data_file_path, "r", encoding="utf-8") as f_in:
                 parameters = json.load(f_in)
-            if Path(self.wav_file).name in parameters:
-                self.start = parameters[Path(self.wav_file).name].get("start", 0)
+            if Path(self.wav_file).name in parameters["chunks"]:
+                self.start = parameters["chunks"][Path(self.wav_file).name].get(
+                    "start", 0
+                )
             else:
                 QMessageBox.critical(
                     self,
@@ -428,8 +433,8 @@ class Main(QWidget):
         self.rms = np.array([])
         self.peaks = np.array([])
         self.peaks_times_calls = np.array([])
-        self.start_times = np.array([])   # inizio canto per ogni picco
-        self.end_times = np.array([])  
+        self.start_times = np.array([])  # inizio canto per ogni picco
+        self.end_times = np.array([])
 
         # Se il file è stereo, usa solo un canale
         if len(self.data.shape) > 1:
@@ -581,8 +586,7 @@ class Main(QWidget):
         print(f"Len(end_times)= {len(self.end_times)}")
         print(f"Len(start_times)= {len(self.start_times)}")
 
-
-        #self.fd_peaks()
+        # self.fd_peaks()
 
     def fd_peaks_button(self):
         if self.xmin > 0 or self.xmax < self.duration:
@@ -596,7 +600,7 @@ class Main(QWidget):
 
         print(f"Len(end_times)= {len(self.end_times)}")
         print(f"Len(start_times)= {len(self.start_times)}")
-        
+
         if np.any(mask_in):  # Se ci sono picchi nell'intervallo, li rimuove
             self.plot_wav(self.zmin, self.zmax)
         else:
@@ -619,7 +623,6 @@ class Main(QWidget):
             xmin, xmax = self.xmin, self.xmax
         else:
             xmin, xmax = 0, self.duration
-        
 
         self.amp_threshold = self.widgets_riga1_2["min_amp"]["widget"].value()
         self.min_distance_sec = np.float64(
@@ -638,11 +641,11 @@ class Main(QWidget):
             rms_selected,
             height=self.amp_threshold,
             distance=self.min_distance_samples,
-            prominence=0 )
-        
-        new_peaks_times = rms_times_selected[peaks]        
+            prominence=0,
+        )
+
+        new_peaks_times = rms_times_selected[peaks]
         self.peaks_times = np.sort(np.concatenate((self.peaks_times, new_peaks_times)))
-        
 
         self.start_times = np.full(len(self.peaks_times), np.nan, dtype=float)
         self.end_times = np.full(len(self.peaks_times), np.nan, dtype=float)
@@ -665,10 +668,10 @@ class Main(QWidget):
 
         mask = (self.peaks_times >= xmin) & (self.peaks_times <= xmax)
         print(f"mask={mask}")
-        self.peaks_times_calls = self.peaks_times[mask]   # solo i picchi nella finestra
-        
+        self.peaks_times_calls = self.peaks_times[mask]  # solo i picchi nella finestra
+
         # azzero inizio e fine canto nella finestra
-        
+
         print(f"Len(end_times)= {len(self.end_times)}")
         print(f"Len(start_times)= {len(self.start_times)}")
 
@@ -723,14 +726,14 @@ class Main(QWidget):
                     x = np.mean(self.rms[e] - self.rms[ee:e_fin])
 
                     if x < e_min:
-                        #print("e_fin", e_fin, "x", x)
+                        # print("e_fin", e_fin, "x", x)
                         e_min = x
                         e_idmin = e
                 else:
                     e_idmin = len(self.rms) - 1
 
             new_end_times.append(self.rms_times[e_idmin])
-        
+
         self.start_times = np.sort(np.concatenate((self.start_times, new_start_times)))
         self.end_times = np.sort(np.concatenate((self.end_times, new_end_times)))
         # Ricostruisci la traccia binaria solo per i canti trovati in finestra
@@ -757,9 +760,9 @@ class Main(QWidget):
             msg.exec()
             return
 
+        """
         directory = QFileDialog.getExistingDirectory(self, "Select Directory", "")
         parent_directory = Path(directory)
-
         data_directory = parent_directory / Path(self.wav_file).stem
 
         if data_directory.is_dir():
@@ -780,17 +783,20 @@ class Main(QWidget):
                     return
 
         data_directory.mkdir(exist_ok=True)  # Crea la cartella se non esiste
+        """
+
+        data_directory = Path(self.wav_file).parent
 
         # save parameters
 
-        data_file_path = Path(self.wav_file).parent / Path(
+        json_file_path = Path(self.wav_file).parent / Path(
             Path(self.wav_file).parent.name
         ).with_suffix(".json")
 
         # self.save_parameters(parent_directory / "data.json")
-        self.save_parameters(data_file_path)
+        self.save_parameters(json_file_path)
 
-        print(f"Salvando i canti nella cartella: {data_directory}")
+        print(f"Saving songs in  {data_directory}")
 
         for i in valid_idx:
             # Calcola l'inizio e la fine del ritaglio
@@ -826,38 +832,32 @@ class Main(QWidget):
         save parameters in json file
         """
 
-        if file_path.is_file():
-            # read file content
-            with open(file_path, "r", encoding="utf-8") as f_in:
-                parameters = json.load(f_in)
+        if not file_path.is_file():
+            print(f"json file {file_path} not found")
+            QMessageBox.critical(self, "", f"json file {file_path} not found")
+            return
 
-            # add parameters for current file
-            if Path(self.wav_file).name not in parameters:
-                parameters[Path(self.wav_file).name] = {}
+        # read file content
+        with open(file_path, "r", encoding="utf-8") as f_in:
+            parameters = json.load(f_in)
 
-            parameters[Path(self.wav_file).name]["window size"] = self.window_size
-            parameters[Path(self.wav_file).name]["overlap"] = self.overlap
-            parameters[Path(self.wav_file).name]["amplitude threshold"] = (
-                self.amp_threshold
-            )
-            parameters[Path(self.wav_file).name]["minimum distance"] = (
-                self.min_distance_sec
-            )
-            parameters[Path(self.wav_file).name]["peaks_times"] = (
-                self.peaks_times.tolist()
-            )
+        # add parameters for current file
+        if Path(self.wav_file).name not in parameters["chunks"]:
+            parameters["chunks"][Path(self.wav_file).name] = {}
 
-        else:
-            # parameters for current file
-            parameters = {
-                Path(self.wav_file).name: {
-                    "window size": self.window_size,
-                    "overlap": self.overlap,
-                    "amplitude threshold": self.amp_threshold,
-                    "minimum distance": self.min_distance_sec,
-                    "peaks_times": self.peaks_times.tolist(),
-                }
-            }
+        parameters["chunks"][Path(self.wav_file).name]["window size"] = self.window_size
+        parameters["chunks"][Path(self.wav_file).name]["overlap"] = self.overlap
+        parameters["chunks"][Path(self.wav_file).name]["amplitude threshold"] = (
+            self.amp_threshold
+        )
+        parameters["chunks"][Path(self.wav_file).name]["minimum distance"] = (
+            self.min_distance_sec
+        )
+        parameters["chunks"][Path(self.wav_file).name]["peaks_times"] = (
+            self.peaks_times.tolist()
+        )
+        parameters["chunks"][Path(self.wav_file).name]["songs"] = {}
+
         # save file
         try:
             with open(file_path, "w", encoding="utf-8") as f_out:
@@ -898,11 +898,9 @@ class Main(QWidget):
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    
-    wav_path = r"C:\Users\Sergio\audio_analysis\src\analisi_canti\plugins\MantBets_2025-04-15_08_000000000_011099134\MantBets_2025-04-15_08_000000000_011099134.wav"
+
+    wav_path = "MantBets_2025-04-15_08_000000000_011099134.wav"
     main_widget = Main(wav_file_list=[wav_path])
-    # main_widget = Main(wav_file_list=["GeCorn_2025-01-25_09.wav"])
-    # main_widget = Main(wav_file_list=["Blommersia_blommersae.wav"])
     main_widget.show()
 
     sys.exit(app.exec())

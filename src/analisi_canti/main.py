@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
     QHeaderView,
     QLabel,
     QMainWindow,
+    QMenu,
     QMessageBox,
     QPushButton,
     QSizePolicy,
@@ -169,6 +170,10 @@ class MainWindow(QMainWindow):
         self.wav_list_widget.setHeaderLabels(
             ["WAV file path", "duration (s)", "Sample rate (Hz)"]
         )  # Column headers
+        self.wav_list_widget.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.wav_list_widget.customContextMenuRequested.connect(
+            self.show_wav_context_menu
+        )
 
         self.wav_list_widget.header().setSectionResizeMode(
             QHeaderView.ResizeToContents
@@ -274,7 +279,9 @@ class MainWindow(QMainWindow):
         """
         check_state = Qt.Checked if state == 2 else Qt.Unchecked
         for i in range(self.wav_list_widget.topLevelItemCount()):
-            self.wav_list_widget.topLevelItem(i).setCheckState(0, check_state)
+            top_level_item = self.wav_list_widget.topLevelItem(i)
+            top_level_item.setCheckState(0, check_state)
+            self.set_chunks_check_state(top_level_item, check_state)
 
     def remove_from_list(self):
         """
@@ -293,6 +300,54 @@ class MainWindow(QMainWindow):
         if not self.wav_list_widget.topLevelItemCount():
             self.check_all_checkbox.setChecked(False)
 
+    def set_chunks_check_state(self, parent_item, check_state):
+        """
+        Set the check state for all chunks of a top-level WAV item.
+        """
+        for i in range(parent_item.childCount()):
+            parent_item.child(i).setCheckState(0, check_state)
+
+    def show_wav_context_menu(self, pos):
+        """
+        Show a context menu for top-level WAV items.
+        """
+        item = self.wav_list_widget.itemAt(pos)
+        if item is None or item.parent() is not None:
+            return
+
+        menu = QMenu(self)
+        select_chunks_action = menu.addAction("Select all chunks")
+        deselect_chunks_action = menu.addAction("Deselect all chunks")
+
+        selected_action = menu.exec(
+            self.wav_list_widget.viewport().mapToGlobal(pos)
+        )
+
+        if selected_action == select_chunks_action:
+            self.set_chunks_check_state(item, Qt.Checked)
+        elif selected_action == deselect_chunks_action:
+            self.set_chunks_check_state(item, Qt.Unchecked)
+
+    def get_selected_chunk_files(self):
+        """
+        Return the file paths of the selected chunk items only.
+        """
+        selected_chunk_files = []
+
+        for i in range(self.wav_list_widget.topLevelItemCount()):
+            parent_item = self.wav_list_widget.topLevelItem(i)
+            parent_wav_path = Path(parent_item.data(0, Qt.UserRole))
+
+            for j in range(parent_item.childCount()):
+                child_item = parent_item.child(j)
+                if child_item.checkState(0) != Qt.Checked:
+                    continue
+
+                chunk_file_path = parent_wav_path.with_suffix("") / child_item.text(0)
+                selected_chunk_files.append(str(chunk_file_path))
+
+        return selected_chunk_files
+
     def get_rate_duration(self, wav_file_path):
         """
         Carica il file WAV e ottiene le informazioni
@@ -303,14 +358,7 @@ class MainWindow(QMainWindow):
 
     def update_wav_list(self):
         """
-        update wav treewidget with list of wav
-        """
-
-        """
         Update wav treewidget with wav file and its chunks.
-        """
-        """
-        Update wav treewidget with wav files and their chunks.
         """
         self.wav_list_widget.clear()
 
@@ -334,22 +382,11 @@ class MainWindow(QMainWindow):
                         str(chunk_data["end"]),
                     ]
                 )
+                child_item.setCheckState(0, Qt.Unchecked)
                 child_item.setData(0, Qt.UserRole, chunk_data)
                 parent_item.addChild(child_item)
 
             parent_item.setExpanded(True)
-
-        """self.wav_list_widget.clear()
-        for wav_file_path in self.wav_list:
-            item = QTreeWidgetItem(
-                [
-                    str(Path(wav_file_path).name),
-                    str(self.wav_list[wav_file_path]["duration"]),
-                    str(self.wav_list[wav_file_path]["sample rate"]),
-                ]
-            )
-            item.setCheckState(0, Qt.Unchecked)
-            self.wav_list_widget.addTopLevelItem(item)"""
 
     def create_json_file(self, path) -> int:
         """
@@ -406,9 +443,10 @@ class MainWindow(QMainWindow):
             # check if directory exists
             if not Path(file_path).with_suffix("").is_dir():
                 QMessageBox.warning(self, "", "No project found")
+                return
             else:
                 self.json_file_path = Path(file_path).with_suffix("") / Path(
-                    file_path
+                    Path(file_path).name
                 ).with_suffix(".json")
                 r = self.read_json_file(self.json_file_path)
                 wav_file_path = r["wav_file_name"]
@@ -575,26 +613,19 @@ class MainWindow(QMainWindow):
 
     def run_option(self, module_name):
         """
-        Carica il plugin e passa l'elenco dei file WAV selezionati
+        Carica il plugin e passa l'elenco dei chunk selezionati
         """
         module_name = self.sender().text()
         print(f"running {module_name=}")
 
         self.text_edit.append(f"Running {module_name} plugin")
 
-        # check if wav checked in treewidget
-        checked_wav_files = [
-            self.wav_list_widget.topLevelItem(i).text(0)
-            for i in range(self.wav_list_widget.topLevelItemCount())
-            if self.wav_list_widget.topLevelItem(i).checkState(0) == Qt.Checked
-        ]
-        if checked_wav_files:
-            self.plugin_widgets.append(
-                self.modules[module_name].Main(checked_wav_files)
-            )
+        selected_chunk_files = self.get_selected_chunk_files()
+        if selected_chunk_files:
+            self.plugin_widgets.append(self.modules[module_name].Main(selected_chunk_files))
             self.plugin_widgets[-1].show()
         else:
-            QMessageBox.warning(self, "", "No WAV file selected")
+            QMessageBox.warning(self, "", "No chunk selected")
 
 
 def run():
