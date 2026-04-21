@@ -184,10 +184,8 @@ class Wav_cutting(QWidget):
         with open(json_file_path, "r") as f_in:
             parameters: dict = json.load(f_in)
 
-        if "chunks" not in parameters:
-            parameters["chunks"] = {}
-
-        '''original_name = f"{Path(self.nome_subcartella) / Path(self.wav_file).stem}"'''
+        # delete old chunks
+        parameters["chunks"] = {}
 
         original_name = Path(self.wav_file).stem
 

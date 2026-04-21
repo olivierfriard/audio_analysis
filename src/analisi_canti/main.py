@@ -200,7 +200,7 @@ class MainWindow(QMainWindow):
         file_menu = menubar.addMenu("File")
 
         open_wav_action = QAction("New project", self)
-        open_wav_action.triggered.connect(self.open_wav)
+        open_wav_action.triggered.connect(self.new_project)
         file_menu.addAction(open_wav_action)
 
         open_project_action = QAction("Open project", self)
@@ -354,6 +354,9 @@ class MainWindow(QMainWindow):
     def create_json_file(self, path) -> int:
         """
         create json file corresponding to wav file
+        Args:
+            path: path of main wav file
+
         """
         sample_rate, duration = self.get_rate_duration(path)
 
@@ -365,6 +368,12 @@ class MainWindow(QMainWindow):
                         "wav_file_name": str(path),
                         "sample rate": sample_rate,
                         "duration": duration,
+                        "chunks": {
+                            path.name: {
+                                "start": 0,
+                                "end": int(sample_rate * duration),
+                            }
+                        },
                     },
                     f_out,
                 )
@@ -416,7 +425,7 @@ class MainWindow(QMainWindow):
 
             self.show_oscillogram(wav_file_path=wav_file_path)
 
-    def open_wav(self):
+    def new_project(self):
         """
         apre i file wav indicati dall'utente e estrae sample rate e durata
         """
@@ -437,6 +446,7 @@ class MainWindow(QMainWindow):
             if not json_file_path.is_file():
                 create_json_file_flag = True
         else:
+            # create directory
             Path(file_path).with_suffix("").mkdir()
             create_json_file_flag = True
 
