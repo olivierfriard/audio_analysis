@@ -956,6 +956,15 @@ class Main(QWidget):
         self.plot_wav()
 
     def save_results_clicked(self):
+        """ """
+
+        json_file_path = Path(self.wav_file).parent / Path(
+            Path(self.wav_file).parent.name
+        ).with_suffix(".json")
+        with open(json_file_path, "r", encoding="utf-8") as f:
+            parameters = json.load(f)
+
+        """
         if not hasattr(self, "output_json_path"):
             QMessageBox.warning(self, "", "Carica prima un JSON")
             return
@@ -966,17 +975,79 @@ class Main(QWidget):
             QMessageBox.warning(self, "", "Definisci prima inizio e fine del canto")
             return
 
-        sample = int(Path(self.wav_file).stem.split("_")[-1])
         data_file_path = self.output_json_path
         with open(data_file_path, "r", encoding="utf-8") as f:
             parameters = json.load(f)
+        """
 
+        sample = int(Path(self.wav_file).stem.split("_")[-1])
+
+        chunk_file_name = Path(self.wav_file.split("_sample_")[0] + ".wav").name
+        if chunk_file_name not in parameters["chunks"]:
+            print(f"{chunk_file_name} NOT FOUND!")
+            QMessageBox.warning(self, "", f"{chunk_file_name} NOT FOUND!")
+            return
+        wav_file_name = Path(self.wav_file).name
+        parameters["chunks"][chunk_file_name]["songs"][wav_file_name]
+
+        parameters["chunks"][chunk_file_name]["songs"][wav_file_name]["window_size"] = (
+            self.window_size
+        )
+        parameters["chunks"][chunk_file_name]["songs"][wav_file_name]["overlap"] = (
+            self.overlap
+        )
+        parameters["chunks"][chunk_file_name]["songs"][wav_file_name][
+            "min_amplitude"
+        ] = self.min_amplitude
+        parameters["chunks"][chunk_file_name]["songs"][wav_file_name][
+            "min_distance"
+        ] = self.min_distance
+        parameters["chunks"][chunk_file_name]["songs"][wav_file_name][
+            "max_distance"
+        ] = self.max_distance
+        parameters["chunks"][chunk_file_name]["songs"][wav_file_name]["prominence"] = (
+            self.prominence
+        )
+        parameters["chunks"][chunk_file_name]["songs"][wav_file_name][
+            "signal_to_noise_ratio"
+        ] = self.signal_to_noise_ratio
+        parameters["chunks"][chunk_file_name]["songs"][wav_file_name]["fft_length"] = (
+            self.fft_length
+        )
+        parameters["chunks"][chunk_file_name]["songs"][wav_file_name]["fft_overlap"] = (
+            self.fft_overlap
+        )
+        parameters["chunks"][chunk_file_name]["songs"][wav_file_name][
+            "sampling rate"
+        ] = self.sampling_rate
+        parameters["chunks"][chunk_file_name]["songs"][wav_file_name]["call_start"] = (
+            float(self.selected_times[0])
+        )
+        parameters["chunks"][chunk_file_name]["songs"][wav_file_name][
+            "call_duration"
+        ] = float(self.selected_times[1] - self.selected_times[0])
+        parameters["chunks"][chunk_file_name]["songs"][wav_file_name][
+            "pulse_number"
+        ] = len(self.peaks_times)
+        parameters["chunks"][chunk_file_name]["songs"][wav_file_name]["peaks_times"] = (
+            self.peaks_times.tolist()
+        )
+        parameters["chunks"][chunk_file_name]["songs"][wav_file_name]["peaks_int"] = (
+            self.peaks_int.tolist() if len(self.peaks_int) else []
+        )
+        parameters["chunks"][chunk_file_name]["songs"][wav_file_name]["spectrum"] = (
+            self.results_dict["spectrum"]
+        )
+        parameters["chunks"][chunk_file_name]["songs"][wav_file_name][
+            "spectrum peaks"
+        ] = self.results_dict["spectrum_peaks"]
+
+        """
         if hasattr(self, "song_jobs") and self.song_jobs:
             wav_key, song_id, sp = self.song_jobs[self.current_job_index]
             file_name = wav_key
         else:
             file_name = Path(self.wav_file).name
-
         parameters.setdefault(file_name, {})
         parameters[file_name].setdefault("songs", {})
         parameters[file_name]["songs"][str(sample)] = {}
@@ -999,6 +1070,7 @@ class Main(QWidget):
         block["peaks_int"] = self.peaks_int.tolist() if len(self.peaks_int) else []
         block["spectrum"] = self.results_dict["spectrum"]
         block["spectrum peaks"] = self.results_dict["spectrum_peaks"]
+        """
 
         if len(self.rms) > 0:
             sel_mask = (self.rms_times >= self.selected_times[0]) & (
@@ -1010,25 +1082,41 @@ class Main(QWidget):
             soglia50 = 0.5 * envelope_max
             soglia80 = 0.8 * envelope_max
             if len(self.rms_canto) > 0:
-                block["envelope20"] = float(np.mean(self.rms_canto >= soglia20))
-                block["envelope50"] = float(np.mean(self.rms_canto >= soglia50))
-                block["envelope80"] = float(np.mean(self.rms_canto >= soglia80))
+                parameters["chunks"][chunk_file_name]["songs"][wav_file_name][
+                    "envelope20"
+                ] = float(np.mean(self.rms_canto >= soglia20))
+                parameters["chunks"][chunk_file_name]["songs"][wav_file_name][
+                    "envelope50"
+                ] = float(np.mean(self.rms_canto >= soglia50))
+                parameters["chunks"][chunk_file_name]["songs"][wav_file_name][
+                    "envelope80"
+                ] = float(np.mean(self.rms_canto >= soglia80))
             else:
-                block["envelope20"] = np.nan
-                block["envelope50"] = np.nan
-                block["envelope80"] = np.nan
+                parameters["chunks"][chunk_file_name]["songs"][wav_file_name][
+                    "envelope20"
+                ] = np.nan
+                parameters["chunks"][chunk_file_name]["songs"][wav_file_name][
+                    "envelope50"
+                ] = np.nan
+                parameters["chunks"][chunk_file_name]["songs"][wav_file_name][
+                    "envelope80"
+                ] = np.nan
 
-        with open(data_file_path, "w", encoding="utf-8") as f_out:
+        with open(json_file_path, "w", encoding="utf-8") as f_out:
             json.dump(parameters, f_out, indent=0, ensure_ascii=False)
 
-        with open(data_file_path.with_suffix(".pkl"), "wb") as f_out:
-            pickle.dump(parameters, f_out)
+        # with open(data_file_path.with_suffix(".pkl"), "wb") as f_out:
+        #    pickle.dump(parameters, f_out)
 
         row = {
-            "file_wav": file_name,
-            "specie": file_name.split("_")[0],
-            "data": file_name.split("_")[1] if len(file_name.split("_")) > 1 else None,
-            "id": file_name.split("_")[2] if len(file_name.split("_")) > 2 else None,
+            "file_wav": wav_file_name,
+            "specie": wav_file_name.split("_")[0],
+            "data": wav_file_name.split("_")[1]
+            if len(wav_file_name.split("_")) > 1
+            else None,
+            "id": wav_file_name.split("_")[2]
+            if len(wav_file_name.split("_")) > 2
+            else None,
             "note_peak": sample / self.sampling_rate,
             "inter_note": None,
             "bout": None,
@@ -1045,9 +1133,9 @@ class Main(QWidget):
         self.rows = [r for r in self.rows if r.get("note_peak") != row["note_peak"]]
         self.rows.append(row)
         self.df_results = pd.DataFrame(getattr(self, "rows", []))
-        name_outfile = self.output_json_path.with_suffix(".csv")
+        name_outfile = json_file_path.with_suffix(".csv")
         self.df_results.to_csv(name_outfile, sep=";", encoding="utf-8", index=False)
-        QMessageBox.information(self, "", f"Risultati salvati in {data_file_path}")
+        QMessageBox.information(self, "", f"Risultati salvati in {json_file_path}")
 
     def next_file_clicked(self):
         if hasattr(self, "song_jobs") and self.song_jobs:
