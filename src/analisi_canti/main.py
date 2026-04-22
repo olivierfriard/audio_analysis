@@ -333,9 +333,9 @@ class MainWindow(QMainWindow):
             )
 
             if selected_action == select_chunks_action:
-                self.set_chunks_check_state(item, Qt.Checked)
+                self.set_chunks_check_state(item, Qt.CheckState.Checked)
             elif selected_action == deselect_chunks_action:
-                self.set_chunks_check_state(item, Qt.Unchecked)
+                self.set_chunks_check_state(item, Qt.CheckState.Unchecked)
             return
 
         if item.parent().parent() is None:
@@ -347,9 +347,9 @@ class MainWindow(QMainWindow):
             )
 
             if selected_action == select_songs_action:
-                self.set_songs_check_state(item, Qt.Checked)
+                self.set_songs_check_state(item, Qt.CheckState.Checked)
             elif selected_action == deselect_songs_action:
-                self.set_songs_check_state(item, Qt.Unchecked)
+                self.set_songs_check_state(item, Qt.CheckState.Unchecked)
 
     def get_selected_chunk_files(self):
         """
@@ -359,11 +359,11 @@ class MainWindow(QMainWindow):
 
         for i in range(self.wav_list_widget.topLevelItemCount()):
             parent_item = self.wav_list_widget.topLevelItem(i)
-            parent_wav_path = Path(parent_item.data(0, Qt.UserRole))
+            parent_wav_path = Path(parent_item.data(0, Qt.ItemDataRole.UserRole))
 
             for j in range(parent_item.childCount()):
                 child_item = parent_item.child(j)
-                if child_item.checkState(0) != Qt.Checked:
+                if child_item.checkState(0) != Qt.CheckState.Checked:
                     continue
 
                 chunk_file_path = parent_wav_path.with_suffix("") / child_item.text(0)
@@ -400,8 +400,8 @@ class MainWindow(QMainWindow):
                     str(wav_data["sample rate"]),
                 ]
             )
-            parent_item.setCheckState(0, Qt.Unchecked)
-            parent_item.setData(0, Qt.UserRole, wav_file_path)
+            parent_item.setCheckState(0, Qt.CheckState.Unchecked)
+            parent_item.setData(0, Qt.ItemDataRole.UserRole, wav_file_path)
             self.wav_list_widget.addTopLevelItem(parent_item)
 
             for chunk_name, chunk_data in wav_data.get("chunks", {}).items():
@@ -412,8 +412,8 @@ class MainWindow(QMainWindow):
                         str(chunk_data["end"]),
                     ]
                 )
-                child_item.setCheckState(0, Qt.Unchecked)
-                child_item.setData(0, Qt.UserRole, chunk_data)
+                child_item.setCheckState(0, Qt.CheckState.Unchecked)
+                child_item.setData(0, Qt.ItemDataRole.UserRole, chunk_data)
                 parent_item.addChild(child_item)
 
                 for song_name, song_data in chunk_data.get("songs", {}).items():
@@ -424,8 +424,8 @@ class MainWindow(QMainWindow):
                             str(song_data.get("pulse_number", "")),
                         ]
                     )
-                    song_item.setCheckState(0, Qt.Unchecked)
-                    song_item.setData(0, Qt.UserRole, song_data)
+                    song_item.setCheckState(0, Qt.CheckState.Unchecked)
+                    song_item.setData(0, Qt.ItemDataRole.UserRole, song_data)
                     child_item.addChild(song_item)
 
                 if child_item.childCount():
