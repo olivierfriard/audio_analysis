@@ -1,32 +1,33 @@
-import sys
 import json
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-from scipy.io import wavfile
-from scipy.signal import find_peaks
-from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
-import librosa
 import pickle
+import sys
+from pathlib import Path
+
+import librosa
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 import sounddevice as sd
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.widgets import SpanSelector
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (
     QApplication,
-    QWidget,
-    QVBoxLayout,
-    QHBoxLayout,
-    QLabel,
-    QPushButton,
-    QMessageBox,
-    QSpinBox,
+    QComboBox,
     QDoubleSpinBox,
     QFileDialog,
-    QSlider,
-    QComboBox,
+    QHBoxLayout,
+    QLabel,
     QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QSlider,
+    QSpinBox,
+    QVBoxLayout,
+    QWidget,
 )
-from matplotlib.widgets import SpanSelector
-from pathlib import Path
+from scipy.io import wavfile
+from scipy.signal import find_peaks
 
 add_noise = False
 WINDOW_SIZE = 70
@@ -94,7 +95,7 @@ def add_noise_padding(data, sr, duration=0.1, noise_db=-40):
 
     def generate_noise(shape):
         noise = np.random.randn(*shape)
-        noise = noise / np.sqrt(np.mean(noise ** 2))
+        noise = noise / np.sqrt(np.mean(noise**2))
         noise = noise * noise_rms
         return noise
 
@@ -131,7 +132,9 @@ class SpectrumWindow(QWidget):
         self.setLayout(layout)
         self.resize(900, 450)
 
-    def update_spectrum(self, freqs, avg_power_db, peak_freqs, peak_power_db, max_freq=None):
+    def update_spectrum(
+        self, freqs, avg_power_db, peak_freqs, peak_power_db, max_freq=None
+    ):
         self.ax.cla()
         self.ax.plot(freqs, avg_power_db, color="blue")
         if len(peak_freqs) > 0:
@@ -151,7 +154,9 @@ class Main(QWidget):
         self.init_values()
         self.rows = []
         self.df_results = None
-        self.json_root = Path(r"C:\Users\scast\Desktop\REGISTRAZIONI_per_specie_NEW\BpBoehm")
+        self.json_root = Path(
+            r"C:\Users\scast\Desktop\REGISTRAZIONI_per_specie_NEW\BpBoehm"
+        )
         self.spectrum_window = None
         self.span_region = None
         self.selected_times = [0.0, 0.0]
@@ -159,10 +164,16 @@ class Main(QWidget):
         self.cid_click = None
 
         self.wav_file_list = wav_file_list or []
+
+        print(f"main init {self.wav_file_list=}")  # remove before release
+
         self.wav_file = None
 
         if self.wav_file_list:
             self.wav_file = self.wav_file_list[0]
+
+            print(f"{self.wav_file=}")  # remove before release
+
             self.load_wav(self.wav_file)
         else:
             self.data = np.array([])
@@ -177,7 +188,9 @@ class Main(QWidget):
             self.rms_times = np.array([])
             self.peaks_times = np.array([])
             self.selected_peak_times = []
-            self.setWindowTitle(f"{Path(__file__).stem.replace('_', ' ')} - (no file loaded)")
+            self.setWindowTitle(
+                f"{Path(__file__).stem.replace('_', ' ')} - (no file loaded)"
+            )
 
         self.figure, self.ax = plt.subplots(figsize=(12, 5))
         self.figure.subplots_adjust(bottom=0.15)
@@ -333,7 +346,11 @@ class Main(QWidget):
         self.current_job_index = index
         wav_key, song_id, sp = self.song_jobs[index]
 
-        if hasattr(self, "wav_file_list") and self.wav_file_list and index < len(self.wav_file_list):
+        if (
+            hasattr(self, "wav_file_list")
+            and self.wav_file_list
+            and index < len(self.wav_file_list)
+        ):
             self.wav_file = self.wav_file_list[index]
         else:
             self.wav_file = str(wav_path_same_folder(self.input_json_path, sp, wav_key))
@@ -372,7 +389,11 @@ class Main(QWidget):
 
         wav_path = find_wav_next_to_json(json_path, wav_key, block)
         if wav_path is None:
-            QMessageBox.critical(self, "", f"WAV non trovato nella cartella del JSON:\n{json_path.parent}")
+            QMessageBox.critical(
+                self,
+                "",
+                f"WAV non trovato nella cartella del JSON:\n{json_path.parent}",
+            )
             return
 
         self.input_json_path = json_path
@@ -401,14 +422,18 @@ class Main(QWidget):
     def load_wav(self, wav_file):
         self.sampling_rate, data = wavfile.read(wav_file)
         if add_noise:
-            data = add_noise_padding(data, self.sampling_rate, duration=0.025, noise_db=-20)
+            data = add_noise_padding(
+                data, self.sampling_rate, duration=0.025, noise_db=-20
+            )
         self.data = data
 
         if len(self.data.shape) > 1:
             self.data = self.data[:, 0]
 
         self.data = self.data / np.max(np.abs(self.data))
-        self.time = np.linspace(0, len(self.data) / self.sampling_rate, num=len(self.data))
+        self.time = np.linspace(
+            0, len(self.data) / self.sampling_rate, num=len(self.data)
+        )
         self.duration = len(self.data) / self.sampling_rate
         self.xmin = 0
         self.xmax = self.duration
@@ -426,7 +451,9 @@ class Main(QWidget):
         self.selected_peak_times = []
         self.span_region = None
 
-        self.setWindowTitle(f"{Path(__file__).stem.replace('_', ' ')} - {Path(wav_file).stem}")
+        self.setWindowTitle(
+            f"{Path(__file__).stem.replace('_', ' ')} - {Path(wav_file).stem}"
+        )
 
     def plot_wav(self, xmin=None, xmax=None):
         if self.sampling_rate is None or self.data is None or len(self.data) == 0:
@@ -450,12 +477,15 @@ class Main(QWidget):
         if len(self.peaks_times) > 0:
             ymax = np.max(self.rms) if len(self.rms) > 0 else 1
             for peak in self.peaks_times:
-                is_selected = any(np.isclose(peak, selected_peak) for selected_peak in self.selected_peak_times)
+                is_selected = any(
+                    np.isclose(peak, selected_peak)
+                    for selected_peak in self.selected_peak_times
+                )
                 color = "blue" if is_selected else "green"
                 self.ax.plot([peak, peak], [0, ymax], color=color, linewidth=2)
 
         self.ax.set_xlim(self.zmin, self.zmax)
-        #self.update_manual_selection_overlay(draw=False)
+        # self.update_manual_selection_overlay(draw=False)
         self.canvas.draw_idle()
 
     def update_canto_from_selected_times(self):
@@ -472,7 +502,11 @@ class Main(QWidget):
         fine = max(0.0, min(float(fine), self.duration))
         self.selected_times = [inizio, fine]
 
-        canto_len = len(self.data) if self.data is not None and len(self.data) > 0 else len(self.rms) * self.overlap
+        canto_len = (
+            len(self.data)
+            if self.data is not None and len(self.data) > 0
+            else len(self.rms) * self.overlap
+        )
         self.canto = np.zeros(canto_len)
         inizio_fr = int(inizio * self.sampling_rate)
         fine_fr = int(fine * self.sampling_rate)
@@ -483,8 +517,17 @@ class Main(QWidget):
         return inizio_fr, fine_fr
 
     def update_manual_selection_overlay(self, draw=True):
-        if self.selected_times and len(self.selected_times) == 2 and self.selected_times[1] > self.selected_times[0]:
-            self.ax.axvspan(self.selected_times[0], self.selected_times[1], color="yellow", alpha=0.25)
+        if (
+            self.selected_times
+            and len(self.selected_times) == 2
+            and self.selected_times[1] > self.selected_times[0]
+        ):
+            self.ax.axvspan(
+                self.selected_times[0],
+                self.selected_times[1],
+                color="yellow",
+                alpha=0.25,
+            )
         if draw:
             self.canvas.draw_idle()
 
@@ -495,7 +538,6 @@ class Main(QWidget):
         self.selected_times = [0.0, 0.0]
         self.zoomIn_wav()
         self.trova_picchi()
-        
 
     def on_slider(self, value):
         if self.duration <= 0:
@@ -541,8 +583,10 @@ class Main(QWidget):
         selected_peak = float(peaks[nearest_index])
         if any(np.isclose(selected_peak, peak) for peak in self.selected_peak_times):
             self.selected_peak_times = [
-                peak for peak in self.selected_peak_times if not np.isclose(selected_peak, peak)
-                ]
+                peak
+                for peak in self.selected_peak_times
+                if not np.isclose(selected_peak, peak)
+            ]
         else:
             self.selected_peak_times.append(selected_peak)
 
@@ -605,19 +649,17 @@ class Main(QWidget):
                 self.cid_click = None
                 inizio_fr, fine_fr = self.update_canto_from_selected_times()
                 self.durata_canto = (fine_fr - inizio_fr) / self.sampling_rate
-                self.rms_canto = self.rms[int(inizio_fr / self.overlap):int(fine_fr / self.overlap)]
+                self.rms_canto = self.rms[
+                    int(inizio_fr / self.overlap) : int(fine_fr / self.overlap)
+                ]
                 self.peaks_times = self.peaks_times[
-                (self.peaks_times >= inizio) &
-                (self.peaks_times <= fine)
+                    (self.peaks_times >= inizio) & (self.peaks_times <= fine)
                 ]
                 self.trova_picchi()
                 self.plot_wav()
 
         if self.cid_click is not None:
             self.canvas.mpl_disconnect(self.cid_click)
-        
-        
-
 
         self.cid_click = self.canvas.mpl_connect("button_press_event", onclick)
 
@@ -631,8 +673,12 @@ class Main(QWidget):
         try:
             if self.window_size <= 0 or self.overlap <= 0:
                 return
-            self.rms = librosa.feature.rms(y=self.data, frame_length=self.window_size, hop_length=self.overlap)[0]
-            self.rms_times = librosa.frames_to_time(np.arange(len(self.rms)), sr=self.sampling_rate, hop_length=self.overlap)
+            self.rms = librosa.feature.rms(
+                y=self.data, frame_length=self.window_size, hop_length=self.overlap
+            )[0]
+            self.rms_times = librosa.frames_to_time(
+                np.arange(len(self.rms)), sr=self.sampling_rate, hop_length=self.overlap
+            )
             self.canto = np.zeros(len(self.rms) * self.overlap)
             if reset_manual:
                 self.selected_times = [0.0, 0.0]
@@ -649,15 +695,29 @@ class Main(QWidget):
 
     def plot_spectrum(self):
         try:
-            if self.fft_length <= 0 or self.fft_overlap < 0 or self.fft_overlap >= self.fft_length:
+            if (
+                self.fft_length <= 0
+                or self.fft_overlap < 0
+                or self.fft_overlap >= self.fft_length
+            ):
                 return
 
-            xmin = self.selected_times[0] if len(self.selected_times) == 2 and self.selected_times[1] > self.selected_times[0] else self.xmin
-            xmax = self.selected_times[1] if len(self.selected_times) == 2 and self.selected_times[1] > self.selected_times[0] else self.xmax
+            xmin = (
+                self.selected_times[0]
+                if len(self.selected_times) == 2
+                and self.selected_times[1] > self.selected_times[0]
+                else self.xmin
+            )
+            xmax = (
+                self.selected_times[1]
+                if len(self.selected_times) == 2
+                and self.selected_times[1] > self.selected_times[0]
+                else self.xmax
+            )
 
             self.id_xmin = int(xmin * self.sampling_rate)
             self.id_xmax = int(xmax * self.sampling_rate)
-            segment = self.data[self.id_xmin:self.id_xmax]
+            segment = self.data[self.id_xmin : self.id_xmax]
             if len(segment) == 0:
                 return
 
@@ -665,7 +725,7 @@ class Main(QWidget):
             n_segments = (len(segment) - self.fft_overlap) // step
             if n_segments <= 0:
                 padded = np.zeros(self.fft_length)
-                padded[:len(segment)] = segment
+                padded[: len(segment)] = segment
                 fft_vals = np.fft.fft(padded)
                 power = np.abs(fft_vals) ** 2
             else:
@@ -691,8 +751,12 @@ class Main(QWidget):
             self.spectrum_peaks_Hz = freqs[self.spectrum_peaks]
             spectrum_peaks_db = avg_power_db[self.spectrum_peaks]
 
-            self.results_dict["spectrum"] = np.concatenate(([freqs], [power]), axis=0).tolist()
-            self.results_dict["spectrum_peaks"] = np.concatenate(([self.spectrum_peaks_Hz], [spectrum_peaks_db]), axis=0).tolist()
+            self.results_dict["spectrum"] = np.concatenate(
+                ([freqs], [power]), axis=0
+            ).tolist()
+            self.results_dict["spectrum_peaks"] = np.concatenate(
+                ([self.spectrum_peaks_Hz], [spectrum_peaks_db]), axis=0
+            ).tolist()
 
             if self.spectrum_window is None:
                 self.spectrum_window = SpectrumWindow()
@@ -722,15 +786,23 @@ class Main(QWidget):
                 print("passo di qui")
                 xmin, xmax = self.selected_times
             else:
-                xmin, xmax = (self.xmin, self.xmax) if (self.xmin > 0 or self.xmax < self.duration) else (0, self.duration)
-            
+                xmin, xmax = (
+                    (self.xmin, self.xmax)
+                    if (self.xmin > 0 or self.xmax < self.duration)
+                    else (0, self.duration)
+                )
+
             print(f"selected_times = {xmin}; {xmax}")
             existing = np.asarray(self.peaks_times, dtype=float)
             keep_mask = ~((existing >= xmin) & (existing <= xmax))
             base_peaks = existing[keep_mask] if len(existing) else np.array([])
 
-            min_distance_samples = int(self.min_distance * (self.sampling_rate / self.overlap))
-            max_distance_samples = int(self.max_distance * (self.sampling_rate / self.overlap))
+            min_distance_samples = int(
+                self.min_distance * (self.sampling_rate / self.overlap)
+            )
+            max_distance_samples = int(
+                self.max_distance * (self.sampling_rate / self.overlap)
+            )
             mask_rms = (self.rms_times >= xmin) & (self.rms_times <= xmax)
             rms_selected = self.rms[mask_rms]
             rms_times_selected = self.rms_times[mask_rms]
@@ -738,11 +810,11 @@ class Main(QWidget):
                 return
 
             peaks, _ = find_peaks(
-                    rms_selected,
-                    height=self.min_amplitude,
-                    distance=max(1, min_distance_samples),
-                    prominence=self.prominence,
-                )
+                rms_selected,
+                height=self.min_amplitude,
+                distance=max(1, min_distance_samples),
+                prominence=self.prominence,
+            )
 
             if peaks.size == 0:
                 self.peaks_times = np.sort(base_peaks)
@@ -760,19 +832,28 @@ class Main(QWidget):
                 sdt_distance_between_peaks = np.std(np.diff(peaks_filtered))
                 refined = [peaks_filtered[0]]
                 for i in np.arange(1, len(peaks_filtered)):
-                    if (peaks_filtered[i] - refined[-1]) < mean_distance_between_peaks + 3 * sdt_distance_between_peaks:
+                    if (
+                        peaks_filtered[i] - refined[-1]
+                    ) < mean_distance_between_peaks + 3 * sdt_distance_between_peaks:
                         refined.append(peaks_filtered[i])
                 peaks_filtered = np.array(refined)
 
             new_peaks_times = rms_times_selected[peaks_filtered]
             self.peaks_times = np.sort(np.concatenate((base_peaks, new_peaks_times)))
             self.trova_intensita_picchi()
-            if len(self.peaks_times) > 0 and not (len(self.selected_times) == 2 and self.selected_times[1] > self.selected_times[0]):
+            if len(self.peaks_times) > 0 and not (
+                len(self.selected_times) == 2
+                and self.selected_times[1] > self.selected_times[0]
+            ):
                 self.trova_ini_fin()
             else:
                 self.plot_wav()
         except Exception as e:
-            QMessageBox.critical(self, "", f"Funzione Trova picchi\n\nError on file {self.wav_file}\n\n{e}")
+            QMessageBox.critical(
+                self,
+                "",
+                f"Funzione Trova picchi\n\nError on file {self.wav_file}\n\n{e}",
+            )
 
     def trova_intensita_picchi(self):
         if self.rms is None or len(self.rms) == 0:
@@ -834,7 +915,9 @@ class Main(QWidget):
         thr_off_fin = noise_fin + k_off * mad_fin
 
         max_back_ms = 100
-        start_i = max(0, p0 - int((max_back_ms / 1000) * self.sampling_rate / self.overlap))
+        start_i = max(
+            0, p0 - int((max_back_ms / 1000) * self.sampling_rate / self.overlap)
+        )
         inizio_frame = None
         count_off = 0
         for i in range(p0, start_i - 1, -1):
@@ -868,7 +951,7 @@ class Main(QWidget):
         self.canto[inizio:fine] = np.max(self.rms)
         self.selected_times = [inizio, fine]
         self.durata_canto = (fine - inizio) / self.sampling_rate
-        self.rms_canto = self.rms[int(inizio / self.overlap):int(fine / self.overlap)]
+        self.rms_canto = self.rms[int(inizio / self.overlap) : int(fine / self.overlap)]
         self.selected_times = [inizio / self.sampling_rate, fine / self.sampling_rate]
         self.plot_wav()
 
@@ -876,7 +959,10 @@ class Main(QWidget):
         if not hasattr(self, "output_json_path"):
             QMessageBox.warning(self, "", "Carica prima un JSON")
             return
-        if len(self.selected_times) != 2 or self.selected_times[1] <= self.selected_times[0]:
+        if (
+            len(self.selected_times) != 2
+            or self.selected_times[1] <= self.selected_times[0]
+        ):
             QMessageBox.warning(self, "", "Definisci prima inizio e fine del canto")
             return
 
@@ -915,7 +1001,9 @@ class Main(QWidget):
         block["spectrum peaks"] = self.results_dict["spectrum_peaks"]
 
         if len(self.rms) > 0:
-            sel_mask = (self.rms_times >= self.selected_times[0]) & (self.rms_times <= self.selected_times[1])
+            sel_mask = (self.rms_times >= self.selected_times[0]) & (
+                self.rms_times <= self.selected_times[1]
+            )
             self.rms_canto = self.rms[sel_mask]
             envelope_max = np.max(self.rms) if len(self.rms) else 0
             soglia20 = 0.2 * envelope_max
@@ -947,8 +1035,11 @@ class Main(QWidget):
             "note_period": None,
             "durata_nota": float(self.selected_times[1] - self.selected_times[0]),
             "pulse_number": len(self.peaks_times),
-            "pulse_rate": (len(self.peaks_times) - 1) / max(1e-12, float(self.selected_times[1] - self.selected_times[0])),
-            "fq_peak": self.results_dict["spectrum_peaks"][0][0] if self.results_dict["spectrum_peaks"] else None,
+            "pulse_rate": (len(self.peaks_times) - 1)
+            / max(1e-12, float(self.selected_times[1] - self.selected_times[0])),
+            "fq_peak": self.results_dict["spectrum_peaks"][0][0]
+            if self.results_dict["spectrum_peaks"]
+            else None,
         }
 
         self.rows = [r for r in self.rows if r.get("note_peak") != row["note_peak"]]
@@ -1003,7 +1094,9 @@ class Main(QWidget):
                 self.load_job(idx)
                 self.save_results_clicked()
         else:
-            for wav_file in self.wav_file_list[self.wav_file_list.index(self.wav_file):]:
+            for wav_file in self.wav_file_list[
+                self.wav_file_list.index(self.wav_file) :
+            ]:
                 self.wav_file = wav_file
                 self.load_wav(self.wav_file)
                 self.run_analysis()
@@ -1021,7 +1114,9 @@ class Main(QWidget):
         self.min_distance = float(sp.get("min_distance", self.min_distance))
         self.max_distance = float(sp.get("max_distance", self.max_distance))
         self.prominence = float(sp.get("prominence", self.prominence))
-        self.signal_to_noise_ratio = float(sp.get("signal_to_noise_ratio", self.signal_to_noise_ratio))
+        self.signal_to_noise_ratio = float(
+            sp.get("signal_to_noise_ratio", self.signal_to_noise_ratio)
+        )
         self.fft_length = int(sp.get("fft_length", self.fft_length))
         self.fft_overlap = int(sp.get("fft_overlap", self.fft_overlap))
 
@@ -1034,7 +1129,9 @@ class Main(QWidget):
         cp.prominence_input.setValue(self.prominence)
         cp.signal_noise_ration_input.setValue(self.signal_to_noise_ratio)
         cp.fft_length_combo.setCurrentText(str(self.fft_length))
-        cp.fft_overlap_combo.setCurrentText(str(int(round(100 * self.fft_overlap / max(1, self.fft_length)))))
+        cp.fft_overlap_combo.setCurrentText(
+            str(int(round(100 * self.fft_overlap / max(1, self.fft_length))))
+        )
 
     def play_audio(self):
         if self.sampling_rate is None or self.data is None or len(self.data) == 0:
@@ -1043,7 +1140,10 @@ class Main(QWidget):
 
         xmin = self.xmin
         xmax = self.xmax
-        if len(self.selected_times) == 2 and self.selected_times[1] > self.selected_times[0]:
+        if (
+            len(self.selected_times) == 2
+            and self.selected_times[1] > self.selected_times[0]
+        ):
             xmin, xmax = self.selected_times
 
         start = max(0, min(int(xmin * self.sampling_rate), len(self.data)))
@@ -1150,7 +1250,9 @@ class ControlPanel(QWidget):
         self.signal_noise_ration_input.setMinimum(0.1)
         self.signal_noise_ration_input.setMaximum(10)
         self.signal_noise_ration_input.setValue(SIGNAL_TO_NOISE_RATIO)
-        self.signal_noise_ration_input.valueChanged.connect(self.signal_to_noise_ratio_changed)
+        self.signal_noise_ration_input.valueChanged.connect(
+            self.signal_to_noise_ratio_changed
+        )
         h_layout.addWidget(self.signal_noise_ration_input)
         main_layout.addLayout(h_layout)
 
@@ -1225,7 +1327,9 @@ class ControlPanel(QWidget):
         for wav_key, wav_block in parameters.items():
             if not isinstance(wav_block, dict):
                 continue
-            wav_level_peaks_map[wav_key] = np.array(wav_block.get("peaks_times", []), dtype=float)
+            wav_level_peaks_map[wav_key] = np.array(
+                wav_block.get("peaks_times", []), dtype=float
+            )
 
         jobs = list(iter_song_jobs(parameters))
         if not jobs:
@@ -1306,7 +1410,10 @@ class ControlPanel(QWidget):
 
     def signal_to_noise_ratio_changed(self, new_value):
         self.main.signal_to_noise_ratio = new_value
-        if len(getattr(self.main, "peaks_times", [])) > 0 and not (len(self.main.selected_times) == 2 and self.main.selected_times[1] > self.main.selected_times[0]):
+        if len(getattr(self.main, "peaks_times", [])) > 0 and not (
+            len(self.main.selected_times) == 2
+            and self.main.selected_times[1] > self.main.selected_times[0]
+        ):
             self.main.trova_ini_fin()
         self.main.trova_picchi()
 

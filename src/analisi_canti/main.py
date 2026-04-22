@@ -3,6 +3,7 @@ main program of 'Analisi canti' package
 
 """
 
+import argparse
 import importlib.util
 import json
 import sys
@@ -175,9 +176,12 @@ class MainWindow(QMainWindow):
             self.show_wav_context_menu
         )
 
-        self.wav_list_widget.header().setSectionResizeMode(
-            QHeaderView.ResizeToContents
-        )  # Resize to fit content
+        header = self.wav_list_widget.header()
+        header.setSectionResizeMode(QHeaderView.Interactive)
+        header.setStretchLastSection(False)
+        self.wav_list_widget.setColumnWidth(0, 520)
+        self.wav_list_widget.setColumnWidth(1, 110)
+        self.wav_list_widget.setColumnWidth(2, 130)
 
         # Editor di testo per output
         self.text_edit = QTextEdit(self)
@@ -351,25 +355,45 @@ class MainWindow(QMainWindow):
             elif selected_action == deselect_songs_action:
                 self.set_songs_check_state(item, Qt.CheckState.Unchecked)
 
-    def get_selected_chunk_files(self):
+    def get_selected_files(self):
         """
-        Return the file paths of the selected chunk items only.
+        Return the file paths of all checked items in the tree.
         """
-        selected_chunk_files = []
+        selected_files = []
+        seen_files = set()
 
         for i in range(self.wav_list_widget.topLevelItemCount()):
             parent_item = self.wav_list_widget.topLevelItem(i)
             parent_wav_path = Path(parent_item.data(0, Qt.ItemDataRole.UserRole))
 
+            if parent_item.checkState(0) == Qt.CheckState.Checked:
+                wav_path = str(parent_wav_path)
+                if wav_path not in seen_files:
+                    selected_files.append(wav_path)
+                    seen_files.add(wav_path)
+
             for j in range(parent_item.childCount()):
-                child_item = parent_item.child(j)
-                if child_item.checkState(0) != Qt.CheckState.Checked:
-                    continue
+                chunk_item = parent_item.child(j)
+                chunk_file_path = parent_wav_path.with_suffix("") / chunk_item.text(0)
 
-                chunk_file_path = parent_wav_path.with_suffix("") / child_item.text(0)
-                selected_chunk_files.append(str(chunk_file_path))
+                if chunk_item.checkState(0) == Qt.CheckState.Checked:
+                    chunk_path = str(chunk_file_path)
+                    if chunk_path not in seen_files:
+                        selected_files.append(chunk_path)
+                        seen_files.add(chunk_path)
 
-        return selected_chunk_files
+                for k in range(chunk_item.childCount()):
+                    song_item = chunk_item.child(k)
+                    if song_item.checkState(0) != Qt.CheckState.Checked:
+                        continue
+
+                    song_file_path = parent_wav_path.with_suffix("") / song_item.text(0)
+                    song_path = str(song_file_path)
+                    if song_path not in seen_files:
+                        selected_files.append(song_path)
+                        seen_files.add(song_path)
+
+        return selected_files
 
     def get_rate_duration(self, wav_file_path):
         """
@@ -470,19 +494,25 @@ class MainWindow(QMainWindow):
         with open(json_file_path, "r") as f_in:
             return json.load(f_in)
 
-    def open_project(self):
+    def open_project(self, project_path: str | Path | None = None):
         """
         open a json or wav file
         """
-        file_path, _ = QFileDialog.getOpenFileName(
-            self,
-            "Open file",
-            "",
-            "Supported Files (*.wav *.json);;WAV Files (*.wav);;JSON Files (*.json)",
-        )
-        if not file_path:
-            print("DEBUG: Nessun file WAV selezionato.")
-            return
+        if project_path is None:
+            file_path, _ = QFileDialog.getOpenFileName(
+                self,
+                "Open file",
+                "",
+                "Supported Files (*.wav *.json);;WAV Files (*.wav);;JSON Files (*.json)",
+            )
+            if not file_path:
+                print("DEBUG: Nessun file WAV selezionato.")
+                return
+        else:
+            file_path = str(Path(project_path).expanduser().resolve())
+            if not Path(file_path).exists():
+                QMessageBox.warning(self, "", f"Project not found: {file_path}")
+                return
 
         if Path(file_path).suffix in (".wav", ".WAV"):
             # check if directory exists
@@ -493,6 +523,7 @@ class MainWindow(QMainWindow):
                 self.json_file_path = Path(file_path).with_suffix("") / Path(
                     Path(file_path).name
                 ).with_suffix(".json")
+                wav_file_path = file_path
                 self.update_wav_list()
                 self.show_oscillogram(wav_file_path=wav_file_path)
 
@@ -655,31 +686,45 @@ class MainWindow(QMainWindow):
 
     def run_option(self, module_name):
         """
-        Carica il plugin e passa l'elenco dei chunk selezionati
+        Carica il plugin e passa l'elenco dei file selezionati
         """
         module_name = self.sender().text()
         print(f"running {module_name=}")
 
         self.text_edit.append(f"Running {module_name} plugin")
 
-        selected_chunk_files = self.get_selected_chunk_files()
-        if selected_chunk_files:
-            self.plugin_widgets.append(
-                self.modules[module_name].Main(selected_chunk_files)
-            )
+        selected_files = self.get_selected_files()
+        if selected_files:
+            self.plugin_widgets.append(self.modules[module_name].Main(selected_files))
             if hasattr(self.plugin_widgets[-1], "plugin_closed_signal"):
                 self.plugin_widgets[-1].plugin_closed_signal.connect(
                     self.update_wav_list
                 )
             self.plugin_widgets[-1].show()
         else:
-            QMessageBox.warning(self, "", "No chunk selected")
+            QMessageBox.warning(self, "", "No file selected")
 
 
-def run():
-    app = QApplication(sys.argv)
+def parse_cli_args(argv: list[str] | None = None):
+    argv = argv if argv is not None else sys.argv[1:]
+    parser = argparse.ArgumentParser(add_help=True)
+    parser.add_argument(
+        "-p",
+        "--project",
+        dest="project",
+        help="WAV or JSON project to open automatically at startup",
+    )
+    return parser.parse_known_args(argv)
+
+
+def run(argv: list[str] | None = None):
+    args, remaining_args = parse_cli_args(argv)
+    qt_argv = [sys.argv[0], *remaining_args]
+    app = QApplication(qt_argv)
     window = MainWindow()
     window.show()
+    if args.project:
+        window.open_project(args.project)
     sys.exit(app.exec())
 
 
