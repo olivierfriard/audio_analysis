@@ -6,6 +6,7 @@ main program of 'Analisi canti' package
 import argparse
 import importlib.util
 import json
+import shutil
 import sys
 from pathlib import Path
 
@@ -37,8 +38,8 @@ from PySide6.QtWidgets import (
 )
 from scipy.io import wavfile
 
-__version__ = "0.1.0"
-__version_date__ = "2026-04-20"
+__version__ = "0.2.0"
+__version_date__ = "2026-04-23"
 
 
 from .oscillogram import OscillogramWindow
@@ -144,6 +145,8 @@ class MainWindow(QMainWindow):
         self.wav_file = None
 
         self.wav_list: dict = {}
+
+        self.project_path = None
 
         self.plugin_widgets: list = []
 
@@ -464,6 +467,8 @@ class MainWindow(QMainWindow):
             path: path of main wav file
 
         """
+        print("create json file")
+
         sample_rate, duration = self.get_rate_duration(path)
 
         self.json_file_path = path.with_suffix("") / f"{path.stem}.json"
@@ -483,9 +488,14 @@ class MainWindow(QMainWindow):
                     },
                     f_out,
                 )
-            return 0
         except Exception:
             return 1
+
+        # copy fake chunk
+        print("create fake chunk")
+        shutil.copy(path, path.with_suffix("") / path.name)
+
+        return 0
 
     def read_json_file(self, json_file_path) -> dict:
         """
@@ -497,6 +507,18 @@ class MainWindow(QMainWindow):
     def open_project(self, project_path: str | Path | None = None):
         """
         open a json or wav file
+        """
+
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Open file",
+            "",
+            "Supported Files (*.wav *.json);;WAV Files (*.wav);;JSON Files (*.json)",
+        )
+        if not file_path:
+            print("DEBUG: Nessun file WAV selezionato.")
+            return
+
         """
         if project_path is None:
             file_path, _ = QFileDialog.getOpenFileName(
@@ -513,6 +535,7 @@ class MainWindow(QMainWindow):
             if not Path(file_path).exists():
                 QMessageBox.warning(self, "", f"Project not found: {file_path}")
                 return
+        """
 
         if Path(file_path).suffix in (".wav", ".WAV"):
             # check if directory exists
@@ -538,7 +561,8 @@ class MainWindow(QMainWindow):
 
     def new_project(self):
         """
-        apre i file wav indicati dall'utente e estrae sample rate e durata
+        apre il file wav indicato dall'utente
+        crea la directory e il file json con sample rate e durata
         """
 
         file_path, _ = QFileDialog.getOpenFileName(
@@ -558,6 +582,9 @@ class MainWindow(QMainWindow):
                 create_json_file_flag = True
         else:
             # create directory
+            print(
+                f"create directory {Path(file_path).with_suffix('')}"
+            )  # remove before release
             Path(file_path).with_suffix("").mkdir()
             create_json_file_flag = True
 
@@ -723,8 +750,10 @@ def run(argv: list[str] | None = None):
     app = QApplication(qt_argv)
     window = MainWindow()
     window.show()
-    if args.project:
-        window.open_project(args.project)
+    # if args.project:
+    #    window.open_project(args.project)
+    # else:
+    #    window.project_path = None
     sys.exit(app.exec())
 
 

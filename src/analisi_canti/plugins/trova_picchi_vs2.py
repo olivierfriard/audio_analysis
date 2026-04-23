@@ -43,6 +43,8 @@ class Main(QWidget):
             )
             return
 
+        print(f"{self.wav_file=}")  # remove before release
+
         self.overlap = None
 
         # self.start_times = []
