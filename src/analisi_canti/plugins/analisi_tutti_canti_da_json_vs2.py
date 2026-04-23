@@ -120,32 +120,12 @@ def add_noise_padding(data, sr, duration=0.1, noise_db=-40):
 
 
 def find_project_json_for_wav(wav_path: Path) -> Path | None:
-    """
-    Dato un WAV selezionato nel main, prova a trovare il JSON del progetto
-    corrispondente.
 
-    Casi gestiti:
-    1) WAV principale del progetto: /dir/file.wav -> /dir/file/file.json
-    2) Chunk o song dentro la cartella progetto: /dir/file/.../*.wav -> /dir/file/file.json
-    3) WAV dentro una sottocartella con lo stesso nome del progetto.
-    """
     wav_path = Path(wav_path).expanduser().resolve()
 
-    # caso 1: wav principale del progetto
     direct_json = wav_path.with_suffix('') / f"{wav_path.stem}.json"
     if direct_json.is_file():
         return direct_json
-
-    # risali tra i genitori cercando una cartella che contenga <nomecartella>.json
-    for parent in [wav_path.parent, *wav_path.parents]:
-        candidate = parent / f"{parent.name}.json"
-        if candidate.is_file():
-            return candidate
-
-    # fallback: cerca un json nella cartella corrente
-    json_files = sorted(wav_path.parent.glob('*.json'))
-    if len(json_files) == 1:
-        return json_files[0].resolve()
 
     return None
 
