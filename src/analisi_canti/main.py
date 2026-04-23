@@ -419,6 +419,8 @@ class MainWindow(QMainWindow):
 
         self.wav_list_widget.clear()
 
+        print(f"{self.wav_list=}")  # remove before release
+
         for wav_file_path, wav_data in self.wav_list.items():
             parent_item = QTreeWidgetItem(
                 [
