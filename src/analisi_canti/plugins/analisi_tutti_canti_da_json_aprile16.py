@@ -1152,7 +1152,10 @@ class Main(QWidget):
             return
 
         self.wav_file = self.wav_file_list[current_wav_index + 1]
-        self.load_wav(self.wav_file)
+        self.load_wav(self.wav_file) self.df_results = pd.DataFrame(getattr(self, "rows", []))
+               name_outfile = json_file_path.with_suffix(".csv")
+               self.df_results.to_csv(name_outfile, sep=";", encoding="utf-8", index=False)
+               QMessageBox.information(self, "", f"Risultati salvati in {json_file_path}")
         self.run_analysis()
 
     def previous_file_clicked(self):
