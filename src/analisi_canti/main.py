@@ -596,7 +596,7 @@ class MainWindow(QMainWindow):
                 print("Creation of JSON file failed")
                 return
 
-        self.wav_list[file_path] = self.read_json_file(json_file_path)
+        # self.wav_list[file_path] = self.read_json_file(json_file_path)
 
         self.update_wav_list()
 
