@@ -31,10 +31,10 @@ from scipy.signal import find_peaks
 add_noise = False
 WINDOW_SIZE = 70
 OVERLAP = 30
-MIN_AMPLITUDE = 0.2
-MIN_DISTANCE = 0.08
+MIN_AMPLITUDE = 0.1
+MIN_DISTANCE = 0.003
 MAX_DISTANCE = 0.3
-PROMINENCE = 0.1
+PROMINENCE = 0.08
 FFT_LENGTH = 1024
 FFT_OVERLAP = 512
 SIGNAL_TO_NOISE_RATIO = 0.1
@@ -119,6 +119,50 @@ def add_noise_padding(data, sr, duration=0.1, noise_db=-40):
     return new_data
 
 
+def find_project_json_for_wav(wav_path: Path) -> Path | None:
+    """
+    Dato un WAV selezionato nel main, prova a trovare il JSON del progetto
+    corrispondente.
+
+    Casi gestiti:
+    1) WAV principale del progetto: /dir/file.wav -> /dir/file/file.json
+    2) Chunk o song dentro la cartella progetto: /dir/file/.../*.wav -> /dir/file/file.json
+    3) WAV dentro una sottocartella con lo stesso nome del progetto.
+    """
+    wav_path = Path(wav_path).expanduser().resolve()
+
+    # caso 1: wav principale del progetto
+    direct_json = wav_path.with_suffix('') / f"{wav_path.stem}.json"
+    if direct_json.is_file():
+        return direct_json
+
+    # risali tra i genitori cercando una cartella che contenga <nomecartella>.json
+    for parent in [wav_path.parent, *wav_path.parents]:
+        candidate = parent / f"{parent.name}.json"
+        if candidate.is_file():
+            return candidate
+
+    # fallback: cerca un json nella cartella corrente
+    json_files = sorted(wav_path.parent.glob('*.json'))
+    if len(json_files) == 1:
+        return json_files[0].resolve()
+
+    return None
+
+
+def find_song_block_from_wav(parameters: dict, wav_name: str):
+    """
+    Cerca nel JSON il blocco song corrispondente al nome file WAV selezionato.
+    Ritorna (chunk_name, song_dict) oppure (None, None).
+    """
+    chunks = parameters.get('chunks', {})
+    for chunk_name, chunk_data in chunks.items():
+        songs = chunk_data.get('songs', {})
+        if wav_name in songs:
+            return chunk_name, songs[wav_name]
+    return None, None
+
+
 class SpectrumWindow(QWidget):
     def __init__(self, parent=None):
         super().__init__(None)
@@ -153,26 +197,27 @@ class Main(QWidget):
         self.init_values()
         self.rows = []
         self.df_results = None
-        self.json_root = Path(
-            r"C:\Users\scast\Desktop\REGISTRAZIONI_per_specie_NEW\BpBoehm"
-        )
         self.spectrum_window = None
         self.span_region = None
         self.selected_times = [0.0, 0.0]
         self.selected_peak_times = []
         self.cid_click = None
 
-        self.wav_file_list = wav_file_list or []
+        self.wav_file_list = [str(Path(w).expanduser().resolve()) for w in wav_file_list]
 
         print(f"main init {self.wav_file_list=}")  # remove before release
 
         self.wav_file = None
+        self.project_json_path = None
+        self.project_parameters = None
 
         if self.wav_file_list:
             self.wav_file = self.wav_file_list[0]
-
+            self.project_json_path = find_project_json_for_wav(Path(self.wav_file))
+            if self.project_json_path and self.project_json_path.is_file():
+                with open(self.project_json_path, 'r', encoding='utf-8') as f:
+                    self.project_parameters = json.load(f)
             print(f"{self.wav_file=}")  # remove before release
-
             self.load_wav(self.wav_file)
         else:
             self.data = np.array([])
@@ -274,6 +319,7 @@ class Main(QWidget):
         self.resize(1450, 720)
 
         if self.wav_file_list:
+            self.load_selected_song_from_project()
             self.run_analysis()
             self.zoomOut_wav()
 
@@ -336,6 +382,42 @@ class Main(QWidget):
         self.trova_picchi()
         if len(self.peaks_times) > 0:
             self.trova_ini_fin()
+
+    def load_selected_song_from_project(self):
+        """
+        Se il plugin è stato aperto dal main con uno o più WAV selezionati,
+        prova a leggere automaticamente il JSON del progetto corrispondente
+        e ad applicare i parametri del song selezionato.
+        """
+        if not self.wav_file:
+            return
+        if self.project_parameters is None:
+            return
+
+        chunk_name, sp = find_song_block_from_wav(
+            self.project_parameters, Path(self.wav_file).name
+        )
+        if not isinstance(sp, dict):
+            return
+
+        self.selected_times = []
+        self.apply_song_params(sp)
+
+        self.peaks_times = np.array(sp.get('peaks_times', []), dtype=float)
+        self.envelope(reset_manual=False)
+        self.trova_intensita_picchi()
+
+        ini = sp.get('call_start')
+        dur = sp.get('call_duration')
+        if ini is not None and dur is not None:
+            self.selected_times = [float(ini), float(ini) + float(dur)]
+            self.update_canto_from_selected_times()
+            self.peaks_times = self.peaks_times[
+                (self.peaks_times >= self.selected_times[0])
+                & (self.peaks_times <= self.selected_times[1])
+            ]
+
+        self.current_chunk_name = chunk_name
 
     def load_job(self, index: int):
         if not hasattr(self, "song_jobs") or not self.song_jobs:
@@ -957,9 +1039,11 @@ class Main(QWidget):
     def save_results_clicked(self):
         """ """
 
-        json_file_path = Path(self.wav_file).parent / Path(
-            Path(self.wav_file).parent.name
-        ).with_suffix(".json")
+        json_file_path = find_project_json_for_wav(Path(self.wav_file))
+        if json_file_path is None or not json_file_path.is_file():
+            QMessageBox.warning(self, "", "JSON di progetto non trovato")
+            return
+
         with open(json_file_path, "r", encoding="utf-8") as f:
             parameters = json.load(f)
 
@@ -981,13 +1065,21 @@ class Main(QWidget):
 
         sample = int(Path(self.wav_file).stem.split("_")[-1])
 
-        chunk_file_name = Path(self.wav_file.split("_sample_")[0] + ".wav").name
-        if chunk_file_name not in parameters["chunks"]:
+        wav_file_name = Path(self.wav_file).name
+
+        chunk_file_name, _song_block = find_song_block_from_wav(parameters, wav_file_name)
+        if chunk_file_name is None:
+            # fallback per vecchia convenzione basata su _sample_
+            chunk_file_name = Path(self.wav_file.split("_sample_")[0] + ".wav").name
+
+        if chunk_file_name not in parameters.get("chunks", {}):
             print(f"{chunk_file_name} NOT FOUND!")
             QMessageBox.warning(self, "", f"{chunk_file_name} NOT FOUND!")
             return
-        wav_file_name = Path(self.wav_file).name
-        parameters["chunks"][chunk_file_name]["songs"][wav_file_name]
+
+        parameters["chunks"].setdefault(chunk_file_name, {})
+        parameters["chunks"][chunk_file_name].setdefault("songs", {})
+        parameters["chunks"][chunk_file_name]["songs"].setdefault(wav_file_name, {})
 
         parameters["chunks"][chunk_file_name]["songs"][wav_file_name]["window_size"] = (
             self.window_size
@@ -1152,10 +1244,7 @@ class Main(QWidget):
             return
 
         self.wav_file = self.wav_file_list[current_wav_index + 1]
-        self.load_wav(self.wav_file) self.df_results = pd.DataFrame(getattr(self, "rows", []))
-               name_outfile = json_file_path.with_suffix(".csv")
-               self.df_results.to_csv(name_outfile, sep=";", encoding="utf-8", index=False)
-               QMessageBox.information(self, "", f"Risultati salvati in {json_file_path}")
+        self.load_wav(self.wav_file) 
         self.run_analysis()
 
     def previous_file_clicked(self):
