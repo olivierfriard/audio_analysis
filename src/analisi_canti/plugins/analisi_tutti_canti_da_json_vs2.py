@@ -123,9 +123,10 @@ def find_project_json_for_wav(wav_path: Path) -> Path | None:
 
     wav_path = Path(wav_path).expanduser().resolve()
 
-    direct_json = wav_path.with_suffix('') / f"{wav_path.stem}.json"
-    if direct_json.is_file():
-        return direct_json
+    # fallback: cerca un json nella cartella corrente
+    json_files = sorted(wav_path.parent.glob('*.json'))
+    if len(json_files) == 1:
+        return json_files[0].resolve()
 
     return None
 
