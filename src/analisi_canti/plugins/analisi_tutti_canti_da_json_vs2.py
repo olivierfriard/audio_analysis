@@ -232,7 +232,7 @@ class Main(QWidget):
         self.stop_btn.clicked.connect(self.stopplaying)
         top_layout.addWidget(self.stop_btn)
 
-        self.delete_selected_peaks_btn = QPushButton("Delete selected peaks")
+        self.delete_selected_peaks_btn = QPushButton("Add/Del selected peaks")
         self.delete_selected_peaks_btn.clicked.connect(self.delete_selected_peaks)
         top_layout.addWidget(self.delete_selected_peaks_btn)
 
@@ -523,6 +523,7 @@ class Main(QWidget):
             self.zoomOut_wav()
 
     def select_nearest_peak(self, event):
+        print(f"picchi vecchi {self.peaks_times}")
         if event.inaxes != self.ax or event.xdata is None:
             return
         x_click = float(event.xdata)
@@ -540,52 +541,66 @@ class Main(QWidget):
             if nearest_distance < max_distance:
                 selected_peak = float(peaks[nearest_index])
 
-            if selected_peak is None:
-                x0 = max(0, x_click - max_distance)
-                x1 = min(self.duration, x_click + max_distance)
-                mask_rms = (self.rms_times >= x0) & (self.rms_times <= x1)
-                if not np.any(mask_rms):
-                    return
+        if selected_peak is None:
+            x0 = max(0, x_click - max_distance/2)
+            x1 = min(self.duration, x_click + max_distance/2)
+            mask_rms = (self.rms_times >= x0) & (self.rms_times <= x1) 
+            if not np.any(mask_rms):
+                return
             rms_local = self.rms[mask_rms]
             rms_times_local = self.rms_times[mask_rms]
             max_index = int(np.argmax(rms_local))
             selected_peak = float(rms_times_local[max_index])
             # aggiungo il nuovo picco alla lista dei picchi reali
             self.peaks_times = np.sort(
-                np.append(np.asarray(self.peaks_times, dtype=float), selected_peak)
-                )
-        selected = np.array(self.selected_peak_times, dtype=float)
-        mask = np.isclose(selected, selected_peak)
-        if np.any(mask):
-            selected = selected[~mask]
+                    np.append(np.asarray(self.peaks_times, dtype=float), selected_peak)
+                    )
+            selected_peak = None
         else:
-            selected = np.append(selected, selected_peak)
-        self.selected_peak_times = selected.tolist()
+            selected = np.array(self.selected_peak_times, dtype=float)
+            mask = np.isclose(selected, selected_peak)
+            if np.any(mask):
+                selected = selected[~mask]
+            else:
+                selected = np.append(selected, selected_peak)
+                self.selected_peak_times = selected.tolist()
         self.plot_wav()
+        print(f"picchi nuovi {self.selected_peak_times}")
+        
 
     def delete_selected_peaks(self):
         if not self.selected_peak_times:
-            QMessageBox.information(self, "", "Nessun picco blu da cancellare")
-            return
-        if self.peaks_times is None or len(self.peaks_times) == 0:
-            self.selected_peak_times = []
-            QMessageBox.warning(self, "", "Nessun picco disponibile")
+            QMessageBox.information(self, "", "Nessun picco selezionato")
             return
 
         peaks = np.asarray(self.peaks_times, dtype=float)
         selected_peaks = np.asarray(self.selected_peak_times, dtype=float)
-        keep_mask = np.ones(len(peaks), dtype=bool)
-        for selected_peak in selected_peaks:
-            keep_mask &= ~np.isclose(peaks, selected_peak)
+        print(f"prima: picchi selezionati = {peaks}")
+        if peaks.size == 0:
+            # se non ci sono picchi, aggiungo tutti quelli selezionati
+            peaks = selected_peaks.copy()
+            
+        else:
+            lista_peaks = peaks
 
-        removed_count = int(np.sum(~keep_mask))
-        self.peaks_times = peaks[keep_mask]
+            for sel_peak in selected_peaks:
+                found = False
+                for peak in peaks:
+                    if np.isclose(peak, sel_peak):
+                        nuova_lista = []
+                        for peak in lista_peaks:
+                            if not np.isclose(peak, sel_peak):
+                                nuova_lista.append(peak)
+                        lista_peaks = nuova_lista
+
+            # ordino per mantenere coerenza temporale
+            self.peaks_times = np.sort(lista_peaks)
+            print(f"picchi selezionati {self.peaks_times}")
+            # reset selezione
         self.selected_peak_times = []
         self.trova_intensita_picchi()
         self.plot_wav()
 
-        if removed_count == 0:
-            QMessageBox.information(self, "", "Nessun picco cancellato")
 
     def zoomIn_wav(self):
         if hasattr(self, "xmin") and hasattr(self, "xmax") and self.xmax > self.xmin:
