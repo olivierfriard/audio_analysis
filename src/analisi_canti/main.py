@@ -30,6 +30,7 @@ from PySide6.QtWidgets import (
     QSizePolicy,
     QSpacerItem,
     QSplitter,
+    QStyle,
     QTextEdit,
     QTreeWidget,
     QTreeWidgetItem,
@@ -422,6 +423,9 @@ class MainWindow(QMainWindow):
         """
         Update wav treewidget with wav files, chunks and songs.
         """
+        completed_song_icon = self.style().standardIcon(
+            QStyle.StandardPixmap.SP_DialogApplyButton
+        )
 
         print("update treeview")
 
@@ -467,6 +471,8 @@ class MainWindow(QMainWindow):
                     )
                     song_item.setCheckState(0, Qt.CheckState.Unchecked)
                     song_item.setData(0, Qt.ItemDataRole.UserRole, song_data)
+                    if song_data:
+                        song_item.setIcon(0, completed_song_icon)
                     child_item.addChild(song_item)
 
                 if child_item.childCount():
