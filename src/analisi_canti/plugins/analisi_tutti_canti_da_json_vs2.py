@@ -14,7 +14,6 @@ from PySide6.QtWidgets import (
     QApplication,
     QComboBox,
     QDoubleSpinBox,
-    QFileDialog,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -39,44 +38,6 @@ FFT_LENGTH = 1024
 FFT_OVERLAP = 512
 SIGNAL_TO_NOISE_RATIO = 0.1
 
-
-def iter_song_jobs(parameters: dict):
-    for wav_key, wav_block in parameters.items():
-        songs = wav_block.get("songs", {})
-        if not isinstance(songs, dict):
-            continue
-        for song_id, sp in songs.items():
-            if isinstance(sp, dict):
-                yield wav_key, str(song_id), sp
-
-
-def wav_path_same_folder(json_path: Path, sp: dict, wav_key: str) -> Path:
-    name = sp.get("file") or wav_key
-    return (json_path.parent / Path(name).name).resolve()
-
-
-def wav_path_different_folder(json_path: Path, sp: dict, wav_key: str) -> Path:
-    name = sp.get("file") or wav_key
-    wav_name = Path(name).name
-    stem = Path(wav_name).stem
-    folder_name = stem.split("_sample_")[0]
-    wav_path = json_path.parent / folder_name / wav_name
-    return wav_path.resolve()
-
-
-def find_wav_next_to_json(json_path: Path, wav_key: str, block: dict) -> Path | None:
-    names = [wav_key, block.get("file")]
-    for name in names:
-        if not name:
-            continue
-        wav_name = Path(str(name)).name
-        candidates = [json_path.parent / wav_name]
-        if Path(wav_name).suffix.lower() != ".wav":
-            candidates.append(json_path.parent / f"{Path(wav_name).stem}.wav")
-        for candidate in candidates:
-            if candidate.is_file():
-                return candidate.resolve()
-    return None
 
 
 def add_noise_padding(data, sr, duration=0.1, noise_db=-40):
@@ -229,7 +190,7 @@ class Main(QWidget):
             props=dict(alpha=0.25, facecolor="yellow"),
         )
 
-        self.canvas.mpl_connect("button_press_event", self.on_double_click)
+        self.canvas.mpl_connect("button_press_event", self.on_mouse_click)
 
         self.control_panel = ControlPanel(self)
 
@@ -300,8 +261,7 @@ class Main(QWidget):
         self.resize(1450, 720)
 
         if self.wav_file_list:
-            self.load_selected_song_from_project()
-            self.run_analysis()
+            self.load_current_song()
             self.zoomOut_wav()
 
     def show(self):
@@ -327,12 +287,6 @@ class Main(QWidget):
             self.control_panel.show()
             self.control_panel.raise_()
             self.control_panel.activateWindow()
-
-    def compute_envelope_clicked(self):
-        self.envelope()
-
-    def find_peaks_clicked(self):
-        self.trova_picchi()
 
     def compute_spectrum_clicked(self):
         self.plot_spectrum()
@@ -363,124 +317,74 @@ class Main(QWidget):
         self.trova_picchi()
         if len(self.peaks_times) > 0:
             self.trova_ini_fin()
+    
+    def is_song_processed(self, sp: dict) -> bool:
+        if not isinstance(sp, dict):
+            return False
 
-    def load_selected_song_from_project(self):
-        """
-        Se il plugin è stato aperto dal main con uno o più WAV selezionati,
-        prova a leggere automaticamente il JSON del progetto corrispondente
-        e ad applicare i parametri del song selezionato.
-        """
-        if not self.wav_file:
-            return
+        required_keys = [
+            "call_start",
+            "call_duration",
+            "peaks_times",
+            ]
+        
+        for key in required_keys:
+            if key not in sp:
+                return False
+        return True
+
+    def load_current_song(self):
+        self.load_wav(self.wav_file)
+
         if self.project_parameters is None:
+            self.run_analysis()
             return
 
         chunk_name, sp = find_song_block_from_wav(
-            self.project_parameters, Path(self.wav_file).name
-        )
-        if not isinstance(sp, dict):
+            self.project_parameters,
+            Path(self.wav_file).name
+            )
+
+        if sp is None:
+            QMessageBox.warning(
+                self,
+                "",
+                f"{Path(self.wav_file).name} non trovato nel JSON"
+                )
+            self.run_analysis()
             return
-
-        self.selected_times = []
-        self.apply_song_params(sp)
-
-        self.peaks_times = np.array(sp.get('peaks_times', []), dtype=float)
-        self.envelope(reset_manual=False)
-        self.trova_intensita_picchi()
-
-        ini = sp.get('call_start')
-        dur = sp.get('call_duration')
-        if ini is not None and dur is not None:
-            self.selected_times = [float(ini), float(ini) + float(dur)]
-            self.update_canto_from_selected_times()
-            self.peaks_times = self.peaks_times[
-                (self.peaks_times >= self.selected_times[0])
-                & (self.peaks_times <= self.selected_times[1])
-            ]
 
         self.current_chunk_name = chunk_name
 
-    def load_job(self, index: int):
-        if not hasattr(self, "song_jobs") or not self.song_jobs:
+        if not sp:
+            # sottodizionario vuoto
+            self.run_analysis()
             return
 
-        index = max(0, min(index, len(self.song_jobs) - 1))
-        self.current_job_index = index
-        wav_key, song_id, sp = self.song_jobs[index]
+        if self.is_song_processed(sp):
+            # sottodizionario pieno: visualizza dati salvati
+            self.apply_song_params(sp)
+            self.envelope(reset_manual=False)
 
-        if (
-            hasattr(self, "wav_file_list")
-            and self.wav_file_list
-            and index < len(self.wav_file_list)
-        ):
-            self.wav_file = self.wav_file_list[index]
-        else:
-            self.wav_file = str(wav_path_same_folder(self.input_json_path, sp, wav_key))
+            self.peaks_times = np.array(sp.get("peaks_times", []), dtype=float)
+            self.trova_intensita_picchi()
 
-        self.load_wav(self.wav_file)
-        self.apply_song_params(sp)
-        self.peaks_times = np.array(sp.get("peaks_times", []), dtype=float)
-        self.envelope(reset_manual=False)
-        self.trova_intensita_picchi()
+            ini = float(sp["call_start"])
+            fine = ini + float(sp["call_duration"])
+            self.selected_times = [ini, fine]
 
-        ini = sp.get("call_start")
-        dur = sp.get("call_duration")
-        if ini is not None and dur is not None:
-            self.selected_times = [float(ini), float(ini) + float(dur)]
             self.update_canto_from_selected_times()
+
+            self.peaks_times = self.peaks_times[
+                (self.peaks_times >= ini) & (self.peaks_times <= fine)
+                ]
+
+            self.plot_wav()
         else:
-            self.trova_ini_fin()
-
-        self.plot_wav(self.xmin, self.xmax)
-
-    def load_wav_from_json(self, json_path: Path):
-        with open(json_path, "r", encoding="utf-8") as f:
-            parameters = json.load(f)
-
-        wav_key = None
-        block = None
-        for candidate_key, candidate_block in parameters.items():
-            if isinstance(candidate_block, dict):
-                wav_key = candidate_key
-                block = candidate_block
-                break
-
-        if wav_key is None or block is None:
-            QMessageBox.warning(self, "", "Nessun blocco WAV trovato nel JSON")
-            return
-
-        wav_path = find_wav_next_to_json(json_path, wav_key, block)
-        if wav_path is None:
-            QMessageBox.critical(
-                self,
-                "",
-                f"WAV non trovato nella cartella del JSON:\n{json_path.parent}",
-            )
-            return
-
-        self.input_json_path = json_path
-        self.output_json_path = json_path.with_name(json_path.stem + "_out2.json")
-        if not self.output_json_path.exists():
-            with open(self.output_json_path, "w", encoding="utf-8") as f:
-                json.dump(parameters, f, indent=0, ensure_ascii=False)
-
-        self.song_jobs = []
-        self.wav_file_list = [str(wav_path)]
-        self.current_job_index = 0
-        self.wav_file = str(wav_path)
-
-        self.load_wav(self.wav_file)
-        self.selected_times = []
-        self.apply_song_params(block)
-        self.envelope(reset_manual=False)
-
-        self.peaks_times = np.array(block.get("peaks_times", []), dtype=float)
-        self.trova_intensita_picchi()
-        if len(self.peaks_times) > 0:
-            self.trova_ini_fin()
-        else:
-            self.plot_wav(self.xmin, self.xmax)
-
+        # sottodizionario non vuoto ma incompleto
+            self.apply_song_params(sp)
+            self.run_analysis()
+    
     def load_wav(self, wav_file):
         self.sampling_rate, data = wavfile.read(wav_file)
         if add_noise:
@@ -547,7 +451,6 @@ class Main(QWidget):
                 self.ax.plot([peak, peak], [0, ymax], color=color, linewidth=2)
 
         self.ax.set_xlim(self.zmin, self.zmax)
-        # self.update_manual_selection_overlay(draw=False)
         self.canvas.draw_idle()
 
     def update_canto_from_selected_times(self):
@@ -578,20 +481,6 @@ class Main(QWidget):
 
         return inizio_fr, fine_fr
 
-    def update_manual_selection_overlay(self, draw=True):
-        if (
-            self.selected_times
-            and len(self.selected_times) == 2
-            and self.selected_times[1] > self.selected_times[0]
-        ):
-            self.ax.axvspan(
-                self.selected_times[0],
-                self.selected_times[1],
-                color="yellow",
-                alpha=0.25,
-            )
-        if draw:
-            self.canvas.draw_idle()
 
     def on_select(self, xmin, xmax):
         if abs(xmax - xmin) < 0.01:
@@ -626,7 +515,7 @@ class Main(QWidget):
         self.ax.set_xlim(self.zmin, self.zmax)
         self.canvas.draw_idle()
 
-    def on_double_click(self, event):
+    def on_mouse_click(self, event):
         if event.button == 3:
             self.select_nearest_peak(event)
             return
@@ -636,22 +525,42 @@ class Main(QWidget):
     def select_nearest_peak(self, event):
         if event.inaxes != self.ax or event.xdata is None:
             return
-        if self.peaks_times is None or len(self.peaks_times) == 0:
-            QMessageBox.warning(self, "", "Nessun picco disponibile")
-            return
+        x_click = float(event.xdata)
 
+        # definisco una distanza entro cui trovare il picco (1/100 della finestra temporale presentata)
+        # ampiezza della finestra temporale visualizzata
+        xmin, xmax = self.ax.get_xlim()
+        max_distance = (xmax - xmin) / 100
         peaks = np.asarray(self.peaks_times, dtype=float)
-        nearest_index = int(np.argmin(np.abs(peaks - float(event.xdata))))
-        selected_peak = float(peaks[nearest_index])
-        if any(np.isclose(selected_peak, peak) for peak in self.selected_peak_times):
-            self.selected_peak_times = [
-                peak
-                for peak in self.selected_peak_times
-                if not np.isclose(selected_peak, peak)
-            ]
-        else:
-            self.selected_peak_times.append(selected_peak)
+        selected_peak = None
+        if len(peaks) > 0:
+            distances = np.abs(peaks - x_click)
+            nearest_index = int(np.argmin(distances))
+            nearest_distance = distances[nearest_index]
+            if nearest_distance < max_distance:
+                selected_peak = float(peaks[nearest_index])
 
+            if selected_peak is None:
+                x0 = max(0, x_click - max_distance)
+                x1 = min(self.duration, x_click + max_distance)
+                mask_rms = (self.rms_times >= x0) & (self.rms_times <= x1)
+                if not np.any(mask_rms):
+                    return
+            rms_local = self.rms[mask_rms]
+            rms_times_local = self.rms_times[mask_rms]
+            max_index = int(np.argmax(rms_local))
+            selected_peak = float(rms_times_local[max_index])
+            # aggiungo il nuovo picco alla lista dei picchi reali
+            self.peaks_times = np.sort(
+                np.append(np.asarray(self.peaks_times, dtype=float), selected_peak)
+                )
+        selected = np.array(self.selected_peak_times, dtype=float)
+        mask = np.isclose(selected, selected_peak)
+        if np.any(mask):
+            selected = selected[~mask]
+        else:
+            selected = np.append(selected, selected_peak)
+        self.selected_peak_times = selected.tolist()
         self.plot_wav()
 
     def delete_selected_peaks(self):
@@ -750,7 +659,7 @@ class Main(QWidget):
                 and self.selected_times[1] > self.selected_times[0]
             ):
                 self.trova_picchi()
-                self.trova_ini_fin()
+                #self.trova_ini_fin()
             self.plot_wav()
         except Exception as e:
             print("Errore in envelope:", e)
@@ -1028,22 +937,6 @@ class Main(QWidget):
         with open(json_file_path, "r", encoding="utf-8") as f:
             parameters = json.load(f)
 
-        """
-        if not hasattr(self, "output_json_path"):
-            QMessageBox.warning(self, "", "Carica prima un JSON")
-            return
-        if (
-            len(self.selected_times) != 2
-            or self.selected_times[1] <= self.selected_times[0]
-        ):
-            QMessageBox.warning(self, "", "Definisci prima inizio e fine del canto")
-            return
-
-        data_file_path = self.output_json_path
-        with open(data_file_path, "r", encoding="utf-8") as f:
-            parameters = json.load(f)
-        """
-
         sample = int(Path(self.wav_file).stem.split("_")[-1])
 
         wav_file_name = Path(self.wav_file).name
@@ -1114,36 +1007,6 @@ class Main(QWidget):
             "spectrum peaks"
         ] = self.results_dict["spectrum_peaks"]
 
-        """
-        if hasattr(self, "song_jobs") and self.song_jobs:
-            wav_key, song_id, sp = self.song_jobs[self.current_job_index]
-            file_name = wav_key
-        else:
-            file_name = Path(self.wav_file).name
-        parameters.setdefault(file_name, {})
-        parameters[file_name].setdefault("songs", {})
-        parameters[file_name]["songs"][str(sample)] = {}
-        block = parameters[file_name]["songs"][str(sample)]
-        block["file"] = Path(self.wav_file).name
-        block["window_size"] = self.window_size
-        block["overlap"] = self.overlap
-        block["min_amplitude"] = self.min_amplitude
-        block["min_distance"] = self.min_distance
-        block["max_distance"] = self.max_distance
-        block["prominence"] = self.prominence
-        block["signal_to_noise_ratio"] = self.signal_to_noise_ratio
-        block["fft_length"] = self.fft_length
-        block["fft_overlap"] = self.fft_overlap
-        block["sampling rate"] = self.sampling_rate
-        block["call_start"] = float(self.selected_times[0])
-        block["call_duration"] = float(self.selected_times[1] - self.selected_times[0])
-        block["pulse_number"] = len(self.peaks_times)
-        block["peaks_times"] = self.peaks_times.tolist()
-        block["peaks_int"] = self.peaks_int.tolist() if len(self.peaks_int) else []
-        block["spectrum"] = self.results_dict["spectrum"]
-        block["spectrum peaks"] = self.results_dict["spectrum_peaks"]
-        """
-
         if len(self.rms) > 0:
             sel_mask = (self.rms_times >= self.selected_times[0]) & (
                 self.rms_times <= self.selected_times[1]
@@ -1177,8 +1040,8 @@ class Main(QWidget):
         with open(json_file_path, "w", encoding="utf-8") as f_out:
             json.dump(parameters, f_out, indent=0, ensure_ascii=False)
 
-        # with open(data_file_path.with_suffix(".pkl"), "wb") as f_out:
-        #    pickle.dump(parameters, f_out)
+        self.project_parameters = parameters
+        self.project_json_path = json_file_path
 
         row = {
             "file_wav": wav_file_name,
@@ -1210,13 +1073,6 @@ class Main(QWidget):
         QMessageBox.information(self, "", f"Risultati salvati in {json_file_path}")
 
     def next_file_clicked(self):
-        if hasattr(self, "song_jobs") and self.song_jobs:
-            if self.current_job_index >= len(self.song_jobs) - 1:
-                QMessageBox.critical(self, "", "Last file")
-                return
-            self.load_job(self.current_job_index + 1)
-            return
-
         if not self.wav_file_list:
             return
         current_wav_index = self.wav_file_list.index(self.wav_file)
@@ -1225,17 +1081,10 @@ class Main(QWidget):
             return
 
         self.wav_file = self.wav_file_list[current_wav_index + 1]
-        self.load_wav(self.wav_file) 
-        self.run_analysis()
+        self.load_current_song() 
+        
 
     def previous_file_clicked(self):
-        if hasattr(self, "song_jobs") and self.song_jobs:
-            if self.current_job_index <= 0:
-                QMessageBox.critical(self, "", "First file of directory")
-                return
-            self.load_job(self.current_job_index - 1)
-            return
-
         if not self.wav_file_list:
             return
         current_wav_index = self.wav_file_list.index(self.wav_file)
@@ -1244,28 +1093,20 @@ class Main(QWidget):
             return
 
         self.wav_file = self.wav_file_list[current_wav_index - 1]
-        self.load_wav(self.wav_file)
-        self.run_analysis()
+        self.load_current_song()
 
     def auto_btn_clicked(self):
-        if hasattr(self, "song_jobs") and self.song_jobs:
-            start = getattr(self, "current_job_index", 0)
-            for idx in range(start, len(self.song_jobs)):
-                self.load_job(idx)
-                self.save_results_clicked()
-        else:
-            for wav_file in self.wav_file_list[
-                self.wav_file_list.index(self.wav_file) :
-            ]:
-                self.wav_file = wav_file
-                self.load_wav(self.wav_file)
-                self.run_analysis()
-                self.save_results_clicked()
+        """
+        Rianalizza automaticamente tutti i WAV dalla posizione corrente in poi,
+        ignorando eventuali risultati già presenti nel JSON.
+        """
+        start_index = self.wav_file_list.index(self.wav_file)
 
-        self.df_results = pd.DataFrame(getattr(self, "rows", []))
-        if hasattr(self, "output_json_path"):
-            name_outfile = self.output_json_path.with_suffix(".csv")
-            self.df_results.to_csv(name_outfile, sep=";", encoding="utf-8", index=False)
+        for wav_file in self.wav_file_list[start_index:]:
+            self.wav_file = wav_file
+            self.load_wav(self.wav_file)
+            self.run_analysis()
+            self.save_results_clicked()
 
     def apply_song_params(self, sp: dict):
         self.window_size = int(sp.get("window_size", self.window_size))
@@ -1279,7 +1120,7 @@ class Main(QWidget):
         )
         self.fft_length = int(sp.get("fft_length", self.fft_length))
         self.fft_overlap = int(sp.get("fft_overlap", self.fft_overlap))
-
+        
         cp = self.control_panel
         cp.window_size_input.setValue(self.window_size)
         cp.overlap_input.setValue(self.overlap)
@@ -1446,88 +1287,10 @@ class ControlPanel(QWidget):
         self.reset_btn = QPushButton("Reset values")
         self.reset_btn.clicked.connect(self.reset_values)
         h_layout.addWidget(self.reset_btn)
-
-        self.json_btn = QPushButton("Carica da Json")
-        self.json_btn.clicked.connect(self.leggi_json)
-        h_layout.addWidget(self.json_btn)
-
-        self.wav_from_json_btn = QPushButton("Carica WAV da Json")
-        self.wav_from_json_btn.clicked.connect(self.carica_wav_da_json)
-        h_layout.addWidget(self.wav_from_json_btn)
-        main_layout.addLayout(h_layout)
-
+        
         main_layout.addStretch()
         self.setLayout(main_layout)
 
-    def leggi_json(self):
-        start_dir = str(getattr(self.main, "json_root", ""))
-        json_file, _ = QFileDialog.getOpenFileName(
-            self,
-            "Seleziona file JSON",
-            start_dir,
-            "JSON files (*.json);All files (*.*)",
-        )
-        if not json_file:
-            return
-
-        json_path = Path(json_file)
-        self.main.input_json_path = json_path
-        self.main.output_json_path = json_path.with_name(json_path.stem + "_out2.json")
-
-        if not self.main.output_json_path.exists():
-            with open(self.main.input_json_path, "r", encoding="utf-8") as f:
-                base = json.load(f)
-            with open(self.main.output_json_path, "w", encoding="utf-8") as f:
-                json.dump(base, f, indent=0, ensure_ascii=False)
-
-        with open(json_path, "r", encoding="utf-8") as f:
-            parameters = json.load(f)
-
-        wav_level_peaks_map = {}
-        for wav_key, wav_block in parameters.items():
-            if not isinstance(wav_block, dict):
-                continue
-            wav_level_peaks_map[wav_key] = np.array(
-                wav_block.get("peaks_times", []), dtype=float
-            )
-
-        jobs = list(iter_song_jobs(parameters))
-        if not jobs:
-            QMessageBox.warning(self, "", "Nessun 'song' trovato nel JSON")
-            return
-
-        wav_list = []
-        song_jobs = []
-        for wav_key, song_id, sp in jobs:
-            wav_path = wav_path_different_folder(json_path, sp, wav_key)
-            if not wav_path.is_file():
-                print(f"[WARN] WAV non trovato: {wav_path}")
-                continue
-            wav_list.append(str(wav_path))
-            song_jobs.append((wav_key, song_id, sp))
-
-        if not wav_list:
-            QMessageBox.critical(self, "", "Nessun WAV valido trovato")
-            return
-
-        self.main.song_jobs = song_jobs
-        self.main.wav_file_list = wav_list
-        self.main.current_job_index = 0
-        self.main.wav_level_peaks_map = wav_level_peaks_map
-        self.main.load_job(0)
-
-    def carica_wav_da_json(self):
-        start_dir = str(getattr(self.main, "json_root", ""))
-        json_file, _ = QFileDialog.getOpenFileName(
-            self,
-            "Seleziona file JSON con WAV",
-            start_dir,
-            "JSON files (*.json);All files (*.*)",
-        )
-        if not json_file:
-            return
-
-        self.main.load_wav_from_json(Path(json_file))
 
     def reset_values(self):
         self.window_size_input.setValue(WINDOW_SIZE)
@@ -1596,5 +1359,4 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     main = Main(wav_file_list=[])
     main.show()
-    QTimer.singleShot(0, main.control_panel.leggi_json)
     sys.exit(app.exec())
