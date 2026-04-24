@@ -267,7 +267,7 @@ class MainWindow(QMainWindow):
         self.actions = []
         for module_name in self.modules:
             action = QAction(module_name, self)
-            action.triggered.connect(self.run_option)
+            action.triggered.connect(self.run_plugin)
             analyse_menu.addAction(action)
             self.actions.append(action)
 
@@ -358,10 +358,11 @@ class MainWindow(QMainWindow):
             elif selected_action == deselect_songs_action:
                 self.set_songs_check_state(item, Qt.CheckState.Unchecked)
 
-    def get_selected_files(self):
+    def get_selected_files(self) -> list:
         """
         Return the file paths of all checked items in the tree.
         """
+        selected_levels = set()
         selected_files = []
         seen_files = set()
 
@@ -370,6 +371,7 @@ class MainWindow(QMainWindow):
             parent_wav_path = Path(parent_item.data(0, Qt.ItemDataRole.UserRole))
 
             if parent_item.checkState(0) == Qt.CheckState.Checked:
+                selected_levels.add(0)
                 wav_path = str(parent_wav_path)
                 if wav_path not in seen_files:
                     selected_files.append(wav_path)
@@ -380,6 +382,7 @@ class MainWindow(QMainWindow):
                 chunk_file_path = parent_wav_path.with_suffix("") / chunk_item.text(0)
 
                 if chunk_item.checkState(0) == Qt.CheckState.Checked:
+                    selected_levels.add(1)
                     chunk_path = str(chunk_file_path)
                     if chunk_path not in seen_files:
                         selected_files.append(chunk_path)
@@ -390,11 +393,20 @@ class MainWindow(QMainWindow):
                     if song_item.checkState(0) != Qt.CheckState.Checked:
                         continue
 
+                    selected_levels.add(2)
                     song_file_path = parent_wav_path.with_suffix("") / song_item.text(0)
                     song_path = str(song_file_path)
                     if song_path not in seen_files:
                         selected_files.append(song_path)
                         seen_files.add(song_path)
+
+        if len(selected_levels) > 1:
+            QMessageBox.warning(
+                self,
+                "",
+                "Please select object of the same type.",
+            )
+            return []
 
         return selected_files
 
@@ -713,7 +725,7 @@ class MainWindow(QMainWindow):
         else:
             self.text_edit.append("No WAV file selected!")
 
-    def run_option(self, module_name):
+    def run_plugin(self, module_name):
         """
         Carica il plugin e passa l'elenco dei file selezionati
         """
