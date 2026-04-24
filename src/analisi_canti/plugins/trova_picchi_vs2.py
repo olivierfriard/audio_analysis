@@ -27,6 +27,7 @@ from scipy.signal import find_peaks
 
 class Main(QWidget):
     plugin_closed_signal = Signal()
+    results_saved_signal = Signal()
 
     def __init__(self, wav_file_list: list):
         super().__init__()
@@ -769,7 +770,18 @@ class Main(QWidget):
             Path(self.wav_file).parent.name
         ).with_suffix(".json")
 
-        print(f"Saving songs in  {data_directory}")
+        # read file content
+        with open(json_file_path, "r", encoding="utf-8") as f_in:
+            parameters = json.load(f_in)
+        # delete previous songs
+        for song in parameters["chunks"][Path(self.wav_file).name].get("songs", {}):
+            print(
+                f"deleting {(Path(self.wav_file).parent / song)=}"
+            )  # remove before release
+            (Path(self.wav_file).parent / song).unlink(missing_ok=True)
+        parameters["chunks"][Path(self.wav_file).name] = {}
+
+        print(f"Saving songs in {data_directory}")
 
         songs_list = []
         for i in valid_idx:
@@ -803,7 +815,8 @@ class Main(QWidget):
 
             songs_list.append(nome_ritaglio.name)
 
-        self.save_parameters(json_file_path, songs_list)
+        if self.save_parameters(json_file_path, songs_list):
+            self.results_saved_signal.emit()
 
     def save_parameters(self, file_path, songs_list: list):
         """
@@ -813,7 +826,7 @@ class Main(QWidget):
         if not file_path.is_file():
             print(f"json file {file_path} not found")
             QMessageBox.critical(self, "", f"json file {file_path} not found")
-            return
+            return False
 
         # read file content
         with open(file_path, "r", encoding="utf-8") as f_in:
@@ -845,6 +858,9 @@ class Main(QWidget):
                 json.dump(parameters, f_out, indent=0, ensure_ascii=False)
         except Exception as e:
             QMessageBox.critical(self, "", f"The parameters file cannot be saved. {e}")
+            return False
+
+        return True
 
     def play_audio(self):
         """

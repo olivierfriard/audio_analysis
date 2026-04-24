@@ -160,10 +160,6 @@ class MainWindow(QMainWindow):
         self.check_all_checkbox = QCheckBox("Check/Uncheck all")
         self.check_all_checkbox.stateChanged.connect(self.toggle_all_items)
         hlayout.addWidget(self.check_all_checkbox)  # Add "Check All" checkbox on top
-        # remove pushbutton
-        self.pb_remove = QPushButton("Remove checked WAV from list")
-        self.pb_remove.clicked.connect(self.remove_from_list)
-        hlayout.addWidget(self.pb_remove)  # Add "Check All" checkbox on top
         # spacer for left grouping
         hlayout.addItem(QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
 
@@ -225,10 +221,6 @@ class MainWindow(QMainWindow):
         open_wav_action.triggered.connect(self.open_wav)
         file_menu.addAction(open_wav_action)
         """
-
-        open_wav_dir_action = QAction("Open wav directory", self)
-        open_wav_dir_action.triggered.connect(self.open_wav_dir)
-        file_menu.addAction(open_wav_dir_action)
 
         close_action = QAction("Close", self)
         close_action.triggered.connect(self.close_program)
@@ -322,6 +314,15 @@ class MainWindow(QMainWindow):
         for i in range(chunk_item.childCount()):
             chunk_item.child(i).setCheckState(0, check_state)
 
+    def set_songs_without_icon_check_state(self, chunk_item, check_state):
+        """
+        Set the check state only for songs without an icon.
+        """
+        for i in range(chunk_item.childCount()):
+            song_item = chunk_item.child(i)
+            if song_item.icon(0).isNull():
+                song_item.setCheckState(0, check_state)
+
     def show_wav_context_menu(self, pos):
         """
         Show a context menu for WAV and chunk items.
@@ -333,6 +334,7 @@ class MainWindow(QMainWindow):
         menu = QMenu(self)
 
         if item.parent() is None:
+            show_oscillogram_action = menu.addAction("Show oscillogram")
             select_chunks_action = menu.addAction("Select all chunks")
             deselect_chunks_action = menu.addAction("Deselect all chunks")
 
@@ -340,7 +342,11 @@ class MainWindow(QMainWindow):
                 self.wav_list_widget.viewport().mapToGlobal(pos)
             )
 
-            if selected_action == select_chunks_action:
+            if selected_action == show_oscillogram_action:
+                self.show_oscillogram(
+                    wav_file_path=item.data(0, Qt.ItemDataRole.UserRole)
+                )
+            elif selected_action == select_chunks_action:
                 self.set_chunks_check_state(item, Qt.CheckState.Checked)
             elif selected_action == deselect_chunks_action:
                 self.set_chunks_check_state(item, Qt.CheckState.Unchecked)
@@ -348,6 +354,9 @@ class MainWindow(QMainWindow):
 
         if item.parent().parent() is None:
             select_songs_action = menu.addAction("Select all songs")
+            select_songs_without_data_action = menu.addAction(
+                "Select songs without data"
+            )
             deselect_songs_action = menu.addAction("Deselect all songs")
 
             selected_action = menu.exec(
@@ -356,6 +365,8 @@ class MainWindow(QMainWindow):
 
             if selected_action == select_songs_action:
                 self.set_songs_check_state(item, Qt.CheckState.Checked)
+            elif selected_action == select_songs_without_data_action:
+                self.set_songs_without_icon_check_state(item, Qt.CheckState.Checked)
             elif selected_action == deselect_songs_action:
                 self.set_songs_check_state(item, Qt.CheckState.Unchecked)
 
@@ -528,18 +539,9 @@ class MainWindow(QMainWindow):
         """
         open a json or wav file
         """
+        if isinstance(project_path, bool):
+            project_path = None
 
-        file_path, _ = QFileDialog.getOpenFileName(
-            self,
-            "Open file",
-            "",
-            "Supported Files (*.wav *.json);;WAV Files (*.wav);;JSON Files (*.json)",
-        )
-        if not file_path:
-            print("DEBUG: Nessun file WAV selezionato.")
-            return
-
-        """
         if project_path is None:
             file_path, _ = QFileDialog.getOpenFileName(
                 self,
@@ -555,7 +557,6 @@ class MainWindow(QMainWindow):
             if not Path(file_path).exists():
                 QMessageBox.warning(self, "", f"Project not found: {file_path}")
                 return
-        """
 
         if Path(file_path).suffix in (".wav", ".WAV"):
             # check if directory exists
@@ -568,7 +569,9 @@ class MainWindow(QMainWindow):
                 ).with_suffix(".json")
                 wav_file_path = file_path
                 self.update_wav_list()
-                self.show_oscillogram(wav_file_path=wav_file_path)
+                r = self.read_json_file(self.json_file_path)
+                if len(r.get("chunks", {})) == 1:
+                    self.show_oscillogram(wav_file_path=wav_file_path)
 
         if Path(file_path).suffix in (".json"):
             self.json_file_path = Path(file_path)
@@ -577,7 +580,8 @@ class MainWindow(QMainWindow):
             self.wav_list[wav_file_path] = r
             self.update_wav_list()
 
-            self.show_oscillogram(wav_file_path=wav_file_path)
+            if len(r.get("chunks", {})) == 1:
+                self.show_oscillogram(wav_file_path=wav_file_path)
 
     def new_project(self):
         """
@@ -619,32 +623,6 @@ class MainWindow(QMainWindow):
         self.update_wav_list()
 
         self.show_oscillogram(wav_file_path=file_path)
-
-    def open_wav_dir(self):
-        """
-        Opens a directory selection dialog to allow the user to choose a folder containing WAV files.
-
-        This function scans the selected directory for `.wav` files (case insensitive), extracts their
-        sample rate and duration, and adds them to `self.wav_list`. After processing, it updates
-        the WAV file list in the UI.
-
-        """
-
-        directory = QFileDialog.getExistingDirectory(self, "Select Directory", "")
-        if not directory:
-            return
-
-        for file_path in sorted(
-            [f for f in Path(directory).glob("*") if f.suffix.lower() == ".wav"]
-        ):
-            sample_rate, duration = self.get_rate_duration(str(file_path))
-            self.wav_list[str(file_path)] = {
-                "sample rate": sample_rate,
-                "duration": duration,
-            }
-            # self.text_edit.append(f"file {file_path} added to list")
-
-        self.update_wav_list()
 
     def close_program(self):
         """
@@ -743,7 +721,14 @@ class MainWindow(QMainWindow):
         selected_files = self.get_selected_files()
         if selected_files:
             self.plugin_widgets.append(self.modules[module_name].Main(selected_files))
-            if hasattr(self.plugin_widgets[-1], "plugin_closed_signal"):
+            if hasattr(self.plugin_widgets[-1], "results_saved_signal"):
+                self.plugin_widgets[-1].results_saved_signal.connect(
+                    self.update_wav_list
+                )
+            if (
+                module_name != "trova_picchi_vs2"
+                and hasattr(self.plugin_widgets[-1], "plugin_closed_signal")
+            ):
                 self.plugin_widgets[-1].plugin_closed_signal.connect(
                     self.update_wav_list
                 )
@@ -770,10 +755,10 @@ def run(argv: list[str] | None = None):
     app = QApplication(qt_argv)
     window = MainWindow()
     window.show()
-    # if args.project:
-    #    window.open_project(args.project)
-    # else:
-    #    window.project_path = None
+    if args.project:
+        window.open_project(args.project)
+    else:
+        window.project_path = None
     sys.exit(app.exec())
 
 

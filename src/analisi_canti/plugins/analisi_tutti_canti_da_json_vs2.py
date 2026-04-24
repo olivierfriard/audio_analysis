@@ -9,7 +9,7 @@ import pandas as pd
 import sounddevice as sd
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.widgets import SpanSelector
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtWidgets import (
     QApplication,
     QComboBox,
@@ -133,6 +133,8 @@ class SpectrumWindow(QWidget):
 
 
 class Main(QWidget):
+    results_saved_signal = Signal()
+
     def __init__(self, wav_file_list: list):
         super().__init__()
 
@@ -1057,6 +1059,7 @@ class Main(QWidget):
 
         self.project_parameters = parameters
         self.project_json_path = json_file_path
+        self.results_saved_signal.emit()
 
         row = {
             "file_wav": wav_file_name,
