@@ -493,7 +493,7 @@ class Main(QWidget):
         self.xmin, self.xmax = sorted([max(0, xmin), min(self.duration, xmax)])
         self.selected_times = [0.0, 0.0]
         self.zoomIn_wav()
-        self.trova_picchi()
+        
 
     def on_slider(self, value):
         if self.duration <= 0:
@@ -635,6 +635,7 @@ class Main(QWidget):
                 self.slider.setValue(int((self.zmin / (self.duration - width)) * 100))
             self.ax.set_xlim(self.zmin, self.zmax)
             self.canvas.draw_idle()
+            
 
     def zoomOut_wav(self):
         self.xmin = 0
@@ -700,8 +701,14 @@ class Main(QWidget):
             ):
                 self.trova_picchi()
                 self.trova_ini_fin()
+                self.selected_peak_times = []
             self.plot_wav()
         except Exception as e:
+            QMessageBox.information(
+            self,
+            "Errore",
+            f"Errore in envelope: {e}",
+        )
             print("Errore in envelope:", e)
 
     def plot_spectrum(self):
