@@ -146,6 +146,7 @@ class Main(QWidget):
         self.selected_times = [0.0, 0.0]
         self.selected_peak_times = []
         self.cid_click = None
+        self.trova_inizio_manuale = False
 
         self.wav_file_list = [str(Path(w).expanduser().resolve()) for w in wav_file_list]
 
@@ -539,22 +540,22 @@ class Main(QWidget):
         # ampiezza della finestra temporale visualizzata
 
         xmin, xmax = self.ax.get_xlim()
-        max_distance = (xmax - xmin) / 100
+        id_distance = (xmax - xmin) / 100
 
         # possibile alternativa: uso la minima distanza tra picchi come criterio di identificazione del picco
-        max_distance = self.min_distance
+        id_distance = self.min_distance
         peaks = np.asarray(self.peaks_times, dtype=float)
         selected_peak = None
         if len(peaks) > 0:
             distances = np.abs(peaks - x_click)
             nearest_index = int(np.argmin(distances))
             nearest_distance = distances[nearest_index]
-            if nearest_distance < max_distance:
+            if nearest_distance < id_distance:
                 selected_peak = float(peaks[nearest_index])
-
+                print(f"len(peaks)={len(peaks)} -- selected {selected_peak}")
         if selected_peak is None:
-            x0 = max(0, x_click - max_distance/2)
-            x1 = min(self.duration, x_click + max_distance/2)
+            x0 = max(0, x_click - id_distance/2)
+            x1 = min(self.duration, x_click + id_distance/2)
             mask_rms = (self.rms_times >= x0) & (self.rms_times <= x1) 
             if not np.any(mask_rms):
                 return
@@ -567,17 +568,19 @@ class Main(QWidget):
                     np.append(np.asarray(self.peaks_times, dtype=float), selected_peak)
                     )
             selected_peak = None
+            self.plot_wav()
         else:
             selected = np.array(self.selected_peak_times, dtype=float)
             mask = np.isclose(selected, selected_peak)
             if np.any(mask):
                 selected = selected[~mask]
+                print(f"picchi nuovi1 {self.selected_peak_times}")
             else:
                 selected = np.append(selected, selected_peak)
         
         self.selected_peak_times = selected.tolist()
         self.plot_wav()
-        print(f"picchi nuovi {self.selected_peak_times}")
+        print(f"picchi nuovi2 {self.selected_peak_times}")
         
     def show_peaks_help(self):
         QMessageBox.information(
@@ -649,7 +652,7 @@ class Main(QWidget):
 
     def begin_end(self):
         self.selected_times = []
-
+        self.trova_inizio_manuale = True
         def onclick(event):
             if event.inaxes != self.ax or event.xdata is None or event.button != 1:
                 return
@@ -693,17 +696,18 @@ class Main(QWidget):
             self.rms_times = librosa.frames_to_time(
                 np.arange(len(self.rms)), sr=self.sampling_rate, hop_length=self.overlap
             )
-            self.canto = np.zeros(len(self.rms) * self.overlap)
+            
             if reset_manual:
                 self.selected_times = [0.0, 0.0]
+                self.canto = np.zeros(len(self.rms) * self.overlap)
             if (
                 hasattr(self, "selected_times")
                 and len(self.selected_times) == 2
                 and self.selected_times[1] > self.selected_times[0]
             ):
+                self.selected_peak_times = []
                 self.trova_picchi()
                 self.trova_ini_fin()
-                self.selected_peak_times = []
             self.plot_wav()
         except Exception as e:
             QMessageBox.information(
@@ -816,7 +820,6 @@ class Main(QWidget):
             existing = np.asarray(self.peaks_times, dtype=float)
             keep_mask = ~((existing >= xmin) & (existing <= xmax))
             base_peaks = existing[keep_mask] if len(existing) else np.array([])
-
             min_distance_samples = int(
                 self.min_distance * (self.sampling_rate / self.overlap)
             )
@@ -827,6 +830,7 @@ class Main(QWidget):
             rms_selected = self.rms[mask_rms]
             rms_times_selected = self.rms_times[mask_rms]
             if len(rms_selected) == 0:
+                print("rms_selected is of length zero")
                 return
 
             peaks, _ = find_peaks(
@@ -835,12 +839,12 @@ class Main(QWidget):
                 distance=max(1, min_distance_samples),
                 prominence=self.prominence,
             )
-
+            """
             if peaks.size == 0:
                 self.peaks_times = np.sort(base_peaks)
                 self.plot_wav()
                 return
-
+            """
             peaks_filtered = [peaks[0]]
             for i in np.arange(1, len(peaks)):
                 if peaks[i] - peaks_filtered[-1] < max_distance_samples:
@@ -861,6 +865,7 @@ class Main(QWidget):
             new_peaks_times = rms_times_selected[peaks_filtered]
             self.peaks_times = np.sort(np.concatenate((base_peaks, new_peaks_times)))
             self.trova_intensita_picchi()
+            """
             if len(self.peaks_times) > 0 and not (
                 len(self.selected_times) == 2
                 and self.selected_times[1] > self.selected_times[0]
@@ -868,6 +873,7 @@ class Main(QWidget):
                 self.trova_ini_fin()
             else:
                 self.plot_wav()
+            """
         except Exception as e:
             QMessageBox.critical(
                 self,
@@ -889,90 +895,91 @@ class Main(QWidget):
         self.peaks_int = self.rms[idx]
 
     def trova_ini_fin(self):
-        peaks = self.peaks_times * self.sampling_rate / self.overlap
-        peaks = np.asarray(peaks, dtype=np.float64)
+        print(f"se falso cerca inizio fine: { self.trova_inizio_manuale}")
+        if not self.trova_inizio_manuale:
+            peaks = self.peaks_times * self.sampling_rate / self.overlap
+            peaks = np.asarray(peaks, dtype=np.float64)
 
-        if peaks.size == 0:
-            anchor = int(np.argmax(self.rms))
-            peaks = np.array([anchor, anchor], dtype=float)
-        elif peaks.size == 1:
-            peaks = np.array([peaks[0], peaks[0]], dtype=float)
+            if peaks.size == 0:
+                anchor = int(np.argmax(self.rms))
+                peaks = np.array([anchor, anchor], dtype=float)
+            elif peaks.size == 1:
+                peaks = np.array([peaks[0], peaks[0]], dtype=float)
 
-        p0 = int(np.clip(peaks[0], 0, len(self.rms) - 1))
-        p1 = int(np.clip(peaks[-1], 0, len(self.rms) - 1))
+            p0 = int(np.clip(peaks[0], 0, len(self.rms) - 1))
+            p1 = int(np.clip(peaks[-1], 0, len(self.rms) - 1))
 
-        w = 11
-        if len(self.rms) >= w:
-            kernel = np.ones(w) / w
-            rms_s = np.convolve(self.rms, kernel, mode="same")
-        else:
-            rms_s = self.rms
-
-        ini_end = max(1, int(p0 * 0.9))
-        fin_start = min(len(rms_s) - 1, p1)
-        rms_ini_noise = rms_s[:ini_end]
-        rms_fin_noise = rms_s[fin_start:] if fin_start < len(rms_s) else rms_s[-1:]
-        if len(rms_ini_noise) < 10:
-            rms_ini_noise = rms_s
-        if len(rms_fin_noise) < 10:
-            rms_fin_noise = rms_s
-
-        q = 0.6
-        noise_ini = np.quantile(rms_ini_noise, q)
-        noise_fin = np.quantile(rms_fin_noise, q)
-
-        def mad(x):
-            x = np.asarray(x)
-            m = np.median(x)
-            return np.median(np.abs(x - m)) + 1e-12
-
-        mad_ini = mad(rms_ini_noise)
-        mad_fin = mad(rms_fin_noise)
-
-        k_on = self.signal_to_noise_ratio
-        k_off = max(1.0, 2 * k_on)
-        thr_off_ini = noise_ini + k_off * mad_ini
-        thr_off_fin = noise_fin + k_off * mad_fin
-
-        max_back_ms = 100
-        start_i = max(
-            0, p0 - int((max_back_ms / 1000) * self.sampling_rate / self.overlap)
-        )
-        inizio_frame = None
-        count_off = 0
-        for i in range(p0, start_i - 1, -1):
-            if rms_s[i] <= thr_off_ini:
-                count_off += 1
-                if count_off >= 1:
-                    inizio_frame = i
-                    break
+            w = 11
+            if len(self.rms) >= w:
+                kernel = np.ones(w) / w
+                rms_s = np.convolve(self.rms, kernel, mode="same")
             else:
-                count_off = 0
+                rms_s = self.rms
 
-        if inizio_frame is not None:
-            inizio = int((inizio_frame + 3) * self.overlap)
-        else:
-            inizio = int(start_i * self.overlap)
+            ini_end = max(1, int(p0 * 0.9))
+            fin_start = min(len(rms_s) - 1, p1)
+            rms_ini_noise = rms_s[:ini_end]
+            rms_fin_noise = rms_s[fin_start:] if fin_start < len(rms_s) else rms_s[-1:]
+            if len(rms_ini_noise) < 10:
+                rms_ini_noise = rms_s
+            if len(rms_fin_noise) < 10:
+                rms_fin_noise = rms_s
 
-        inizio = min(p0 * self.overlap - 1, inizio)
-        self.ini_canto = inizio
+            q = 0.6
+            noise_ini = np.quantile(rms_ini_noise, q)
+            noise_fin = np.quantile(rms_fin_noise, q)
 
-        fine_frame = len(rms_s) - 1
-        for i in range(p1, len(rms_s)):
-            if rms_s[i] <= thr_off_fin:
-                fine_frame = i
-                break
+            def mad(x):
+                x = np.asarray(x)
+                m = np.median(x)
+                return np.median(np.abs(x - m)) + 1e-12
 
-        fine = int((fine_frame + 1) * self.overlap)
-        fine = max(fine, inizio + 1)
-        fine = min(fine, len(rms_s) * self.overlap)
+            mad_ini = mad(rms_ini_noise)
+            mad_fin = mad(rms_fin_noise)
 
-        self.canto = np.zeros(len(self.rms) * self.overlap)
-        self.canto[inizio:fine] = np.max(self.rms)
-        self.selected_times = [inizio, fine]
-        self.durata_canto = (fine - inizio) / self.sampling_rate
-        self.rms_canto = self.rms[int(inizio / self.overlap) : int(fine / self.overlap)]
-        self.selected_times = [inizio / self.sampling_rate, fine / self.sampling_rate]
+            k_on = self.signal_to_noise_ratio
+            k_off = max(1.0, 2 * k_on)
+            thr_off_ini = noise_ini + k_off * mad_ini
+            thr_off_fin = noise_fin + k_off * mad_fin
+
+            max_back_ms = 100
+            start_i = max(
+                0, p0 - int((max_back_ms / 1000) * self.sampling_rate / self.overlap)
+            )
+            inizio_frame = None
+            count_off = 0
+            for i in range(p0, start_i - 1, -1):
+                if rms_s[i] <= thr_off_ini:
+                    count_off += 1
+                    if count_off >= 1:
+                        inizio_frame = i
+                        break
+                else:
+                    count_off = 0
+
+            if inizio_frame is not None:
+                inizio = int((inizio_frame + 3) * self.overlap)
+            else:
+                inizio = int(start_i * self.overlap)
+
+            inizio = min(p0 * self.overlap - 1, inizio)
+            self.ini_canto = inizio
+
+            fine_frame = len(rms_s) - 1
+            for i in range(p1, len(rms_s)):
+                if rms_s[i] <= thr_off_fin:
+                    fine_frame = i
+                    break
+
+            fine = int((fine_frame + 1) * self.overlap)
+            fine = max(fine, inizio + 1)
+            fine = min(fine, len(rms_s) * self.overlap)
+
+            self.canto = np.zeros(len(self.rms) * self.overlap)
+            self.canto[inizio:fine] = np.max(self.rms)
+            self.durata_canto = (fine - inizio) / self.sampling_rate
+            self.rms_canto = self.rms[int(inizio / self.overlap) : int(fine / self.overlap)]
+            self.selected_times = [inizio / self.sampling_rate, fine / self.sampling_rate]
         self.plot_wav()
 
     def save_results_clicked(self):
@@ -1125,6 +1132,7 @@ class Main(QWidget):
     def next_file_clicked(self):
         if not self.wav_file_list:
             return
+        self.trova_inizio_manuale = False
         current_wav_index = self.wav_file_list.index(self.wav_file)
         if current_wav_index == len(self.wav_file_list) - 1:
             QMessageBox.critical(self, "", "Last file")
@@ -1367,18 +1375,22 @@ class ControlPanel(QWidget):
 
     def min_amplitude_changed(self, new_value):
         self.main.min_amplitude = new_value
+        self.main.envelope(reset_manual=False)
         self.main.trova_picchi()
 
     def min_distance_changed(self, new_value):
         self.main.min_distance = new_value
+        self.main.envelope(reset_manual=False)
         self.main.trova_picchi()
 
     def max_distance_changed(self, new_value):
         self.main.max_distance = new_value
+        self.main.envelope(reset_manual=False)
         self.main.trova_picchi()
 
     def prominence_changed(self, new_value):
         self.main.prominence = new_value
+        self.main.envelope(reset_manual=False)
         self.main.trova_picchi()
 
     def signal_to_noise_ratio_changed(self, new_value):
