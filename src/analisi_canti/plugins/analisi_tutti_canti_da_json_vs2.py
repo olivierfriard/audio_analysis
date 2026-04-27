@@ -23,11 +23,12 @@ from PySide6.QtWidgets import (
     QSpinBox,
     QVBoxLayout,
     QWidget,
+    QCheckBox,  
 )
 from scipy.io import wavfile
 from scipy.signal import find_peaks
 
-add_noise = False
+
 WINDOW_SIZE = 70
 OVERLAP = 30
 MIN_AMPLITUDE = 0.1
@@ -37,10 +38,11 @@ PROMINENCE = 0.08
 FFT_LENGTH = 1024
 FFT_OVERLAP = 512
 SIGNAL_TO_NOISE_RATIO = 0.1
+PADDING_DURATION = 0.025
 
 
 
-def add_noise_padding(data, sr, duration=0.1, noise_db=-40):
+def add_noise_padding(data, sr, duration, noise_db):
     pad_samples = int(duration * sr)
 
     if data.ndim == 1:
@@ -145,7 +147,9 @@ class Main(QWidget):
         self.selected_peak_times = []
         self.cid_click = None
         self.trova_inizio_manuale = False
-
+        self.add_noise_padding_enabled = False
+        self.noise_padding_duration = PADDING_DURATION
+        
         self.wav_file_list = [str(Path(w).expanduser().resolve()) for w in wav_file_list]
 
         print(f"main init {self.wav_file_list=}")  # remove before release
@@ -340,6 +344,16 @@ class Main(QWidget):
         return True
 
     def load_current_song(self):
+        if self.project_parameters is not None:
+            chunk_name, sp = find_song_block_from_wav(
+                self.project_parameters,
+                Path(self.wav_file).name
+            )
+
+            if sp is not None:
+                self.current_chunk_name = chunk_name
+                self.apply_song_params(sp)
+
         self.load_wav(self.wav_file)
 
         if self.project_parameters is None:
@@ -349,53 +363,60 @@ class Main(QWidget):
         chunk_name, sp = find_song_block_from_wav(
             self.project_parameters,
             Path(self.wav_file).name
-            )
+        )
 
         if sp is None:
             QMessageBox.warning(
                 self,
                 "",
                 f"{Path(self.wav_file).name} non trovato nel JSON"
-                )
+            )
             self.run_analysis()
             return
 
         self.current_chunk_name = chunk_name
 
         if not sp:
-            # sottodizionario vuoto
             self.run_analysis()
             return
 
         if self.is_song_processed(sp):
-            # sottodizionario pieno: visualizza dati salvati
-            self.apply_song_params(sp)
             self.envelope(reset_manual=False)
 
             self.peaks_times = np.array(sp.get("peaks_times", []), dtype=float)
+
+            if self.add_noise_padding_enabled:
+                self.peaks_times = self.peaks_times + self.noise_padding_duration
+
             self.trova_intensita_picchi()
 
             ini = float(sp["call_start"])
             fine = ini + float(sp["call_duration"])
-            self.selected_times = [ini, fine]
 
+            if self.add_noise_padding_enabled:
+                ini += self.noise_padding_duration
+                fine += self.noise_padding_duration
+
+            self.selected_times = [ini, fine]
             self.update_canto_from_selected_times()
 
             self.peaks_times = self.peaks_times[
                 (self.peaks_times >= ini) & (self.peaks_times <= fine)
-                ]
+            ]
 
             self.plot_wav()
         else:
-        # sottodizionario non vuoto ma incompleto
-            self.apply_song_params(sp)
             self.run_analysis()
-    
+
+
     def load_wav(self, wav_file):
         self.sampling_rate, data = wavfile.read(wav_file)
-        if add_noise:
+        if self.add_noise_padding_enabled:
             data = add_noise_padding(
-                data, self.sampling_rate, duration=0.025, noise_db=-20
+                data,
+                self.sampling_rate,
+                duration=self.noise_padding_duration,
+                noise_db=-40,
             )
         self.data = data
 
@@ -1004,11 +1025,31 @@ class Main(QWidget):
             print(f"{chunk_file_name} NOT FOUND!")
             QMessageBox.warning(self, "", f"{chunk_file_name} NOT FOUND!")
             return
+        time_offset = (
+            self.noise_padding_duration
+            if self.add_noise_padding_enabled
+            else 0.0
+            )
+
+        call_start_to_save = max(0.0, float(self.selected_times[0]) - time_offset)
+        call_end_to_save = max(call_start_to_save, float(self.selected_times[1]) - time_offset)
+
+        peaks_times_to_save = np.asarray(self.peaks_times, dtype=float) - time_offset
+        peaks_times_to_save = peaks_times_to_save[peaks_times_to_save >= 0]
+
 
         parameters["chunks"].setdefault(chunk_file_name, {})
         parameters["chunks"][chunk_file_name].setdefault("songs", {})
         parameters["chunks"][chunk_file_name]["songs"].setdefault(wav_file_name, {})
 
+        parameters["chunks"][chunk_file_name]["songs"][wav_file_name][
+            "add_noise_padding_enabled"
+                ] = bool(self.add_noise_padding_enabled)
+
+        parameters["chunks"][chunk_file_name]["songs"][wav_file_name][
+            "noise_padding_duration"
+                ] = float(self.noise_padding_duration)
+        
         parameters["chunks"][chunk_file_name]["songs"][wav_file_name]["window_size"] = (
             self.window_size
         )
@@ -1039,17 +1080,19 @@ class Main(QWidget):
         parameters["chunks"][chunk_file_name]["songs"][wav_file_name][
             "sampling rate"
         ] = self.sampling_rate
+
         parameters["chunks"][chunk_file_name]["songs"][wav_file_name]["call_start"] = (
-            float(self.selected_times[0])
+            call_start_to_save
         )
         parameters["chunks"][chunk_file_name]["songs"][wav_file_name][
             "call_duration"
-        ] = float(self.selected_times[1] - self.selected_times[0])
+        ] = float(call_end_to_save - call_start_to_save)
+
         parameters["chunks"][chunk_file_name]["songs"][wav_file_name][
             "pulse_number"
         ] = len(self.peaks_times)
         parameters["chunks"][chunk_file_name]["songs"][wav_file_name]["peaks_times"] = (
-            self.peaks_times.tolist()
+            peaks_times_to_save.tolist()
         )
         parameters["chunks"][chunk_file_name]["songs"][wav_file_name]["peaks_int"] = (
             self.peaks_int.tolist() if len(self.peaks_int) else []
@@ -1188,6 +1231,16 @@ class Main(QWidget):
         cp.fft_overlap_combo.setCurrentText(
             str(int(round(100 * self.fft_overlap / max(1, self.fft_length))))
         )
+        self.add_noise_padding_enabled = bool(
+               sp.get("add_noise_padding_enabled", self.add_noise_padding_enabled)
+                )
+
+        self.noise_padding_duration = float(
+                sp.get("noise_padding_duration", self.noise_padding_duration)
+                )
+        cp.add_noise_padding_checkbox.blockSignals(True)
+        cp.add_noise_padding_checkbox.setChecked(self.add_noise_padding_enabled)
+        cp.add_noise_padding_checkbox.blockSignals(False)
 
     def play_audio(self):
         if self.sampling_rate is None or self.data is None or len(self.data) == 0:
@@ -1342,6 +1395,19 @@ class ControlPanel(QWidget):
         self.reset_btn = QPushButton("Reset values")
         self.reset_btn.clicked.connect(self.reset_values)
         h_layout.addWidget(self.reset_btn)
+
+        h_layout = QHBoxLayout()
+
+        self.add_noise_padding_checkbox = QCheckBox("Add noise padding")
+        self.add_noise_padding_checkbox.setChecked(self.main.add_noise_padding_enabled)
+        self.add_noise_padding_checkbox.stateChanged.connect(
+            self.add_noise_padding_changed
+        )
+
+        h_layout.addWidget(self.add_noise_padding_checkbox)
+        h_layout.addStretch()
+        main_layout.addLayout(h_layout)
+
         
         main_layout.addStretch()
         self.setLayout(main_layout)
@@ -1412,6 +1478,14 @@ class ControlPanel(QWidget):
             self.main.max_freq = float(self.max_freq_input.text())
         except ValueError:
             self.max_freq_input.setText(str(self.main.max_freq))
+    
+    def add_noise_padding_changed(self, state):
+        self.main.add_noise_padding_enabled = self.add_noise_padding_checkbox.isChecked()
+        print("Add noise padding:", self.main.add_noise_padding_enabled)
+
+        self.main.load_wav(self.main.wav_file)
+        self.main.run_analysis()
+        self.main.zoomOut_wav()
 
 
 if __name__ == "__main__":
