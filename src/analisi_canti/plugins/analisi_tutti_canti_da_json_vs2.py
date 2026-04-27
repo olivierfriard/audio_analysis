@@ -548,9 +548,9 @@ class Main(QWidget):
             distances = np.abs(peaks - x_click)
             nearest_index = int(np.argmin(distances))
             nearest_distance = distances[nearest_index]
-            if nearest_distance < self.id_xmin:
+            if nearest_distance < id_distance:
                 selected_peak = float(peaks[nearest_index])
-
+                print(f"len(peaks)={len(peaks)} -- selected {selected_peak}")
         if selected_peak is None:
             x0 = max(0, x_click - id_distance/2)
             x1 = min(self.duration, x_click + id_distance/2)
@@ -566,17 +566,19 @@ class Main(QWidget):
                     np.append(np.asarray(self.peaks_times, dtype=float), selected_peak)
                     )
             selected_peak = None
+            self.plot_wav()
         else:
             selected = np.array(self.selected_peak_times, dtype=float)
             mask = np.isclose(selected, selected_peak)
             if np.any(mask):
                 selected = selected[~mask]
+                print(f"picchi nuovi1 {self.selected_peak_times}")
             else:
                 selected = np.append(selected, selected_peak)
         
         self.selected_peak_times = selected.tolist()
         self.plot_wav()
-        print(f"picchi nuovi {self.selected_peak_times}")
+        print(f"picchi nuovi2 {self.selected_peak_times}")
         
     def show_peaks_help(self):
         QMessageBox.information(
