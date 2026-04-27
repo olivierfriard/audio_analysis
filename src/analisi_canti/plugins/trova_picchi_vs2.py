@@ -757,10 +757,10 @@ class Main(QWidget):
 
         if len(valid_idx) == 0:
             msg = QMessageBox()
-            msg.setIcon(QMessageBox.Information)
+            msg.setIcon(QMessageBox.Icon.Information)
             msg.setText("No calls found. Use the 'Detect calls' function first.")
             msg.setWindowTitle("Critical")
-            msg.addButton("OK", QMessageBox.YesRole)
+            msg.addButton("OK", QMessageBox.StandardButton.YesRole)
             msg.exec()
             return
 
