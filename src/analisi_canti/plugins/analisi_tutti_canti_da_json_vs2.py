@@ -234,10 +234,15 @@ class Main(QWidget):
         self.stop_btn.clicked.connect(self.stopplaying)
         top_layout.addWidget(self.stop_btn)
 
-        self.delete_selected_peaks_btn = QPushButton("Add/Del selected peaks")
+        self.delete_selected_peaks_btn = QPushButton("Del selected peaks")
         self.delete_selected_peaks_btn.clicked.connect(self.delete_selected_peaks)
         top_layout.addWidget(self.delete_selected_peaks_btn)
 
+        self.peaks_help_btn = QPushButton("?")
+        self.peaks_help_btn.setFixedWidth(30)
+        self.peaks_help_btn.clicked.connect(self.show_peaks_help)
+        
+        top_layout.addWidget(self.peaks_help_btn)        
         top_layout.addSpacing(16)
 
         self.toggle_params_btn = QPushButton("Show/Hide Parameters")
@@ -532,8 +537,12 @@ class Main(QWidget):
 
         # definisco una distanza entro cui trovare il picco (1/100 della finestra temporale presentata)
         # ampiezza della finestra temporale visualizzata
+
         xmin, xmax = self.ax.get_xlim()
         max_distance = (xmax - xmin) / 100
+
+        # possibile alternativa: uso la minima distanza tra picchi come criterio di identificazione del picco
+        max_distance = self.min_distance
         peaks = np.asarray(self.peaks_times, dtype=float)
         selected_peak = None
         if len(peaks) > 0:
@@ -565,10 +574,26 @@ class Main(QWidget):
                 selected = selected[~mask]
             else:
                 selected = np.append(selected, selected_peak)
-                self.selected_peak_times = selected.tolist()
+        
+        self.selected_peak_times = selected.tolist()
         self.plot_wav()
         print(f"picchi nuovi {self.selected_peak_times}")
         
+    def show_peaks_help(self):
+        QMessageBox.information(
+            self,
+            "Help selezione picchi",
+            (
+                "Selezione dei picchi\n\n"
+                "• Clic destro vicino a un picco: seleziona il picco.\n"
+                "• Se non ci sono picchi vicini, viene aggiunto un nuovo picco "
+                "nel massimo dell'inviluppo vicino al cursore.\n"
+                "• I picchi selezionati diventano blu.\n"
+                "• Click destro vicino al picco già selezionato (blu): rimuove la selezione e aggiunge il picco"
+                "alla lista definitiva.\n"
+                "• Doppio click sinistro: ritorna alla visualizzazione completa (zoom out)"
+                ),
+        )
 
     def delete_selected_peaks(self):
         if not self.selected_peak_times:
