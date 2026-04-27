@@ -699,7 +699,7 @@ class Main(QWidget):
                 and self.selected_times[1] > self.selected_times[0]
             ):
                 self.trova_picchi()
-                #self.trova_ini_fin()
+                self.trova_ini_fin()
             self.plot_wav()
         except Exception as e:
             print("Errore in envelope:", e)
