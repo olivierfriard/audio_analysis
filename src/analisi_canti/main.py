@@ -161,7 +161,14 @@ class MainWindow(QMainWindow):
         self.check_all_checkbox.stateChanged.connect(self.toggle_all_items)
         hlayout.addWidget(self.check_all_checkbox)  # Add "Check All" checkbox on top
         # spacer for left grouping
-        hlayout.addItem(QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
+        hlayout.addItem(
+            QSpacerItem(
+                40,
+                20,
+                QSizePolicy.Policy.Expanding,
+                QSizePolicy.Policy.Minimum,
+            )
+        )
 
         layout.addLayout(hlayout)
 
@@ -216,12 +223,6 @@ class MainWindow(QMainWindow):
         open_project_action.triggered.connect(self.open_project)
         file_menu.addAction(open_project_action)
 
-        """
-        open_wav_action = QAction("Open wav", self)
-        open_wav_action.triggered.connect(self.open_wav)
-        file_menu.addAction(open_wav_action)
-        """
-
         close_action = QAction("Close", self)
         close_action.triggered.connect(self.close_program)
         file_menu.addAction(close_action)
@@ -240,15 +241,12 @@ class MainWindow(QMainWindow):
         wavcutting_action.triggered.connect(self.wav_cutting)
         edit_menu.addAction(wavcutting_action)
 
-        # Menu Process
-        # process_menu = menubar.addMenu("Process")
-
         # Menu Analyse
         analyse_menu = menubar.addMenu("Analyse")
 
         # Load modules from plugins directory
         self.modules: dict = {}
-
+        self.plugin_modules: dict = {}
         for file_ in sorted((Path(__file__).parent / Path("plugins")).glob("*.py")):
             module_name = file_.stem  # python file name without '.py'
             spec = importlib.util.spec_from_file_location(module_name, file_)
@@ -257,9 +255,14 @@ class MainWindow(QMainWindow):
             spec.loader.exec_module(self.modules[module_name])
 
         # Aggiunta dei plugin al menu Analyse
-        self.actions = []
-        for module_name in self.modules:
-            action = QAction(module_name, self)
+        self.actions: list = []
+        for module_name, module in self.modules.items():
+            plugin_label = getattr(
+                getattr(module, "Main", None), "plugin_name", module_name
+            )
+            self.plugin_modules[plugin_label] = module_name
+            action = QAction(plugin_label, self)
+            action.setData(module_name)
             action.triggered.connect(self.run_plugin)
             analyse_menu.addAction(action)
             self.actions.append(action)
@@ -713,14 +716,20 @@ class MainWindow(QMainWindow):
         else:
             self.text_edit.append("No WAV file selected!")
 
-    def run_plugin(self, module_name):
+    def run_plugin(self, checked=False):
         """
         Carica il plugin e passa l'elenco dei file selezionati
         """
-        module_name = self.sender().text()
+        action = self.sender()
+        module_name = action.data() if action is not None else None
+        plugin_name = action.text() if action is not None else str(module_name)
         print(f"running {module_name=}")
 
-        self.text_edit.append(f"Running {module_name} plugin")
+        if module_name is None:
+            QMessageBox.warning(self, "", "Plugin not found")
+            return
+
+        self.text_edit.append(f"Running {plugin_name} plugin")
 
         selected_files = self.get_selected_files()
         if selected_files:

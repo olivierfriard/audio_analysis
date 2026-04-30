@@ -12,6 +12,7 @@ from matplotlib.widgets import SpanSelector
 from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtWidgets import (
     QApplication,
+    QCheckBox,
     QComboBox,
     QDoubleSpinBox,
     QHBoxLayout,
@@ -21,13 +22,12 @@ from PySide6.QtWidgets import (
     QPushButton,
     QSlider,
     QSpinBox,
+    QStatusBar,
     QVBoxLayout,
     QWidget,
-    QCheckBox,  
 )
 from scipy.io import wavfile
 from scipy.signal import find_peaks
-
 
 WINDOW_SIZE = 70
 OVERLAP = 30
@@ -39,7 +39,6 @@ FFT_LENGTH = 1024
 FFT_OVERLAP = 512
 SIGNAL_TO_NOISE_RATIO = 0.1
 PADDING_DURATION = 0.025
-
 
 
 def add_noise_padding(data, sr, duration, noise_db):
@@ -87,9 +86,9 @@ def find_project_json_for_wav(wav_path: Path) -> Path | None:
     wav_path = Path(wav_path).expanduser().resolve()
 
     # fallback: cerca un json nella cartella corrente
-    json_files = sorted(wav_path.parent.glob('*.json'))
+    json_files = sorted(wav_path.parent.glob("*.json"))
     if len(json_files) == 1:
-        return json_files[0].resolve() # percorso assoluto
+        return json_files[0].resolve()  # percorso assoluto
 
     return None
 
@@ -99,9 +98,9 @@ def find_song_block_from_wav(parameters: dict, wav_name: str):
     Cerca nel JSON il blocco song corrispondente al nome file WAV selezionato.
     Ritorna (chunk_name, song_dict) oppure (None, None).
     """
-    chunks = parameters.get('chunks', {})
+    chunks = parameters.get("chunks", {})
     for chunk_name, chunk_data in chunks.items():
-        songs = chunk_data.get('songs', {})
+        songs = chunk_data.get("songs", {})
         if wav_name in songs:
             return chunk_name, songs[wav_name]
     return None, None
@@ -135,6 +134,8 @@ class SpectrumWindow(QWidget):
 
 
 class Main(QWidget):
+    plugin_name = "Call analysis"
+
     results_saved_signal = Signal()
 
     def __init__(self, wav_file_list: list):
@@ -152,7 +153,9 @@ class Main(QWidget):
         self.add_noise_padding_enabled = False
         self.noise_padding_duration = PADDING_DURATION
         self.automatic = False
-        self.wav_file_list = [str(Path(w).expanduser().resolve()) for w in wav_file_list]
+        self.wav_file_list = [
+            str(Path(w).expanduser().resolve()) for w in wav_file_list
+        ]
 
         print(f"main init {self.wav_file_list=}")  # remove before release
 
@@ -164,7 +167,7 @@ class Main(QWidget):
             self.wav_file = self.wav_file_list[0]
             self.project_json_path = find_project_json_for_wav(Path(self.wav_file))
             if self.project_json_path and self.project_json_path.is_file():
-                with open(self.project_json_path, 'r', encoding='utf-8') as f:
+                with open(self.project_json_path, "r", encoding="utf-8") as f:
                     self.project_parameters = json.load(f)
             print(f"{self.wav_file=}")  # remove before release
             self.load_wav(self.wav_file)
@@ -246,8 +249,8 @@ class Main(QWidget):
         self.peaks_help_btn = QPushButton("?")
         self.peaks_help_btn.setFixedWidth(30)
         self.peaks_help_btn.clicked.connect(self.show_peaks_help)
-        
-        top_layout.addWidget(self.peaks_help_btn)        
+
+        top_layout.addWidget(self.peaks_help_btn)
         top_layout.addSpacing(16)
 
         self.toggle_params_btn = QPushButton("Show/Hide Parameters")
@@ -268,6 +271,12 @@ class Main(QWidget):
         self.slider.setTickInterval(10)
         self.slider.valueChanged.connect(self.on_slider)
         layout.addWidget(self.slider)
+
+        self.status_bar = QStatusBar(self)
+        self.status_bar.showMessage("")
+        self.status_bar.setSizeGripEnabled(False)
+        self.status_bar.setFixedHeight(self.status_bar.sizeHint().height())
+        layout.addWidget(self.status_bar)
 
         self.setLayout(layout)
         self.resize(1450, 720)
@@ -329,7 +338,7 @@ class Main(QWidget):
         self.trova_picchi()
         if len(self.peaks_times) > 0:
             self.trova_ini_fin()
-    
+
     def is_song_processed(self, sp: dict) -> bool:
         if not isinstance(sp, dict):
             return False
@@ -338,8 +347,8 @@ class Main(QWidget):
             "call_start",
             "call_duration",
             "peaks_times",
-            ]
-        
+        ]
+
         for key in required_keys:
             if key not in sp:
                 return False
@@ -348,8 +357,7 @@ class Main(QWidget):
     def load_current_song(self):
         if self.project_parameters is not None:
             chunk_name, sp = find_song_block_from_wav(
-                self.project_parameters,
-                Path(self.wav_file).name
+                self.project_parameters, Path(self.wav_file).name
             )
 
             if sp is not None:
@@ -363,15 +371,12 @@ class Main(QWidget):
             return
 
         chunk_name, sp = find_song_block_from_wav(
-            self.project_parameters,
-            Path(self.wav_file).name
+            self.project_parameters, Path(self.wav_file).name
         )
 
         if sp is None:
             QMessageBox.warning(
-                self,
-                "",
-                f"{Path(self.wav_file).name} non trovato nel JSON"
+                self, "", f"{Path(self.wav_file).name} non trovato nel JSON"
             )
             self.run_analysis()
             return
@@ -409,7 +414,6 @@ class Main(QWidget):
             self.plot_wav()
         else:
             self.run_analysis()
-
 
     def load_wav(self, wav_file):
         self.sampling_rate, data = wavfile.read(wav_file)
@@ -510,14 +514,12 @@ class Main(QWidget):
 
         return inizio_fr, fine_fr
 
-
     def on_select(self, xmin, xmax):
         if abs(xmax - xmin) < 0.01:
             return
         self.xmin, self.xmax = sorted([max(0, xmin), min(self.duration, xmax)])
         self.selected_times = [0.0, 0.0]
         self.zoomIn_wav()
-        
 
     def on_slider(self, value):
         if self.duration <= 0:
@@ -575,9 +577,9 @@ class Main(QWidget):
                 selected_peak = float(peaks[nearest_index])
                 print(f"len(peaks)={len(peaks)} -- selected {selected_peak}")
         if selected_peak is None:
-            x0 = max(0, x_click - id_distance/2)
-            x1 = min(self.duration, x_click + id_distance/2)
-            mask_rms = (self.rms_times >= x0) & (self.rms_times <= x1) 
+            x0 = max(0, x_click - id_distance / 2)
+            x1 = min(self.duration, x_click + id_distance / 2)
+            mask_rms = (self.rms_times >= x0) & (self.rms_times <= x1)
             if not np.any(mask_rms):
                 return
             rms_local = self.rms[mask_rms]
@@ -586,8 +588,8 @@ class Main(QWidget):
             selected_peak = float(rms_times_local[max_index])
             # aggiungo il nuovo picco alla lista dei picchi reali
             self.peaks_times = np.sort(
-                    np.append(np.asarray(self.peaks_times, dtype=float), selected_peak)
-                    )
+                np.append(np.asarray(self.peaks_times, dtype=float), selected_peak)
+            )
             selected_peak = None
             self.plot_wav()
         else:
@@ -598,11 +600,11 @@ class Main(QWidget):
                 print(f"picchi nuovi1 {self.selected_peak_times}")
             else:
                 selected = np.append(selected, selected_peak)
-        
+
         self.selected_peak_times = selected.tolist()
         self.plot_wav()
         print(f"picchi nuovi2 {self.selected_peak_times}")
-        
+
     def show_peaks_help(self):
         QMessageBox.information(
             self,
@@ -616,7 +618,7 @@ class Main(QWidget):
                 "• Click destro vicino al picco già selezionato (blu): rimuove la selezione e aggiunge il picco"
                 "alla lista definitiva.\n"
                 "• Doppio click sinistro: ritorna alla visualizzazione completa (zoom out)"
-                ),
+            ),
         )
 
     def delete_selected_peaks(self):
@@ -630,7 +632,7 @@ class Main(QWidget):
         if peaks.size == 0:
             # se non ci sono picchi, aggiungo tutti quelli selezionati
             peaks = selected_peaks.copy()
-            
+
         else:
             lista_peaks = peaks
 
@@ -652,7 +654,6 @@ class Main(QWidget):
         self.trova_intensita_picchi()
         self.plot_wav()
 
-
     def zoomIn_wav(self):
         if hasattr(self, "xmin") and hasattr(self, "xmax") and self.xmax > self.xmin:
             self.zmin, self.zmax = self.xmin, self.xmax
@@ -661,7 +662,6 @@ class Main(QWidget):
                 self.slider.setValue(int((self.zmin / (self.duration - width)) * 100))
             self.ax.set_xlim(self.zmin, self.zmax)
             self.canvas.draw_idle()
-            
 
     def zoomOut_wav(self):
         self.xmin = 0
@@ -674,6 +674,7 @@ class Main(QWidget):
     def begin_end(self):
         self.selected_times = []
         self.trova_inizio_manuale = True
+
         def onclick(event):
             if event.inaxes != self.ax or event.xdata is None or event.button != 1:
                 return
@@ -717,7 +718,7 @@ class Main(QWidget):
             self.rms_times = librosa.frames_to_time(
                 np.arange(len(self.rms)), sr=self.sampling_rate, hop_length=self.overlap
             )
-            
+
             if reset_manual:
                 self.selected_times = [0.0, 0.0]
                 self.canto = np.zeros(len(self.rms) * self.overlap)
@@ -732,10 +733,10 @@ class Main(QWidget):
             self.plot_wav()
         except Exception as e:
             QMessageBox.information(
-            self,
-            "Errore",
-            f"Errore in envelope: {e}",
-        )
+                self,
+                "Errore",
+                f"Errore in envelope: {e}",
+            )
             print("Errore in envelope:", e)
 
     def plot_spectrum(self):
@@ -916,7 +917,7 @@ class Main(QWidget):
         self.peaks_int = self.rms[idx]
 
     def trova_ini_fin(self):
-        print(f"se falso cerca inizio fine: { self.trova_inizio_manuale}")
+        print(f"se falso cerca inizio fine: {self.trova_inizio_manuale}")
         if not self.trova_inizio_manuale:
             peaks = self.peaks_times * self.sampling_rate / self.overlap
             peaks = np.asarray(peaks, dtype=np.float64)
@@ -999,8 +1000,13 @@ class Main(QWidget):
             self.canto = np.zeros(len(self.rms) * self.overlap)
             self.canto[inizio:fine] = np.max(self.rms)
             self.durata_canto = (fine - inizio) / self.sampling_rate
-            self.rms_canto = self.rms[int(inizio / self.overlap) : int(fine / self.overlap)]
-            self.selected_times = [inizio / self.sampling_rate, fine / self.sampling_rate]
+            self.rms_canto = self.rms[
+                int(inizio / self.overlap) : int(fine / self.overlap)
+            ]
+            self.selected_times = [
+                inizio / self.sampling_rate,
+                fine / self.sampling_rate,
+            ]
         self.plot_wav()
 
     def save_results_clicked(self):
@@ -1018,7 +1024,9 @@ class Main(QWidget):
 
         wav_file_name = Path(self.wav_file).name
 
-        chunk_file_name, _song_block = find_song_block_from_wav(parameters, wav_file_name)
+        chunk_file_name, _song_block = find_song_block_from_wav(
+            parameters, wav_file_name
+        )
         if chunk_file_name is None:
             # fallback per vecchia convenzione basata su _sample_
             chunk_file_name = Path(self.wav_file.split("_sample_")[0] + ".wav").name
@@ -1028,18 +1036,17 @@ class Main(QWidget):
             QMessageBox.warning(self, "", f"{chunk_file_name} NOT FOUND!")
             return
         time_offset = (
-            self.noise_padding_duration
-            if self.add_noise_padding_enabled
-            else 0.0
-            )
+            self.noise_padding_duration if self.add_noise_padding_enabled else 0.0
+        )
 
         # indipendentemente dal noise-padding, si salvano sempre i tempi "reali"
         call_start_to_save = max(0.0, float(self.selected_times[0]) - time_offset)
-        call_end_to_save = max(call_start_to_save, float(self.selected_times[1]) - time_offset)
+        call_end_to_save = max(
+            call_start_to_save, float(self.selected_times[1]) - time_offset
+        )
 
         peaks_times_to_save = np.asarray(self.peaks_times, dtype=float) - time_offset
         peaks_times_to_save = peaks_times_to_save[peaks_times_to_save >= 0]
-
 
         parameters["chunks"].setdefault(chunk_file_name, {})
         parameters["chunks"][chunk_file_name].setdefault("songs", {})
@@ -1047,12 +1054,12 @@ class Main(QWidget):
 
         parameters["chunks"][chunk_file_name]["songs"][wav_file_name][
             "add_noise_padding_enabled"
-                ] = bool(self.add_noise_padding_enabled)
+        ] = bool(self.add_noise_padding_enabled)
 
         parameters["chunks"][chunk_file_name]["songs"][wav_file_name][
             "noise_padding_duration"
-                ] = float(self.noise_padding_duration)
-        
+        ] = float(self.noise_padding_duration)
+
         parameters["chunks"][chunk_file_name]["songs"][wav_file_name]["window_size"] = (
             self.window_size
         )
@@ -1172,7 +1179,9 @@ class Main(QWidget):
         name_outfile = json_file_path.with_suffix(".csv")
         self.df_results.to_csv(name_outfile, sep=";", encoding="utf-8", index=False)
         if not self.automatic:
-            QMessageBox.information(self, "", f"Risultati salvati in {json_file_path}")
+            self.status_bar.showMessage(
+                f"Risultati salvati in {json_file_path}", 5000
+            )
 
     def next_file_clicked(self):
         if not self.wav_file_list:
@@ -1184,8 +1193,7 @@ class Main(QWidget):
             return
 
         self.wav_file = self.wav_file_list[current_wav_index + 1]
-        self.load_current_song() 
-        
+        self.load_current_song()
 
     def previous_file_clicked(self):
         if not self.wav_file_list:
@@ -1197,6 +1205,7 @@ class Main(QWidget):
 
         self.wav_file = self.wav_file_list[current_wav_index - 1]
         self.load_current_song()
+
     def is_song_already_analyzed(self, wav_file):
         """
         Controlla se il canto corrispondente a wav_file è già analizzato nel JSON.
@@ -1212,10 +1221,7 @@ class Main(QWidget):
 
             wav_file_name = Path(wav_file).name
 
-            chunk_name, song_block = find_song_block_from_wav(
-                parameters,
-                wav_file_name
-            )
+            chunk_name, song_block = find_song_block_from_wav(parameters, wav_file_name)
 
             if song_block is None:
                 return False
@@ -1225,6 +1231,7 @@ class Main(QWidget):
         except Exception as e:
             print(f"Errore nel controllo di {wav_file}: {e}")
             return False
+
     def auto_btn_clicked(self):
         """
         Rianalizza automaticamente tutti i WAV dalla posizione corrente in poi.
@@ -1237,21 +1244,16 @@ class Main(QWidget):
         msg = QMessageBox(self)
         msg.setWindowTitle("Automatic analysis")
         msg.setText("Choose how to run the analysis:")
-        
+
         btn_rifai_tutto = msg.addButton(
-            "Re-run analysis for all files",
-            QMessageBox.AcceptRole
+            "Re-run analysis for all files", QMessageBox.AcceptRole
         )
 
         btn_solo_non_analizzati = msg.addButton(
-            "Analyze only unprocessed songs",
-            QMessageBox.AcceptRole
+            "Analyze only unprocessed songs", QMessageBox.AcceptRole
         )
 
-        btn_annulla = msg.addButton(
-            "Cancel",
-            QMessageBox.RejectRole
-        )
+        btn_annulla = msg.addButton("Cancel", QMessageBox.RejectRole)
 
         msg.exec()
 
@@ -1263,12 +1265,13 @@ class Main(QWidget):
         only_missing = clicked == btn_solo_non_analizzati
         print(f"only_missing : {only_missing}")
 
-
         start_index = self.wav_file_list.index(self.wav_file)
         self.automatic = True
 
         for wav_file in self.wav_file_list[start_index:]:
-            print(f"self.is_song_already_analyzed(wav_file) = {self.is_song_already_analyzed(wav_file)}")
+            print(
+                f"self.is_song_already_analyzed(wav_file) = {self.is_song_already_analyzed(wav_file)}"
+            )
             if only_missing and self.is_song_already_analyzed(wav_file):
                 print(only_missing)
                 print(f"Salto {Path(wav_file).name}: già analizzato")
@@ -1296,7 +1299,7 @@ class Main(QWidget):
         )
         self.fft_length = int(sp.get("fft_length", self.fft_length))
         self.fft_overlap = int(sp.get("fft_overlap", self.fft_overlap))
-        
+
         cp = self.control_panel
         cp.window_size_input.setValue(self.window_size)
         cp.overlap_input.setValue(self.overlap)
@@ -1310,12 +1313,12 @@ class Main(QWidget):
             str(int(round(100 * self.fft_overlap / max(1, self.fft_length))))
         )
         self.add_noise_padding_enabled = bool(
-               sp.get("add_noise_padding_enabled", self.add_noise_padding_enabled)
-                )
+            sp.get("add_noise_padding_enabled", self.add_noise_padding_enabled)
+        )
 
         self.noise_padding_duration = float(
-                sp.get("noise_padding_duration", self.noise_padding_duration)
-                )
+            sp.get("noise_padding_duration", self.noise_padding_duration)
+        )
         cp.add_noise_padding_checkbox.blockSignals(True)
         cp.add_noise_padding_checkbox.setChecked(self.add_noise_padding_enabled)
         cp.add_noise_padding_checkbox.blockSignals(False)
@@ -1486,10 +1489,8 @@ class ControlPanel(QWidget):
         h_layout.addStretch()
         main_layout.addLayout(h_layout)
 
-        
         main_layout.addStretch()
         self.setLayout(main_layout)
-
 
     def reset_values(self):
         self.window_size_input.setValue(WINDOW_SIZE)
@@ -1556,9 +1557,11 @@ class ControlPanel(QWidget):
             self.main.max_freq = float(self.max_freq_input.text())
         except ValueError:
             self.max_freq_input.setText(str(self.main.max_freq))
-    
+
     def add_noise_padding_changed(self, state):
-        self.main.add_noise_padding_enabled = self.add_noise_padding_checkbox.isChecked()
+        self.main.add_noise_padding_enabled = (
+            self.add_noise_padding_checkbox.isChecked()
+        )
         print("Add noise padding:", self.main.add_noise_padding_enabled)
 
         self.main.load_wav(self.main.wav_file)

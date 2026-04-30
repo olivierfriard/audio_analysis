@@ -26,6 +26,9 @@ from scipy.signal import find_peaks
 
 
 class Main(QWidget):
+
+    plugin_name = "Find calls"
+
     plugin_closed_signal = Signal()
     results_saved_signal = Signal()
 
@@ -766,8 +769,8 @@ class Main(QWidget):
 
         data_directory = Path(self.wav_file).parent
 
-        json_file_path = Path(self.wav_file).parent / Path(
-            Path(self.wav_file).parent.name
+        json_file_path = (
+            Path(self.wav_file).parent / Path(Path(self.wav_file).parent.name)
         ).with_suffix(".json")
 
         # read file content
