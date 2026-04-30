@@ -393,16 +393,12 @@ class Main(QWidget):
         """
 
         self.start = 0
-        # check if wav was cut
-        data_file_path = Path(self.wav_file).parent / Path(
-            Path(self.wav_file).parent.name
-        ).with_suffix(".json")
 
-        print(f"parameters file: {data_file_path}")
+        print(f"project file: {self.json_file_path}")
 
-        if data_file_path.is_file():
+        if Path(self.json_file_path).is_file():
             # read file content
-            with open(data_file_path, "r", encoding="utf-8") as f_in:
+            with open(self.json_file_path, "r", encoding="utf-8") as f_in:
                 parameters = json.load(f_in)
             if Path(self.wav_file).name in parameters["chunks"]:
                 self.start = parameters["chunks"][Path(self.wav_file).name].get(
@@ -412,7 +408,7 @@ class Main(QWidget):
                 QMessageBox.critical(
                     self,
                     "Error",
-                    f"The {Path(self.wav_file).name} was not found in {data_file_path} file.\nCannot load WAV file",
+                    f"The {Path(self.wav_file).name} was not found in {self.json_file_path} file.\nCannot load WAV file",
                 )
                 return
 
@@ -420,7 +416,7 @@ class Main(QWidget):
             QMessageBox.critical(
                 self,
                 "Error",
-                f"The {data_file_path} file was not found.\nCannot load WAV file",
+                f"The {self.json_file_path} file was not found.\nCannot load WAV file",
             )
             return
 
@@ -765,12 +761,12 @@ class Main(QWidget):
 
         data_directory = Path(self.wav_file).parent
 
-        json_file_path = (
-            Path(self.wav_file).parent / Path(Path(self.wav_file).parent.name)
-        ).with_suffix(".json")
+        # json_file_path = (
+        #    Path(self.wav_file).parent / Path(Path(self.wav_file).parent.name)
+        # ).with_suffix(".json")
 
         # read file content
-        with open(json_file_path, "r", encoding="utf-8") as f_in:
+        with open(self.json_file_path, "r", encoding="utf-8") as f_in:
             parameters = json.load(f_in)
         # delete previous songs
         for song in parameters["chunks"][Path(self.wav_file).name].get("songs", {}):
@@ -814,7 +810,7 @@ class Main(QWidget):
 
             songs_list.append(nome_ritaglio.name)
 
-        if self.save_parameters(json_file_path, songs_list):
+        if self.save_parameters(self.json_file_path, songs_list):
             self.results_saved_signal.emit()
 
     def save_parameters(self, file_path, songs_list: list):
@@ -822,7 +818,7 @@ class Main(QWidget):
         save parameters in json file
         """
 
-        if not file_path.is_file():
+        if not Path(file_path).is_file():
             print(f"json file {file_path} not found")
             QMessageBox.critical(self, "", f"json file {file_path} not found")
             return False

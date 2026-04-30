@@ -160,14 +160,12 @@ class Main(QWidget):
         ]
 
         self.wav_file = None
-        self.project_json_path = None
         self.project_parameters = None
 
         if self.wav_file_list:
             self.wav_file = self.wav_file_list[0]
-            self.project_json_path = find_project_json_for_wav(Path(self.wav_file))
-            if self.project_json_path and self.project_json_path.is_file():
-                with open(self.project_json_path, "r", encoding="utf-8") as f:
+            if Path(self.json_file_path).is_file():
+                with open(self.json_file_path, "r", encoding="utf-8") as f:
                     self.project_parameters = json.load(f)
             print(f"{self.wav_file=}")  # remove before release
             self.load_wav(self.wav_file)
@@ -1008,12 +1006,11 @@ class Main(QWidget):
     def save_results_clicked(self):
         """ """
 
-        json_file_path = find_project_json_for_wav(Path(self.wav_file))
-        if json_file_path is None or not json_file_path.is_file():
+        if not Path(self.json_file_path).is_file():
             QMessageBox.warning(self, "", "JSON di progetto non trovato")
             return
 
-        with open(json_file_path, "r", encoding="utf-8") as f:
+        with open(self.json_file_path, "r", encoding="utf-8") as f:
             parameters = json.load(f)
 
         sample = int(Path(self.wav_file).stem.split("_")[-1])
@@ -1140,11 +1137,10 @@ class Main(QWidget):
                     "envelope80"
                 ] = np.nan
 
-        with open(json_file_path, "w", encoding="utf-8") as f_out:
+        with open(self.json_file_path, "w", encoding="utf-8") as f_out:
             json.dump(parameters, f_out, indent=0, ensure_ascii=False)
 
         self.project_parameters = parameters
-        self.project_json_path = json_file_path
         self.results_saved_signal.emit()
 
         row = {
@@ -1172,10 +1168,12 @@ class Main(QWidget):
         self.rows = [r for r in self.rows if r.get("note_peak") != row["note_peak"]]
         self.rows.append(row)
         self.df_results = pd.DataFrame(getattr(self, "rows", []))
-        name_outfile = json_file_path.with_suffix(".csv")
+        name_outfile = Path(self.json_file_path).with_suffix(".csv")
         self.df_results.to_csv(name_outfile, sep=";", encoding="utf-8", index=False)
         if not self.automatic:
-            self.status_bar.showMessage(f"Risultati salvati in {json_file_path}", 5000)
+            self.status_bar.showMessage(
+                f"Risultati salvati in {self.json_file_path}", 5000
+            )
 
     def next_file_clicked(self):
         if not self.wav_file_list:
@@ -1204,13 +1202,12 @@ class Main(QWidget):
         """
         Controlla se il canto corrispondente a wav_file è già analizzato nel JSON.
         """
-        json_file_path = find_project_json_for_wav(Path(wav_file))
 
-        if json_file_path is None or not json_file_path.is_file():
+        if not Path(self.json_file_path).is_file():
             return False
 
         try:
-            with open(json_file_path, "r", encoding="utf-8") as f_in:
+            with open(self.json_file_path, "r", encoding="utf-8") as f_in:
                 parameters = json.load(f_in)
 
             wav_file_name = Path(wav_file).name
