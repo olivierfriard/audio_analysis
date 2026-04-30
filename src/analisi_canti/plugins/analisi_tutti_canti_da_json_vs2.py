@@ -89,7 +89,7 @@ def find_project_json_for_wav(wav_path: Path) -> Path | None:
     # fallback: cerca un json nella cartella corrente
     json_files = sorted(wav_path.parent.glob('*.json'))
     if len(json_files) == 1:
-        return json_files[0].resolve()
+        return json_files[0].resolve() # percorso assoluto
 
     return None
 
@@ -149,7 +149,7 @@ class Main(QWidget):
         self.trova_inizio_manuale = False
         self.add_noise_padding_enabled = False
         self.noise_padding_duration = PADDING_DURATION
-        
+        self.automatic = False
         self.wav_file_list = [str(Path(w).expanduser().resolve()) for w in wav_file_list]
 
         print(f"main init {self.wav_file_list=}")  # remove before release
@@ -1031,6 +1031,7 @@ class Main(QWidget):
             else 0.0
             )
 
+        # indipendentemente dal noise-padding, si salvano sempre i tempi "reali"
         call_start_to_save = max(0.0, float(self.selected_times[0]) - time_offset)
         call_end_to_save = max(call_start_to_save, float(self.selected_times[1]) - time_offset)
 
@@ -1167,7 +1168,8 @@ class Main(QWidget):
         self.df_results = pd.DataFrame(getattr(self, "rows", []))
         name_outfile = json_file_path.with_suffix(".csv")
         self.df_results.to_csv(name_outfile, sep=";", encoding="utf-8", index=False)
-        QMessageBox.information(self, "", f"Risultati salvati in {json_file_path}")
+        if not self.automatic:
+            QMessageBox.information(self, "", f"Risultati salvati in {json_file_path}")
 
     def next_file_clicked(self):
         if not self.wav_file_list:
@@ -1192,19 +1194,92 @@ class Main(QWidget):
 
         self.wav_file = self.wav_file_list[current_wav_index - 1]
         self.load_current_song()
+    def is_song_already_analyzed(self, wav_file):
+        """
+        Controlla se il canto corrispondente a wav_file è già analizzato nel JSON.
+        """
+        json_file_path = find_project_json_for_wav(Path(wav_file))
 
+        if json_file_path is None or not json_file_path.is_file():
+            return False
+
+        try:
+            with open(json_file_path, "r", encoding="utf-8") as f_in:
+                parameters = json.load(f_in)
+
+            wav_file_name = Path(wav_file).name
+
+            chunk_name, song_block = find_song_block_from_wav(
+                parameters,
+                wav_file_name
+            )
+
+            if song_block is None:
+                return False
+
+            return self.is_song_processed(song_block)
+
+        except Exception as e:
+            print(f"Errore nel controllo di {wav_file}: {e}")
+            return False
     def auto_btn_clicked(self):
         """
-        Rianalizza automaticamente tutti i WAV dalla posizione corrente in poi,
-        ignorando eventuali risultati già presenti nel JSON.
+        Rianalizza automaticamente tutti i WAV dalla posizione corrente in poi.
+        Permette di scegliere se:
+        1) rifare tutto da capo;
+        2) analizzare solo i canti non ancora presenti nel JSON;
+        3) annullare.
         """
+
+        msg = QMessageBox(self)
+        msg.setWindowTitle("Automatic analysis")
+        msg.setText("Choose how to run the analysis:")
+        
+        btn_rifai_tutto = msg.addButton(
+            "Re-run analysis for all files",
+            QMessageBox.AcceptRole
+        )
+
+        btn_solo_non_analizzati = msg.addButton(
+            "Analyze only unprocessed songs",
+            QMessageBox.AcceptRole
+        )
+
+        btn_annulla = msg.addButton(
+            "Cancel",
+            QMessageBox.RejectRole
+        )
+
+        msg.exec()
+
+        clicked = msg.clickedButton()
+
+        if clicked == btn_annulla:
+            return
+
+        only_missing = clicked == btn_solo_non_analizzati
+        print(f"only_missing : {only_missing}")
+
+
         start_index = self.wav_file_list.index(self.wav_file)
+        self.automatic = True
 
         for wav_file in self.wav_file_list[start_index:]:
+            print(f"self.is_song_already_analyzed(wav_file) = {self.is_song_already_analyzed(wav_file)}")
+            if only_missing and self.is_song_already_analyzed(wav_file):
+                print(only_missing)
+                print(f"Salto {Path(wav_file).name}: già analizzato")
+                continue
+
             self.wav_file = wav_file
             self.load_wav(self.wav_file)
+
+            self.plot_wav(self.xmin, self.xmax)
+
             self.run_analysis()
             self.save_results_clicked()
+
+        self.automatic = False
 
     def apply_song_params(self, sp: dict):
         self.window_size = int(sp.get("window_size", self.window_size))
