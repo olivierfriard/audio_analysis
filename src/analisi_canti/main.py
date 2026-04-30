@@ -733,7 +733,9 @@ class MainWindow(QMainWindow):
 
         selected_files = self.get_selected_files()
         if selected_files:
-            self.plugin_widgets.append(self.modules[module_name].Main(selected_files))
+            self.plugin_widgets.append(
+                self.modules[module_name].Main(self.json_file_path, selected_files)
+            )
             if hasattr(self.plugin_widgets[-1], "results_saved_signal"):
                 self.plugin_widgets[-1].results_saved_signal.connect(
                     self.update_wav_list

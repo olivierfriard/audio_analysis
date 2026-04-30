@@ -26,14 +26,15 @@ from scipy.signal import find_peaks
 
 
 class Main(QWidget):
-
     plugin_name = "Find calls"
 
     plugin_closed_signal = Signal()
     results_saved_signal = Signal()
 
-    def __init__(self, wav_file_list: list):
+    def __init__(self, json_file_path: str, wav_file_list: list):
         super().__init__()
+
+        self.json_file_path = json_file_path
 
         print(f"{wav_file_list=}")
 
@@ -51,12 +52,7 @@ class Main(QWidget):
 
         self.overlap = None
 
-        # self.start_times = []
-        # self.end_times = []
-
-        self.setWindowTitle(
-            f"{Path(__file__).stem.replace('_', ' ')} - {Path(self.wav_file).stem}"
-        )
+        self.setWindowTitle(f"{self.plugin_name} - {Path(self.wav_file).stem}")
 
         # Layout principale a griglia (10 colonne)
         self.layout = QGridLayout()

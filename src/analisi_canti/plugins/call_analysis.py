@@ -138,8 +138,10 @@ class Main(QWidget):
 
     results_saved_signal = Signal()
 
-    def __init__(self, wav_file_list: list):
+    def __init__(self, json_file_path: str, wav_file_list: list):
         super().__init__()
+
+        self.json_file_path = json_file_path
 
         self.init_values()
         self.rows = []
@@ -156,8 +158,6 @@ class Main(QWidget):
         self.wav_file_list = [
             str(Path(w).expanduser().resolve()) for w in wav_file_list
         ]
-
-        print(f"main init {self.wav_file_list=}")  # remove before release
 
         self.wav_file = None
         self.project_json_path = None
@@ -184,9 +184,7 @@ class Main(QWidget):
             self.rms_times = np.array([])
             self.peaks_times = np.array([])
             self.selected_peak_times = []
-            self.setWindowTitle(
-                f"{Path(__file__).stem.replace('_', ' ')} - (no file loaded)"
-            )
+            self.setWindowTitle(f"{self.plugin_name} - (no file loaded)")
 
         self.figure, self.ax = plt.subplots(figsize=(12, 5))
         self.figure.subplots_adjust(bottom=0.15)
@@ -450,9 +448,7 @@ class Main(QWidget):
         self.selected_peak_times = []
         self.span_region = None
 
-        self.setWindowTitle(
-            f"{Path(__file__).stem.replace('_', ' ')} - {Path(wav_file).stem}"
-        )
+        self.setWindowTitle(f"{self.plugin_name} - {Path(wav_file).stem}")
 
     def plot_wav(self, xmin=None, xmax=None):
         if self.sampling_rate is None or self.data is None or len(self.data) == 0:
@@ -1179,9 +1175,7 @@ class Main(QWidget):
         name_outfile = json_file_path.with_suffix(".csv")
         self.df_results.to_csv(name_outfile, sep=";", encoding="utf-8", index=False)
         if not self.automatic:
-            self.status_bar.showMessage(
-                f"Risultati salvati in {json_file_path}", 5000
-            )
+            self.status_bar.showMessage(f"Risultati salvati in {json_file_path}", 5000)
 
     def next_file_clicked(self):
         if not self.wav_file_list:
