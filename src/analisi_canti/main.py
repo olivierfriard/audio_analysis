@@ -446,8 +446,6 @@ class MainWindow(QMainWindow):
 
         self.wav_list_widget.clear()
 
-        print(f"{self.wav_list=}")  # remove before release
-
         for wav_file_path, wav_data in self.wav_list.items():
             parent_item = QTreeWidgetItem(
                 [
@@ -558,6 +556,10 @@ class MainWindow(QMainWindow):
                 QMessageBox.warning(self, "", f"Project not found: {file_path}")
                 return
 
+        # Reset the current project tree before loading the selected project.
+        self.wav_list = {}
+        self.wav_list_widget.clear()
+
         if Path(file_path).suffix in (".wav", ".WAV"):
             # check if directory exists
             if not Path(file_path).with_suffix("").is_dir():
@@ -606,9 +608,7 @@ class MainWindow(QMainWindow):
                 create_json_file_flag = True
         else:
             # create directory
-            print(
-                f"create directory {Path(file_path).with_suffix('')}"
-            )  # remove before release
+            print("create directory {Path(file_path).with_suffix('')}")
             Path(file_path).with_suffix("").mkdir()
             create_json_file_flag = True
 
@@ -617,8 +617,12 @@ class MainWindow(QMainWindow):
             if r:
                 print("Creation of JSON file failed")
                 return
+        else:
+            self.json_file_path = path.with_suffix("") / f"{path.stem}.json"
 
-        # self.wav_list[file_path] = self.read_json_file(json_file_path)
+        # Reset the current project tree before loading the newly selected one.
+        self.wav_list = {}
+        self.wav_list_widget.clear()
 
         self.update_wav_list()
 
@@ -725,9 +729,8 @@ class MainWindow(QMainWindow):
                 self.plugin_widgets[-1].results_saved_signal.connect(
                     self.update_wav_list
                 )
-            if (
-                module_name != "trova_picchi_vs2"
-                and hasattr(self.plugin_widgets[-1], "plugin_closed_signal")
+            if module_name != "trova_picchi_vs2" and hasattr(
+                self.plugin_widgets[-1], "plugin_closed_signal"
             ):
                 self.plugin_widgets[-1].plugin_closed_signal.connect(
                     self.update_wav_list
