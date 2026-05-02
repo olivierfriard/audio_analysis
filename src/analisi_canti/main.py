@@ -425,6 +425,50 @@ class MainWindow(QMainWindow):
 
         return selected_files
 
+    def resolve_wav_file_path(self, wav_file_path: str | Path) -> str:
+        """
+        Resolve a WAV path stored in the project JSON or tree widget.
+        """
+        path = Path(wav_file_path).expanduser()
+        if path.is_file():
+            return str(path.resolve())
+
+        candidates = []
+        if getattr(self, "json_file_path", None):
+            json_path = Path(self.json_file_path).expanduser()
+            if json_path.is_file():
+                project_dir = json_path.parent
+                parent_dir = project_dir.parent
+                candidates.extend(
+                    [
+                        parent_dir / path,
+                        parent_dir / path.name,
+                        project_dir / path,
+                        project_dir / path.name,
+                    ]
+                )
+
+        candidates.append(Path.cwd() / path)
+
+        for candidate in candidates:
+            if candidate.is_file():
+                return str(candidate.resolve())
+
+        return str(path)
+
+    def get_checked_top_level_wav_files(self) -> list[str]:
+        """
+        Return full paths for checked top-level WAV items.
+        """
+        checked_wav_files = []
+        for i in range(self.wav_list_widget.topLevelItemCount()):
+            item = self.wav_list_widget.topLevelItem(i)
+            if item.checkState(0) != Qt.Checked:
+                continue
+            wav_file_path = item.data(0, Qt.ItemDataRole.UserRole) or item.text(0)
+            checked_wav_files.append(self.resolve_wav_file_path(wav_file_path))
+        return checked_wav_files
+
     def get_rate_duration(self, wav_file_path):
         """
         Carica il file WAV e ottiene le informazioni
@@ -444,7 +488,7 @@ class MainWindow(QMainWindow):
         print("update treeview")
 
         r = self.read_json_file(self.json_file_path)
-        wav_file_path = r["wav_file_name"]
+        wav_file_path = self.resolve_wav_file_path(r["wav_file_name"])
         self.wav_list[wav_file_path] = r
 
         self.wav_list_widget.clear()
@@ -639,16 +683,13 @@ class MainWindow(QMainWindow):
 
     def show_oscillogram(self, wav_file_path: str = ""):
         if wav_file_path:
+            wav_file_path = self.resolve_wav_file_path(wav_file_path)
             self.oscillogram_window = OscillogramWindow(wav_file_path)
             self.oscillogram_window.load_wav_signal.connect(self.load_wav)
             self.oscillogram_window.show()
         else:
             # check if wav checked in treewidget
-            checked_wav_files = [
-                self.wav_list_widget.topLevelItem(i).text(0)
-                for i in range(self.wav_list_widget.topLevelItemCount())
-                if self.wav_list_widget.topLevelItem(i).checkState(0) == Qt.Checked
-            ]
+            checked_wav_files = self.get_checked_top_level_wav_files()
             if checked_wav_files:
                 self.oscillogram_window_list = []
                 for wav_file_path in checked_wav_files:
@@ -663,7 +704,7 @@ class MainWindow(QMainWindow):
         load wav file in wav_list dict
         """
         r = self.read_json_file(self.json_file_path)
-        wav_file_path = r["wav_file_name"]
+        wav_file_path = self.resolve_wav_file_path(r["wav_file_name"])
         self.wav_list[wav_file_path] = r
         self.update_wav_list()
 
@@ -687,11 +728,7 @@ class MainWindow(QMainWindow):
         """
 
         # check if wav checked in treewidget
-        checked_wav_files = [
-            self.wav_list_widget.topLevelItem(i).text(0)
-            for i in range(self.wav_list_widget.topLevelItemCount())
-            if self.wav_list_widget.topLevelItem(i).checkState(0) == Qt.Checked
-        ]
+        checked_wav_files = self.get_checked_top_level_wav_files()
         if checked_wav_files:
             self.resampling_window = ResamplingWindow(
                 checked_wav_files[0], checked_wav_files
@@ -705,11 +742,7 @@ class MainWindow(QMainWindow):
         Open the wav cutting window
         """
         # check if wav checked in treewidget
-        checked_wav_files = [
-            self.wav_list_widget.topLevelItem(i).text(0)
-            for i in range(self.wav_list_widget.topLevelItemCount())
-            if self.wav_list_widget.topLevelItem(i).checkState(0) == Qt.Checked
-        ]
+        checked_wav_files = self.get_checked_top_level_wav_files()
         if checked_wav_files:
             self.wav_cutting_widget = Wav_cutting(checked_wav_files[0])
             self.wav_cutting_widget.show()
