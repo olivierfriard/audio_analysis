@@ -1,6 +1,8 @@
+"""
+Plugin to find calls
+"""
+
 import json
-import shutil
-import sys
 from pathlib import Path
 
 import librosa
@@ -11,7 +13,6 @@ from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.widgets import SpanSelector
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
-    QApplication,
     QDoubleSpinBox,
     QGridLayout,
     QLabel,
@@ -44,7 +45,7 @@ class Main(QWidget):
             QMessageBox.critical(
                 self,
                 "",
-                "No file WAV!",
+                "No WAV file!",
             )
             return
 
@@ -54,7 +55,7 @@ class Main(QWidget):
 
         self.setWindowTitle(f"{self.plugin_name} - {Path(self.wav_file).stem}")
 
-        # Layout principale a griglia (10 colonne)
+        # Main grid layout (10 columns)
         self.layout = QGridLayout()
         self.setLayout(self.layout)
 
@@ -175,7 +176,7 @@ class Main(QWidget):
                     ".1",
                     "0.005",
                     "10",
-                ],  # value, num decimali, step, min, max
+                ],  # value, number of decimals, step, min, max
                 "linked_fnc": "detect_calls",
                 "widget": None,
             },
@@ -219,7 +220,7 @@ class Main(QWidget):
 
         for key, props in self.widgets_riga1_2.items():
             widget = None
-            # Creazione del widget corrispondente
+            # Create the corresponding widget
             if props["type"] == "QPushButton":
                 widget = QPushButton(props["label"])
                 self.layout.addWidget(
@@ -232,10 +233,10 @@ class Main(QWidget):
                 if "linked_fnc" in props and hasattr(self, props["linked_fnc"]):
                     linked_function = getattr(
                         self, props["linked_fnc"]
-                    )  # Recupera la funzione
+                    )  # Get the function
                     widget.clicked.connect(
                         linked_function
-                    )  # Connetti il pulsante alla funzione
+                    )  # Connect the button to the function
 
             elif props["type"] == "QLineEdit":
                 widget = QLineEdit()
@@ -268,23 +269,23 @@ class Main(QWidget):
                 if "linked_fnc" in props and hasattr(self, props["linked_fnc"]):
                     linked_function = getattr(
                         self, props["linked_fnc"]
-                    )  # Recupera la funzione
+                    )  # Get the function
                     widget.valueChanged.connect(
                         linked_function
-                    )  # Connetti il pulsante alla funzione
+                    )  # Connect the button to the function
 
                 self.layout.addWidget(
                     widget, props["row"], props["col"], 1, props["col_span"]
                 )
 
             else:
-                continue  # Ignora eventuali tipi non definiti
+                continue  # Ignore undefined widget types
             if widget:
                 self.widgets_riga1_2[key]["widget"] = widget
 
         for key, props in self.widgets_rigaFinale.items():
             widget = None
-            # Creazione del widget corrispondente
+            # Create the corresponding widget
             if props["type"] == "QPushButton":
                 widget = QPushButton(props["label"])
                 self.layout.addWidget(
@@ -297,10 +298,10 @@ class Main(QWidget):
                 if "linked_fnc" in props and hasattr(self, props["linked_fnc"]):
                     linked_function = getattr(
                         self, props["linked_fnc"]
-                    )  # Recupera la funzione
+                    )  # Get the function
                     widget.clicked.connect(
                         linked_function
-                    )  # Connetti il pulsante alla funzione
+                    )  # Connect the button to the function
                 self.widgets_rigaFinale[key]["widget"] = widget
             elif props["type"] == "QLineEdit":
                 widget = QLineEdit()
@@ -333,36 +334,36 @@ class Main(QWidget):
                 if "linked_fnc" in props and hasattr(self, props["linked_fnc"]):
                     linked_function = getattr(
                         self, props["linked_fnc"]
-                    )  # Recupera la funzione
+                    )  # Get the function
                     widget.valueChanged.connect(
                         linked_function
-                    )  # Connetti il pulsante alla funzione
+                    )  # Connect the button to the function
 
             else:
                 continue
             if widget:
                 self.widgets_rigaFinale[key]["widget"] = widget
 
-        self.layout.setRowStretch(0, 1)  # Etichette
-        self.layout.setRowStretch(1, 2)  # Pulsanti e input
-        self.layout.setRowStretch(2, 5)  # Grafico Matplotlib
+        self.layout.setRowStretch(0, 1)  # Labels
+        self.layout.setRowStretch(1, 2)  # Buttons and inputs
+        self.layout.setRowStretch(2, 5)  # Matplotlib plot
         self.layout.setRowStretch(3, 1)  # Slider
-        self.layout.setRowStretch(4, 0)  # Etichette
-        self.layout.setRowStretch(5, 1)  # Pulsanti
-        for col in range(10):  # Supponiamo 10 colonne
+        self.layout.setRowStretch(4, 0)  # Labels
+        self.layout.setRowStretch(5, 1)  # Buttons
+        for col in range(10):  # Assume 10 columns
             self.layout.setColumnStretch(
                 col, 1
-            )  # Tutte le colonne hanno lo stesso peso
+            )  # All columns have the same weight
 
-        # 🔹 Creazione della figura matplotlib (grafico)
+        # Matplotlib figure creation
         self.figure, self.ax = plt.subplots(figsize=(10, 4))
         self.figure.subplots_adjust(bottom=0.2)
         self.canvas = FigureCanvas(self.figure)
         self.layout.addWidget(
             self.canvas, 2, 0, 1, 10
-        )  # Riga 3, occupa tutte le colonne
+        )  # Row 3, spans all columns
 
-        # 🔹 Slider per la navigazione nel tempo (Riga 3)
+        # Slider for time navigation (row 3)
         self.slider = QSlider(Qt.Horizontal)
         self.slider.setMinimum(0)
         self.slider.setMaximum(100)
@@ -372,9 +373,9 @@ class Main(QWidget):
         self.slider.valueChanged.connect(self.on_slider)
         self.layout.addWidget(
             self.slider, 3, 0, 1, 10
-        )  # Riga 4, occupa tutte le colonne
+        )  # Row 4, spans all columns
 
-        # 🔹 Attivazione di SpanSelector per la selezione
+        # Enable SpanSelector for range selection
         self.selected_region = []
         self.span_selector = SpanSelector(
             self.ax,
@@ -422,7 +423,7 @@ class Main(QWidget):
 
         print(f"start position of file: {self.start}")
 
-        self.amp_rms = 1.5  # fattore di moltiplicazione dell'inviluppo, per accentuare variazione in ampiezza
+        self.amp_rms = 1.5  # Envelope multiplier to accentuate amplitude changes
         self.sampling_rate, self.data = wavfile.read(wav_file)
         self.xmin = 0
         self.duration = len(self.data) / self.sampling_rate
@@ -432,16 +433,16 @@ class Main(QWidget):
         self.rms = np.array([])
         self.peaks = np.array([])
         self.peaks_times_calls = np.array([])
-        self.start_times = np.array([])  # inizio canto per ogni picco
+        self.start_times = np.array([])  # Call start for each peak
         self.end_times = np.array([])
 
-        # Se il file è stereo, usa solo un canale
+        # If the file is stereo, use only one channel
         if len(self.data.shape) > 1:
-            print("File stereo rilevato. Prendo solo il primo canale.")
+            print("Stereo file detected. Using only the first channel.")
             self.data = self.data[:, 0]
-        # Normalizza il segnale
+        # Normalize the signal
         self.data = self.data / np.max(np.abs(self.data))
-        # Crea variable tempo
+        # Create time variable
         self.time = np.linspace(
             0, len(self.data) / self.sampling_rate, num=len(self.data)
         )
@@ -455,7 +456,7 @@ class Main(QWidget):
         self.binary_song = np.zeros_like(self.time)
 
     def plot_wav(self, xmin, xmax):
-        self.ax.cla()  # Cancella il grafico precedente
+        self.ax.cla()  # Clear the previous plot
         self.ax.plot(self.time, self.data, linewidth=0.5, color="black", alpha=0.5)
         self.ax.plot(
             self.time, self.binary_song, linewidth=0.5, color="black", alpha=0.5
@@ -480,22 +481,22 @@ class Main(QWidget):
 
     def show_message(self, button_name):
         """
-        Mostra un messaggio di avviso con il nome del pulsante premuto.
+        Show a warning message with the pressed button name.
         """
         QMessageBox.warning(
             self,
-            "Non Implementato",
-            f"La funzione {button_name} non è ancora implementata.",
+            "Not Implemented",
+            f"The {button_name} function is not implemented yet.",
         )
 
     def on_select(self, xmin, xmax):
         """
-        Evidenzia l'area selezionata con il mouse e aggiorna xmin e xmax.
+        Highlight the mouse-selected area and update xmin and xmax.
         """
         if xmin < 0:
             xmin = 0
             xmax = 0
-        if abs(xmax - xmin) < 0.01:  # Evita selezioni troppo piccole
+        if abs(xmax - xmin) < 0.01:  # Avoid selections that are too small
             return
         self.xmin = xmin
         self.xmax = xmax
@@ -505,8 +506,8 @@ class Main(QWidget):
         self.canvas.draw_idle()
 
     def on_slider(self, value):
-        """Aggiorna la vista dell'oscillogramma in base allo slider."""
-        range_view = self.duration / 5  # Mostra 1/5 del segnale
+        """Update the oscillogram view according to the slider."""
+        range_view = self.duration / 5  # Show 1/5 of the signal
         pos = value / 100 * (self.duration - range_view)
         self.ax.set_xlim(pos, pos + range_view)
         self.canvas.draw_idle()
@@ -517,8 +518,16 @@ class Main(QWidget):
             if self.ax.patches:
                 for patch in self.ax.patches:
                     patch.remove()
-            range = self.xmax - self.xmin
-            self.slider.setValue(int((self.xmin / (self.duration - range)) * 100))
+            range_ = self.xmax - self.xmin
+            if self.duration == range_:
+                QMessageBox.warning(
+                    self,
+                    "Zoom error",
+                    "Select the range you want to zoom-in.",
+                )
+                return
+
+            self.slider.setValue(int((self.xmin / (self.duration - range_)) * 100))
             self.ax.set_xlim(self.zmin, self.zmax)
             self.canvas.draw_idle()
 
@@ -530,14 +539,14 @@ class Main(QWidget):
 
     def envelope(self, event=None):
         """
-        Calcola l'inviluppo RMS usando i parametri aggiornati da Window Size e Overlap.
+        Compute the RMS envelope using the updated Window Size and Overlap parameters.
         """
         try:
-            # azzera la eventuale selezione
+            # Clear any selection
             self.xmin = 0
             self.xmax = self.duration
 
-            # azzera canti e picchi trovati
+            # Clear detected calls and peaks
             self.binary_song = np.zeros_like(self.time)
             self.peaks_times = np.array([])
             self.peaks = np.array([])
@@ -550,12 +559,12 @@ class Main(QWidget):
             print(f"{self.window_size=}")
             print(f"{self.overlap=}")
 
-            # Verifica che i valori siano validi
+            # Check that values are valid
             if self.window_size <= 0 or self.overlap < 0:
-                print("Errore: Window size deve essere > 0 e Overlap >= 0")
+                print("Error: Window size must be > 0 and Overlap must be >= 0")
                 return
 
-            # Calcola l'inviluppo RMS con i nuovi valori
+            # Compute the RMS envelope with the new values
             self.rms = librosa.feature.rms(
                 y=self.data, frame_length=self.window_size, hop_length=self.overlap
             )[0]
@@ -569,7 +578,7 @@ class Main(QWidget):
 
         except ValueError:
             print(
-                "Errore: Assicurati che Window Size e Overlap siano numeri interi validi."
+                "Error: make sure Window Size and Overlap are valid integers."
             )
 
     def fd_peaks_spinbox(self, value):
@@ -600,7 +609,7 @@ class Main(QWidget):
         print(f"Len(end_times)= {len(self.end_times)}")
         print(f"Len(start_times)= {len(self.start_times)}")
 
-        if np.any(mask_in):  # Se ci sono picchi nell'intervallo, li rimuove
+        if np.any(mask_in):  # Remove peaks found in the interval
             self.plot_wav(self.zmin, self.zmax)
         else:
             self.fd_peaks()
@@ -612,7 +621,7 @@ class Main(QWidget):
         if self.overlap is None:
             msg = QMessageBox()
             msg.setIcon(QMessageBox.Information)
-            msg.setText("Set envelope before")
+            msg.setText("Set the envelope first.")
             msg.setWindowTitle("Critical")
             msg.addButton("OK", QMessageBox.YesRole)
             msg.exec()
@@ -629,13 +638,13 @@ class Main(QWidget):
         )
         self.min_distance_samples = int(
             self.min_distance_sec * (self.sampling_rate / self.overlap)
-        )  # Converti in campioni
+        )  # Convert to samples
 
         mask_rms = (self.rms_times >= xmin) & (self.rms_times <= xmax)
         rms_selected = self.rms[mask_rms]
         rms_times_selected = self.rms_times[mask_rms]
 
-        # Trova i picchi nell'inviluppo RMS
+        # Find peaks in the RMS envelope
         peaks, _ = find_peaks(
             rms_selected,
             height=self.amp_threshold,
@@ -653,13 +662,13 @@ class Main(QWidget):
 
     def detect_calls(self):
         """
-        Identifica i canti basandosi su picchi e inviluppo
+        Identify calls based on peaks and envelope.
         """
 
         if len(self.peaks_times) == 0:
             return
 
-        # Limita l’analisi all’intervallo visibile [xmin, xmax]
+        # Limit analysis to the visible interval [xmin, xmax]
         if self.xmin > 0 or self.xmax < self.duration:
             xmin, xmax = self.xmin, self.xmax
         else:
@@ -667,9 +676,9 @@ class Main(QWidget):
 
         mask = (self.peaks_times >= xmin) & (self.peaks_times <= xmax)
         print(f"mask={mask}")
-        self.peaks_times_calls = self.peaks_times[mask]  # solo i picchi nella finestra
+        self.peaks_times_calls = self.peaks_times[mask]  # Peaks in the window only
 
-        # azzero inizio e fine canto nella finestra
+        # Clear call start and end in the window
 
         print(f"Len(end_times)= {len(self.end_times)}")
         print(f"Len(start_times)= {len(self.start_times)}")
@@ -678,7 +687,7 @@ class Main(QWidget):
         self.end_times = self.end_times[~mask]
 
         if len(self.peaks_times_calls) == 0:
-            # nessun picco nella finestra selezionata
+            # No peak in the selected window
             return
 
         new_start_times = []
@@ -692,7 +701,7 @@ class Main(QWidget):
         after = before
         print("after & Before", after)
 
-        # Trova la posizione di ogni picco (solo quelli selezionati) in `rms_times`
+        # Find each selected peak position in `rms_times`
         rms_peaks = np.searchsorted(self.rms_times, self.peaks_times_calls)
 
         for ic in range(len(rms_peaks)):
@@ -735,18 +744,18 @@ class Main(QWidget):
 
         self.start_times = np.sort(np.concatenate((self.start_times, new_start_times)))
         self.end_times = np.sort(np.concatenate((self.end_times, new_end_times)))
-        # Ricostruisci la traccia binaria solo per i canti trovati in finestra
+        # Rebuild the binary track only for calls found in the window
         self.binary_song = np.zeros_like(self.time)
         for start, end in zip(self.start_times, self.end_times):
             mask = (self.time >= start) & (self.time <= end)
             self.binary_song[mask] = 1
 
-        # IMPORTANTE: disegna usando ancora la finestra visibile
+        # Important: keep drawing with the visible window
         self.plot_wav(self.xmin, self.xmax)
 
     def save_calls(self):
         """
-        Salva i segmenti audio attorno ai picchi selezionati in file separati.
+        Save audio segments around the selected peaks in separate files.
         """
         valid_idx = np.where(~np.isnan(self.start_times) & ~np.isnan(self.end_times))[0]
 
@@ -780,20 +789,20 @@ class Main(QWidget):
 
         songs_list = []
         for i in valid_idx:
-            # Calcola l'inizio e la fine del ritaglio
+            # Compute cut start and end
             ini = int(self.start_times[i] * self.sampling_rate)
             fine = int(self.end_times[i] * self.sampling_rate)
 
-            # 🔹 Verifica che l'intervallo sia valido
+            # Check that the interval is valid
             if ini < 0 or fine > len(self.data):
                 print(
-                    f"Il picco {self.peaks_times[i]:.5f}s supera i limiti del file audio! Saltato."
+                    f"Peak {self.peaks_times[i]:.5f}s exceeds audio file limits. Skipped."
                 )
                 continue
 
             ritaglio = self.data[ini:fine]
 
-            # Crea il nome del file con il numero di campione
+            # Create the file name with the sample number
             sample_number = int(self.peaks_times[i] * self.sampling_rate)
 
             # add start position of cut file
@@ -804,7 +813,7 @@ class Main(QWidget):
                 / f"{Path(self.wav_file).stem}_sample_{sample_number:09d}.wav"
             )
 
-            # Salva il file ritagliato
+            # Save the cut file
             wavfile.write(nome_ritaglio, self.sampling_rate, ritaglio)
             print(f"Saved: {nome_ritaglio}")
 
@@ -890,13 +899,3 @@ class Main(QWidget):
     def closeEvent(self, event):
         self.plugin_closed_signal.emit()
         super().closeEvent(event)
-
-
-if __name__ == "__main__":
-    app = QApplication(sys.argv)
-
-    wav_path = "MantBets_2025-04-15_08_000000000_011099134.wav"
-    main_widget = Main(wav_file_list=[wav_path])
-    main_widget.show()
-
-    sys.exit(app.exec())

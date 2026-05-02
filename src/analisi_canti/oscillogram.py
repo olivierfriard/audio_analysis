@@ -45,7 +45,7 @@ class AmplifyDialog(QDialog):
         try:
             factor = float(self.textbox.toPlainText())
             self.parent().apply_amplification(factor)
-            self.accept()  # Chiude la finestra in modo corretto
+            self.accept()  # Close the window correctly
         except ValueError:
             QMessageBox.warning(self, "Error", "Invalid amplification factor")
 """
@@ -78,11 +78,11 @@ class OscillogramWindow(QWidget):
         shortcut2 = QShortcut(QKeySequence("Ctrl+R"), self)
         shortcut2.activated.connect(self.redo_amplification)
 
-        # Layout principale a griglia
+        # Main grid layout
         self.layout = QGridLayout()
         self.setLayout(self.layout)
 
-        # Creazione della figura matplotlib (plot)
+        # Matplotlib figure creation (plot)
         self.figure, self.ax = plt.subplots(figsize=(10, 4))
         self.canvas = FigureCanvas(self.figure)
 
@@ -90,61 +90,61 @@ class OscillogramWindow(QWidget):
         self.slider = QSlider(Qt.Horizontal)
         self.slider.setMinimum(0)
         self.slider.setMaximum(100)
-        self.slider.setValue(0)  # Inizialmente a 0
+        self.slider.setValue(0)  # Initially set to 0
         self.slider.setTickPosition(QSlider.TicksBelow)
         self.slider.setTickInterval(10)
         self.slider.valueChanged.connect(self.on_slider)
         self.layout.addWidget(self.slider, 2, 1)
 
-        # double click to reset xmin e xmax
+        # Double-click to reset xmin and xmax.
         self.canvas.mpl_connect("button_press_event", self.on_double_click)
 
-        # Pulsante zoomIn
+        # Zoom in button
         self.zoomIn_button = QPushButton("Zoom In")
         self.zoomIn_button.setEnabled(False)
         self.zoomIn_button.clicked.connect(self.zoomIn_wav)
 
-        # Pulsante zoomOut
+        # Zoom out button
         self.zoomOut_button = QPushButton("Zoom Out")
         self.zoomOut_button.setEnabled(False)
         self.zoomOut_button.clicked.connect(self.zoomOut_wav)
 
-        # Pulsante "Amplify"
+        # Amplify button
         self.amplify_button = QPushButton("Amplify")
         self.amplify_button.clicked.connect(self.open_amplify_dialog)
 
-        # Pulsante "Riproduci"
+        # Play button
         self.play_button = QPushButton("Play")
         self.play_button.clicked.connect(self.play_dialog)
 
         """
-        # Pulsante STOP
+        # Stop button
         self.stop_button = QPushButton("Stop")
         self.stop_button.setEnabled(False)
         self.stop_button.clicked.connect(self.stopplaying)
         """
 
-        # cut and save
+        # Cut and save
         self.cut_save_button = QPushButton("Cut and save")
         self.cut_save_button.clicked.connect(self.cut_save)
 
-        # Disegna il grafico iniziale
+        # Draw the initial plot
         self.ax.plot(self.time, self.data, linewidth=0.5, color="black")
         self.ax.set_xlabel("Time (s)")
         self.ax.set_ylabel("Amplitude")
         self.ax.set_title(f"Oscillogram for {Path(wav_file).stem}")
         # self.ax.grid()
 
-        # Imposta il range iniziale della finestra
+        # Set the initial window range
         self.xmin = 0
-        self.xmax = self.duration  # Inizialmente mostra tutta la registrazione
+        self.xmax = self.duration  # Initially show the full recording
         self.xrange = self.xmax - self.xmin
         self.ax.set_xlim(self.xmin, self.xmax)
 
         self.plot_xmin = self.xmin
         self.plot_xmax = self.xmax
 
-        # Aggiunta della selezione interattiva
+        # Add interactive selection
         self.selected_region = None
         self.span_selector = SpanSelector(
             self.ax,
@@ -154,7 +154,7 @@ class OscillogramWindow(QWidget):
             props=dict(alpha=0.5, facecolor="red"),
         )
 
-        # **Organizzazione della griglia**
+        # Grid organization
         self.layout.addWidget(self.zoomIn_button, 0, 0, 1, 1)
         self.layout.addWidget(self.zoomOut_button, 0, 1, 1, 1)
         self.layout.addWidget(self.play_button, 0, 2, 1, 1)
@@ -164,14 +164,14 @@ class OscillogramWindow(QWidget):
         self.layout.addWidget(self.canvas, 1, 0, 1, 6)
         self.layout.addWidget(self.slider, 2, 0, 1, 6)
 
-        # Configurazione del comportamento delle colonne
+        # Column behavior configuration
         for i in range(5 + 1):
             self.layout.setColumnStretch(i, 1)
 
-        # Configurazione del comportamento delle righe
-        self.layout.setRowStretch(0, 1)  # Pulsanti (meno spazio)
-        self.layout.setRowStretch(1, 5)  # Plot (più spazio)
-        self.layout.setRowStretch(2, 1)  # Slider (meno spazio)
+        # Row behavior configuration
+        self.layout.setRowStretch(0, 1)  # Buttons (less space)
+        self.layout.setRowStretch(1, 5)  # Plot (more space)
+        self.layout.setRowStretch(2, 1)  # Slider (less space)
 
         self.canvas.draw()
 
@@ -206,14 +206,14 @@ class OscillogramWindow(QWidget):
 
     def on_select(self, xmin, xmax):
         """
-        Evidenzia l'area selezionata con il mouse.
+        Highlight the mouse-selected area.
         """
         min_width = 0.01
         if abs(xmax - xmin) < min_width:
             return
         print(f"{self.selected_region=}")
         if self.selected_region:
-            self.selected_region.remove()  # Rimuove l'area precedente
+            self.selected_region.remove()  # Remove the previous area
         self.selected_region = self.ax.axvspan(xmin, xmax, color="red", alpha=0.3)
         self.xmin = xmin
         self.xmax = xmax
@@ -229,10 +229,10 @@ class OscillogramWindow(QWidget):
             self.plot_xmin = self.xmin
             self.plot_xmax = self.xmax
 
-        # Rimuove la selezione rossa se esiste
+        # Remove the red selection if it exists.
         if self.selected_region:
             self.selected_region.remove()
-            self.selected_region = None  # Reset della variabile
+            self.selected_region = None  # Reset the variable
 
         self.zoomIn_button.setEnabled(False)
         self.zoomOut_button.setEnabled(True)
@@ -244,9 +244,9 @@ class OscillogramWindow(QWidget):
         self.plot_xmin = self.xmin
         self.plot_xmax = self.xmax
 
-        self.ax.set_xlim(self.xmin, self.xmax)  # Applica il reset
-        self.slider.setValue(100)  # Imposta lo slider al massimo (100%)
-        self.canvas.draw_idle()  # Aggiorna il grafico
+        self.ax.set_xlim(self.xmin, self.xmax)  # Apply the reset
+        self.slider.setValue(100)  # Set the slider to the maximum (100%)
+        self.canvas.draw_idle()  # Update the plot
         self.zoomIn_button.setEnabled(False)
         self.zoomOut_button.setEnabled(False)
 
@@ -254,17 +254,17 @@ class OscillogramWindow(QWidget):
         sd.stop()
 
     def on_double_click(self, event):
-        if event.dblclick:  # Controlla se è un doppio clic
-            # Resetta i limiti
+        if event.dblclick:  # Check whether this is a double-click
+            # Reset limits
             self.xmin = 0
             self.xmax = self.duration
-            self.ax.set_xlim(self.xmin, self.xmax)  # Applica il reset
-            self.slider.setValue(100)  # Imposta lo slider al massimo (100%)
-            self.canvas.draw_idle()  # Aggiorna il grafico
+            self.ax.set_xlim(self.xmin, self.xmax)  # Apply the reset
+            self.slider.setValue(100)  # Set the slider to the maximum (100%)
+            self.canvas.draw_idle()  # Update the plot
 
     def on_slider(self, value):
         """
-        Aggiorna la vista dell'oscillogramma in base alla posizione dello slider mantenendo la durata selezionata.
+        Update the oscillogram view according to the slider position while keeping the selected duration.
 
 
         """
@@ -336,14 +336,14 @@ class OscillogramWindow(QWidget):
 
     def play_dialog(self):
         """
-        Riproduce il segmento selezionato dell'audio.
+        Play the selected audio segment.
         """
         if self.play_button.text() == "Play":
             # self.stop_button.setEnabled(True)
             ini = int(self.xmin * self.sampling_rate)
             fin = int(self.xmax * self.sampling_rate)
-            segment = self.data[ini:fin]  # Estrarre il segmento selezionato
-            sd.play(segment, samplerate=self.sampling_rate)  # Riprodurre il suono
+            segment = self.data[ini:fin]  # Extract the selected segment
+            sd.play(segment, samplerate=self.sampling_rate)  # Play the sound
             self.play_button.setText("Stop")
         else:
             sd.stop()

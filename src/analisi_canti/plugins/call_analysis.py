@@ -1,3 +1,7 @@
+"""
+plugin for call analysis
+"""
+
 import json
 import sys
 from pathlib import Path
@@ -9,9 +13,8 @@ import pandas as pd
 import sounddevice as sd
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.widgets import SpanSelector
-from PySide6.QtCore import Qt, QTimer, Signal
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
-    QApplication,
     QCheckBox,
     QComboBox,
     QDoubleSpinBox,
@@ -29,16 +32,99 @@ from PySide6.QtWidgets import (
 from scipy.io import wavfile
 from scipy.signal import find_peaks
 
-WINDOW_SIZE = 70
-OVERLAP = 30
-MIN_AMPLITUDE = 0.1
-MIN_DISTANCE = 0.003
-MAX_DISTANCE = 0.3
-PROMINENCE = 0.08
-FFT_LENGTH = 1024
-FFT_OVERLAP = 512
-SIGNAL_TO_NOISE_RATIO = 0.1
-PADDING_DURATION = 0.025
+DEFAULT_PARAMETERS = {
+    "WINDOW_SIZE": 70,
+    "OVERLAP": 30,
+    "MIN_AMPLITUDE": 0.1,
+    "MIN_DISTANCE": 0.003,
+    "MAX_DISTANCE": 0.3,
+    "PROMINENCE": 0.08,
+    "FFT_LENGTH": 1024,
+    "FFT_OVERLAP": 512,
+    "SIGNAL_TO_NOISE_RATIO": 0.1,
+    "PADDING_DURATION": 0.025,
+    "MAX_FREQ": 12000,
+    "ADD_NOISE_PADDING_ENABLED": False,
+}
+PARAMETERS_JSON_PATH = Path(__file__).resolve().with_suffix(".json")
+PARAMETER_JSON_KEYS = {key: (key, key.lower()) for key in DEFAULT_PARAMETERS}
+PARAMETER_JSON_KEYS["PADDING_DURATION"] = (
+    "PADDING_DURATION",
+    "padding_duration",
+    "NOISE_PADDING_DURATION",
+    "noise_padding_duration",
+)
+
+
+def _coerce_parameter(value, default):
+    if isinstance(default, bool):
+        if isinstance(value, str):
+            return value.strip().lower() in {"1", "true", "yes", "y", "on"}
+        return bool(value)
+    if isinstance(default, int):
+        return int(value)
+    if isinstance(default, float):
+        return float(value)
+    return value
+
+
+def load_parameters_from_json(config_path: Path = PARAMETERS_JSON_PATH):
+    parameters = DEFAULT_PARAMETERS.copy()
+
+    if not config_path.is_file():
+        return parameters
+
+    try:
+        with open(config_path, "r", encoding="utf-8") as f_in:
+            json_parameters = json.load(f_in)
+    except (OSError, json.JSONDecodeError) as e:
+        print(f"Error reading parameters from {config_path}: {e}")
+        return parameters
+
+    if not isinstance(json_parameters, dict):
+        print(f"Parameters ignored: {config_path} does not contain a JSON object")
+        return parameters
+
+    for key, default_value in DEFAULT_PARAMETERS.items():
+        value = None
+        for json_key in PARAMETER_JSON_KEYS[key]:
+            if json_key in json_parameters:
+                value = json_parameters[json_key]
+                break
+        if value is None:
+            continue
+        try:
+            parameters[key] = _coerce_parameter(value, default_value)
+        except (TypeError, ValueError) as e:
+            print(f"Parameter {key} ignored in {config_path}: {e}")
+
+    return parameters
+
+
+PARAMETERS = load_parameters_from_json()
+WINDOW_SIZE = PARAMETERS["WINDOW_SIZE"]
+OVERLAP = PARAMETERS["OVERLAP"]
+MIN_AMPLITUDE = PARAMETERS["MIN_AMPLITUDE"]
+MIN_DISTANCE = PARAMETERS["MIN_DISTANCE"]
+MAX_DISTANCE = PARAMETERS["MAX_DISTANCE"]
+PROMINENCE = PARAMETERS["PROMINENCE"]
+FFT_LENGTH = PARAMETERS["FFT_LENGTH"]
+FFT_OVERLAP = PARAMETERS["FFT_OVERLAP"]
+SIGNAL_TO_NOISE_RATIO = PARAMETERS["SIGNAL_TO_NOISE_RATIO"]
+PADDING_DURATION = PARAMETERS["PADDING_DURATION"]
+MAX_FREQ = PARAMETERS["MAX_FREQ"]
+ADD_NOISE_PADDING_ENABLED = PARAMETERS["ADD_NOISE_PADDING_ENABLED"]
+
+
+def fft_overlap_percent(fft_length, fft_overlap):
+    return str(int(round(100 * int(fft_overlap) / max(1, int(fft_length)))))
+
+
+def set_combo_current_text(combo, value):
+    value = str(value)
+    if combo.findText(value) < 0:
+        combo.addItem(value)
+    combo.setCurrentText(value)
 
 
 def add_noise_padding(data, sr, duration, noise_db):
@@ -85,18 +171,18 @@ def find_project_json_for_wav(wav_path: Path) -> Path | None:
 
     wav_path = Path(wav_path).expanduser().resolve()
 
-    # fallback: cerca un json nella cartella corrente
+    # Fallback: search for a JSON file in the current folder.
     json_files = sorted(wav_path.parent.glob("*.json"))
     if len(json_files) == 1:
-        return json_files[0].resolve()  # percorso assoluto
+        return json_files[0].resolve()  # Absolute path
 
     return None
 
 
 def find_song_block_from_wav(parameters: dict, wav_name: str):
     """
-    Cerca nel JSON il blocco song corrispondente al nome file WAV selezionato.
-    Ritorna (chunk_name, song_dict) oppure (None, None).
+    Search the JSON for the song block matching the selected WAV file name.
+    Return (chunk_name, song_dict) or (None, None).
     """
     chunks = parameters.get("chunks", {})
     for chunk_name, chunk_data in chunks.items():
@@ -152,7 +238,7 @@ class Main(QWidget):
         self.selected_peak_times = []
         self.cid_click = None
         self.trova_inizio_manuale = False
-        self.add_noise_padding_enabled = False
+        self.add_noise_padding_enabled = ADD_NOISE_PADDING_ENABLED
         self.noise_padding_duration = PADDING_DURATION
         self.automatic = False
         self.wav_file_list = [
@@ -318,7 +404,7 @@ class Main(QWidget):
         self.signal_to_noise_ratio = SIGNAL_TO_NOISE_RATIO
         self.fft_length = FFT_LENGTH
         self.fft_overlap = FFT_OVERLAP
-        self.max_freq = 12000
+        self.max_freq = MAX_FREQ
 
         self.results_dict = {
             "file": None,
@@ -372,7 +458,7 @@ class Main(QWidget):
 
         if sp is None:
             QMessageBox.warning(
-                self, "", f"{Path(self.wav_file).name} non trovato nel JSON"
+                self, "", f"{Path(self.wav_file).name} was not found in the JSON"
             )
             self.run_analysis()
             return
@@ -548,18 +634,17 @@ class Main(QWidget):
             self.zoomOut_wav()
 
     def select_nearest_peak(self, event):
-        print(f"picchi vecchi {self.peaks_times}")
+        print(f"old peaks {self.peaks_times}")
         if event.inaxes != self.ax or event.xdata is None:
             return
         x_click = float(event.xdata)
 
-        # definisco una distanza entro cui trovare il picco (1/100 della finestra temporale presentata)
-        # ampiezza della finestra temporale visualizzata
+        # Define the distance used to find the peak.
 
         xmin, xmax = self.ax.get_xlim()
         id_distance = (xmax - xmin) / 100
 
-        # possibile alternativa: uso la minima distanza tra picchi come criterio di identificazione del picco
+        # Alternative: use the minimum distance between peaks to identify the peak.
         id_distance = self.min_distance
         peaks = np.asarray(self.peaks_times, dtype=float)
         selected_peak = None
@@ -580,7 +665,7 @@ class Main(QWidget):
             rms_times_local = self.rms_times[mask_rms]
             max_index = int(np.argmax(rms_local))
             selected_peak = float(rms_times_local[max_index])
-            # aggiungo il nuovo picco alla lista dei picchi reali
+            # Add the new peak to the list of actual peaks.
             self.peaks_times = np.sort(
                 np.append(np.asarray(self.peaks_times, dtype=float), selected_peak)
             )
@@ -591,40 +676,40 @@ class Main(QWidget):
             mask = np.isclose(selected, selected_peak)
             if np.any(mask):
                 selected = selected[~mask]
-                print(f"picchi nuovi1 {self.selected_peak_times}")
+                print(f"new peaks 1 {self.selected_peak_times}")
             else:
                 selected = np.append(selected, selected_peak)
 
         self.selected_peak_times = selected.tolist()
         self.plot_wav()
-        print(f"picchi nuovi2 {self.selected_peak_times}")
+        print(f"new peaks 2 {self.selected_peak_times}")
 
     def show_peaks_help(self):
         QMessageBox.information(
             self,
-            "Help selezione picchi",
+            "Peak Selection Help",
             (
-                "Selezione dei picchi\n\n"
-                "• Clic destro vicino a un picco: seleziona il picco.\n"
-                "• Se non ci sono picchi vicini, viene aggiunto un nuovo picco "
-                "nel massimo dell'inviluppo vicino al cursore.\n"
-                "• I picchi selezionati diventano blu.\n"
-                "• Click destro vicino al picco già selezionato (blu): rimuove la selezione e aggiunge il picco"
-                "alla lista definitiva.\n"
-                "• Doppio click sinistro: ritorna alla visualizzazione completa (zoom out)"
+                "Peak selection\n\n"
+                "- Right-click near a peak: select the peak.\n"
+                "- If there are no nearby peaks, a new peak is added "
+                "at the envelope maximum near the cursor.\n"
+                "- Selected peaks turn blue.\n"
+                "- Right-click near an already selected peak (blue): "
+                "remove the selection and add the peak to the final list.\n"
+                "- Left double-click: return to the full view (zoom out)."
             ),
         )
 
     def delete_selected_peaks(self):
         if not self.selected_peak_times:
-            QMessageBox.information(self, "", "Nessun picco selezionato")
+            QMessageBox.information(self, "", "No peak selected")
             return
 
         peaks = np.asarray(self.peaks_times, dtype=float)
         selected_peaks = np.asarray(self.selected_peak_times, dtype=float)
-        print(f"prima: picchi selezionati = {peaks}")
+        print(f"before: selected peaks = {peaks}")
         if peaks.size == 0:
-            # se non ci sono picchi, aggiungo tutti quelli selezionati
+            # If there are no peaks, add all selected peaks.
             peaks = selected_peaks.copy()
 
         else:
@@ -640,10 +725,10 @@ class Main(QWidget):
                                 nuova_lista.append(peak)
                         lista_peaks = nuova_lista
 
-            # ordino per mantenere coerenza temporale
+            # Sort to keep temporal consistency.
             self.peaks_times = np.sort(lista_peaks)
-            print(f"picchi selezionati {self.peaks_times}")
-            # reset selezione
+            print(f"selected peaks {self.peaks_times}")
+            # Reset selection.
         self.selected_peak_times = []
         self.trova_intensita_picchi()
         self.plot_wav()
@@ -698,8 +783,8 @@ class Main(QWidget):
 
         QMessageBox.information(
             self,
-            "Selezione in corso",
-            "Clicca due volte sul grafico per selezionare inizio e fine del canto.",
+            "Selection in progress",
+            "Click twice on the plot to select the call start and end.",
         )
 
     def envelope(self, reset_manual=True):
@@ -728,10 +813,10 @@ class Main(QWidget):
         except Exception as e:
             QMessageBox.information(
                 self,
-                "Errore",
-                f"Errore in envelope: {e}",
+                "Error",
+                f"Error in envelope: {e}",
             )
-            print("Errore in envelope:", e)
+            print("Error in envelope:", e)
 
     def plot_spectrum(self):
         try:
@@ -811,7 +896,7 @@ class Main(QWidget):
             self.spectrum_window.raise_()
             self.spectrum_window.activateWindow()
         except Exception as e:
-            print("Errore in plot_spectrum:", e)
+            print("Error in plot_spectrum:", e)
 
     def trova_picchi(self):
         try:
@@ -823,7 +908,7 @@ class Main(QWidget):
                 and len(self.selected_times) == 2
                 and self.selected_times[1] > self.selected_times[0]
             ):
-                print("passo di qui")
+                print("using selected time range")
                 xmin, xmax = self.selected_times
             else:
                 xmin, xmax = (
@@ -894,7 +979,7 @@ class Main(QWidget):
             QMessageBox.critical(
                 self,
                 "",
-                f"Funzione Trova picchi\n\nError on file {self.wav_file}\n\n{e}",
+                f"Find peaks function\n\nError on file {self.wav_file}\n\n{e}",
             )
 
     def trova_intensita_picchi(self):
@@ -911,7 +996,7 @@ class Main(QWidget):
         self.peaks_int = self.rms[idx]
 
     def trova_ini_fin(self):
-        print(f"se falso cerca inizio fine: {self.trova_inizio_manuale}")
+        print(f"find start/end if false: {self.trova_inizio_manuale}")
         if not self.trova_inizio_manuale:
             peaks = self.peaks_times * self.sampling_rate / self.overlap
             peaks = np.asarray(peaks, dtype=np.float64)
@@ -1007,7 +1092,7 @@ class Main(QWidget):
         """ """
 
         if not Path(self.json_file_path).is_file():
-            QMessageBox.warning(self, "", "JSON di progetto non trovato")
+            QMessageBox.warning(self, "", "Project JSON not found")
             return
 
         with open(self.json_file_path, "r", encoding="utf-8") as f:
@@ -1021,7 +1106,7 @@ class Main(QWidget):
             parameters, wav_file_name
         )
         if chunk_file_name is None:
-            # fallback per vecchia convenzione basata su _sample_
+            # Fallback for the old convention based on _sample_.
             chunk_file_name = Path(self.wav_file.split("_sample_")[0] + ".wav").name
 
         if chunk_file_name not in parameters.get("chunks", {}):
@@ -1032,7 +1117,7 @@ class Main(QWidget):
             self.noise_padding_duration if self.add_noise_padding_enabled else 0.0
         )
 
-        # indipendentemente dal noise-padding, si salvano sempre i tempi "reali"
+        # Always save real times, regardless of noise padding.
         call_start_to_save = max(0.0, float(self.selected_times[0]) - time_offset)
         call_end_to_save = max(
             call_start_to_save, float(self.selected_times[1]) - time_offset
@@ -1172,7 +1257,7 @@ class Main(QWidget):
         self.df_results.to_csv(name_outfile, sep=";", encoding="utf-8", index=False)
         if not self.automatic:
             self.status_bar.showMessage(
-                f"Risultati salvati in {self.json_file_path}", 5000
+                f"Results saved in {self.json_file_path}", 5000
             )
 
     def next_file_clicked(self):
@@ -1200,7 +1285,7 @@ class Main(QWidget):
 
     def is_song_already_analyzed(self, wav_file):
         """
-        Controlla se il canto corrispondente a wav_file è già analizzato nel JSON.
+        Check whether the call matching wav_file has already been analyzed in the JSON.
         """
 
         if not Path(self.json_file_path).is_file():
@@ -1220,16 +1305,16 @@ class Main(QWidget):
             return self.is_song_processed(song_block)
 
         except Exception as e:
-            print(f"Errore nel controllo di {wav_file}: {e}")
+            print(f"Error checking {wav_file}: {e}")
             return False
 
     def auto_btn_clicked(self):
         """
-        Rianalizza automaticamente tutti i WAV dalla posizione corrente in poi.
-        Permette di scegliere se:
-        1) rifare tutto da capo;
-        2) analizzare solo i canti non ancora presenti nel JSON;
-        3) annullare.
+        Automatically reanalyze all WAV files from the current position onward.
+        Allows choosing whether to:
+        1) rerun everything from scratch;
+        2) analyze only calls not yet present in the JSON;
+        3) cancel.
         """
 
         msg = QMessageBox(self)
@@ -1265,7 +1350,7 @@ class Main(QWidget):
             )
             if only_missing and self.is_song_already_analyzed(wav_file):
                 print(only_missing)
-                print(f"Salto {Path(wav_file).name}: già analizzato")
+                print(f"Skipping {Path(wav_file).name}: already analyzed")
                 continue
 
             self.wav_file = wav_file
@@ -1299,9 +1384,10 @@ class Main(QWidget):
         cp.max_distance_input.setValue(self.max_distance)
         cp.prominence_input.setValue(self.prominence)
         cp.signal_noise_ration_input.setValue(self.signal_to_noise_ratio)
-        cp.fft_length_combo.setCurrentText(str(self.fft_length))
-        cp.fft_overlap_combo.setCurrentText(
-            str(int(round(100 * self.fft_overlap / max(1, self.fft_length))))
+        set_combo_current_text(cp.fft_length_combo, self.fft_length)
+        set_combo_current_text(
+            cp.fft_overlap_combo,
+            fft_overlap_percent(self.fft_length, self.fft_overlap),
         )
         self.add_noise_padding_enabled = bool(
             sp.get("add_noise_padding_enabled", self.add_noise_padding_enabled)
@@ -1316,7 +1402,7 @@ class Main(QWidget):
 
     def play_audio(self):
         if self.sampling_rate is None or self.data is None or len(self.data) == 0:
-            QMessageBox.warning(self, "", "Carica prima un file WAV")
+            QMessageBox.warning(self, "", "Load a WAV file first")
             return
 
         xmin = self.xmin
@@ -1330,7 +1416,7 @@ class Main(QWidget):
         start = max(0, min(int(xmin * self.sampling_rate), len(self.data)))
         end = max(start, min(int(xmax * self.sampling_rate), len(self.data)))
         if end <= start:
-            QMessageBox.warning(self, "", "Nessun segmento audio da riprodurre")
+            QMessageBox.warning(self, "", "No audio segment to play")
             return
 
         sd.stop()
@@ -1443,21 +1529,23 @@ class ControlPanel(QWidget):
         h_layout.addWidget(QLabel("FFT"))
         self.fft_length_combo = QComboBox()
         self.fft_length_combo.addItems(["256", "512", "1024", "2048", "4096"])
-        self.fft_length_combo.setCurrentText(str(FFT_LENGTH))
+        set_combo_current_text(self.fft_length_combo, FFT_LENGTH)
         self.fft_length_combo.currentTextChanged.connect(self.fft_length_changed)
         h_layout.addWidget(self.fft_length_combo)
 
         h_layout.addWidget(QLabel("Overlap %"))
         self.fft_overlap_combo = QComboBox()
         self.fft_overlap_combo.addItems(["0", "25", "50", "75"])
-        self.fft_overlap_combo.setCurrentText("50")
+        set_combo_current_text(
+            self.fft_overlap_combo, fft_overlap_percent(FFT_LENGTH, FFT_OVERLAP)
+        )
         self.fft_overlap_combo.currentTextChanged.connect(self.fft_overlap_changed)
         h_layout.addWidget(self.fft_overlap_combo)
         spectrum_layout.addLayout(h_layout)
 
         h_layout = QHBoxLayout()
         h_layout.addWidget(QLabel("Max Fq (Hz)"))
-        self.max_freq_input = QLineEdit("12000")
+        self.max_freq_input = QLineEdit(str(MAX_FREQ))
         self.max_freq_input.editingFinished.connect(self.max_freq_changed)
         h_layout.addWidget(self.max_freq_input)
         spectrum_layout.addLayout(h_layout)
@@ -1491,10 +1579,15 @@ class ControlPanel(QWidget):
         self.max_distance_input.setValue(MAX_DISTANCE)
         self.prominence_input.setValue(PROMINENCE)
         self.signal_noise_ration_input.setValue(SIGNAL_TO_NOISE_RATIO)
-        self.fft_length_combo.setCurrentText(str(FFT_LENGTH))
-        self.fft_overlap_combo.setCurrentText("50")
-        self.max_freq_input.setText("12000")
-        self.main.max_freq = 12000
+        set_combo_current_text(self.fft_length_combo, FFT_LENGTH)
+        set_combo_current_text(
+            self.fft_overlap_combo, fft_overlap_percent(FFT_LENGTH, FFT_OVERLAP)
+        )
+        self.max_freq_input.setText(str(MAX_FREQ))
+        self.main.max_freq = MAX_FREQ
+        self.main.add_noise_padding_enabled = ADD_NOISE_PADDING_ENABLED
+        self.main.noise_padding_duration = PADDING_DURATION
+        self.add_noise_padding_checkbox.setChecked(ADD_NOISE_PADDING_ENABLED)
 
     def window_size_changed(self, new_value):
         self.main.window_size = new_value
@@ -1558,10 +1651,3 @@ class ControlPanel(QWidget):
         self.main.load_wav(self.main.wav_file)
         self.main.run_analysis()
         self.main.zoomOut_wav()
-
-
-if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    main = Main(wav_file_list=[])
-    main.show()
-    sys.exit(app.exec())

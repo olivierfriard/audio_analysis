@@ -25,7 +25,7 @@ class Wav_cutting(QWidget):
     def __init__(self, wav_file: str):
         super().__init__()
 
-        self.durata_ritaglio = 60  # Durata predefinita
+        self.durata_ritaglio = 60  # Default duration
 
         self.wav_file = wav_file
 
@@ -33,23 +33,23 @@ class Wav_cutting(QWidget):
             f"{Path(__file__).stem.replace('_', ' ')} - {Path(self.wav_file).stem}"
         )
 
-        # Carica il file WAV e ottiene le informazioni
+        # Load the WAV file and get information
         self.sampling_rate, self.data = wavfile.read(self.wav_file)
         self.duration = len(self.data) / self.sampling_rate
 
-        # Layout principale
+        # Main layout
         layout = QVBoxLayout()
 
-        # Etichetta con informazioni sul file
+        # Label with file information
         self.label_info = QLabel(
-            f"File WAV selezionato: {self.wav_file}\nDurata: {self.duration:.2f} sec\nFrequenza di campionamento: {self.sampling_rate} Hz"
+            f"Selected WAV file: {self.wav_file}\nDuration: {self.duration:.2f} sec\nSampling rate: {self.sampling_rate} Hz"
         )
         layout.addWidget(self.label_info)
 
-        # Pulsante seleziona cartella madre
+        # Parent folder selection button
         """
         hlayout = QHBoxLayout()
-        self.button_select = QPushButton("Scegli Cartella Madre", self)
+        self.button_select = QPushButton("Choose Parent Folder", self)
         self.button_select.clicked.connect(self.select_folder)
         hlayout.addWidget(self.button_select)
         hlayout.addStretch()
@@ -58,7 +58,7 @@ class Wav_cutting(QWidget):
 
         """
         hlayout = QHBoxLayout()
-        hlayout.addWidget(QLabel("Durata ritaglio (secondi):"))
+        hlayout.addWidget(QLabel("Cut duration (seconds):"))
         self.duration = QSpinBox()
         self.duration.setMinimum(1)
         self.duration.setMaximum(1000)
@@ -90,44 +90,44 @@ class Wav_cutting(QWidget):
         hlayout.addStretch()
         layout.addLayout(hlayout)
 
-        # Pulsante per salvare i file ritagliati
+        # Button to save cut files
         hlayout = QHBoxLayout()
-        self.button_save = QPushButton("Salva i files ritagliati", self)
+        self.button_save = QPushButton("Save cut files", self)
         self.button_save.clicked.connect(self.save_files)
         hlayout.addWidget(self.button_save)
 
         """
         self.button_save.setEnabled(
             False
-        )  # Disabilitato se sottocartella non è stata ancora selezionata
+        )  # Disabled if the subfolder has not been selected yet
         """
         hlayout.addStretch()
         layout.addLayout(hlayout)
 
-        # Variabile per salvare la cartella selezionata
+        # Variable used to store the selected folder
         self.selected_folder = None
 
         self.setLayout(layout)
 
     def update_label(self, text):
         """
-        Aggiorna l'etichetta con la durata scelta
+        Update the label with the selected duration.
         """
         self.durata_ritaglio = self.duration.value()
 
     def select_folder(self):
         """
-        Apre il file dialog per selezionare una cartella e la salva in self.selected_folder
+        Open the file dialog to select a folder and store it in self.selected_folder.
         """
 
         folder_path = QFileDialog.getExistingDirectory(
-            self, "Seleziona la cartella di origine"
+            self, "Select the source folder"
         )
-        if folder_path:  # Controlla che l'utente non abbia annullato la selezione
+        if folder_path:  # Check that the user did not cancel the selection
             self.selected_folder = Path(folder_path)
-            print(f"DEBUG: Cartella selezionata -> {self.selected_folder}")
+            print(f"DEBUG: Selected folder -> {self.selected_folder}")
 
-            # Creo la sottocartella basata sul nome del file WAV
+            # Create the subfolder based on the WAV file name
             self.nome_subcartella = self.selected_folder / Path(self.wav_file).stem
 
             # check if folder already exists
@@ -149,11 +149,11 @@ class Wav_cutting(QWidget):
                         return
 
             self.nome_subcartella.mkdir(parents=True, exist_ok=True)
-            print(f"DEBUG: Sottocartella creata -> {self.nome_subcartella}")
+            print(f"DEBUG: Subfolder created -> {self.nome_subcartella}")
 
     def save_files(self):
         """
-        Salva i ritagli assicurandosi che il taglio avvenga dove il segnale è minimo
+        Save cuts while ensuring the cut happens where the signal is minimal.
         """
 
         """
@@ -193,7 +193,7 @@ class Wav_cutting(QWidget):
 
         original_name = Path(self.wav_file).stem
 
-        # set duration in base of number of chunks
+        # Set duration based on the number of chunks.
         n_chunks = self.n_chunks_sb.value()
         intervallo = float(self.offset.text())
         self.durata_ritaglio = round(len(self.data) / self.sampling_rate / n_chunks)
@@ -201,9 +201,9 @@ class Wav_cutting(QWidget):
 
         cut_file_list: list = []
         ini = 0
-        counter = 0  # per tenere traccia del numero di ritagli salvati
+        counter = 0  # Track the number of saved cuts
         while ini < len(self.data):
-            # Calcolo della fine teorica del segmento di durata self.durata_ritaglio
+            # Compute the theoretical end of the segment with duration self.durata_ritaglio.
             if counter == n_chunks - 1 or int(
                 ini + self.sampling_rate * self.durata_ritaglio
             ) > len(self.data):
@@ -211,34 +211,34 @@ class Wav_cutting(QWidget):
             else:
                 fin = int(ini + self.sampling_rate * self.durata_ritaglio)
 
-            # Definisco l'intervallo ±0.1 secondi attorno al punto fin
+            # Define the interval around the fin point.
             offset = int(self.sampling_rate * intervallo / 2)
             start_range = max(fin - offset, 0)
             end_range = min(fin + offset, len(self.data))
             fin_range = np.arange(start_range, end_range)
             print("offset", offset, "start", start_range, "end", end_range)
-            # Calcolo del RMS nel range definito
+            # Compute RMS in the defined range.
             frame_length = int(self.sampling_rate / 100)
             hop_length = 1  # int(self.sampling_rate)
             rms = librosa.feature.rms(
                 y=self.data[fin_range], frame_length=frame_length, hop_length=hop_length
             )[0]
 
-            # Individuo l'indice in cui il valore RMS è minimo
+            # Find the index where the RMS value is minimal.
             min_index = np.argmin(rms)
             fin_best = fin_range[min_index]
             print("rms", len(rms), "fin_best", fin_best)
 
-            # Costruisco il nome del file per il ritaglio corrente
+            # Build the file name for the current cut.
             nome_ritaglio = f"{original_name}_{ini:09d}_{fin_best - 1:09d}.wav"
             print(nome_ritaglio)
 
-            # Evito un eventuale loop infinito: se il nuovo punto di taglio
-            # non fa avanzare l'indice, interrompo il ciclo
+            # Avoid a possible infinite loop: stop if the new cut point
+            # does not advance the index.
             if fin_best <= ini:
                 break
 
-            # Ritaglio la porzione dal segnale e la salvo
+            # Cut the signal segment and save it.
             ritaglio = self.data[ini:fin_best]
             wavfile.write(
                 Path(self.wav_file).with_suffix("") / nome_ritaglio,
@@ -257,7 +257,7 @@ class Wav_cutting(QWidget):
                 "cut_from": str(Path(self.wav_file).with_suffix(".wav")),
             }
 
-            # Aggiorno ini per il prossimo ritaglio
+            # Update ini for the next cut.
             ini = fin_best
             counter += 1
 
@@ -266,7 +266,7 @@ class Wav_cutting(QWidget):
             with open(json_file_path, "w", encoding="utf-8") as f_out:
                 json.dump(parameters, f_out, indent=0, ensure_ascii=False)
 
-            print(f"Risultati salvati in {json_file_path}")
+            print(f"Results saved in {json_file_path}")
 
         except Exception as e:
             QMessageBox.critical(
