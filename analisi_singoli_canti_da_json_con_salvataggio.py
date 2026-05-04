@@ -1,5 +1,5 @@
 """
-Plugin for analysis of single song
+Plugin for analysis of single call
 """
 
 import sys
@@ -29,7 +29,13 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt
 from pathlib import Path
 
-add_noise = False 
+try:
+    from analisi_canti.call_schema import ensure_calls, get_calls
+except ImportError:
+    sys.path.insert(0, str(Path(__file__).resolve().parent / "src"))
+    from analisi_canti.call_schema import ensure_calls, get_calls
+
+add_noise = False
 WINDOW_SIZE = 70
 OVERLAP = 30
 MIN_AMPLITUDE = 0.2
@@ -40,15 +46,14 @@ FFT_LENGTH = 1024
 FFT_OVERLAP = 512
 SIGNAL_TO_NOISE_RATIO = 0.1
 
-def iter_song_jobs(parameters: dict):
+def iter_call_jobs(parameters: dict):
     for wav_key, wav_block in parameters.items():
-        songs = wav_block.get("songs", {})
-        #print(f"songs = {songs}")
-        if not isinstance(songs, dict):
+        calls = get_calls(wav_block)
+        if not isinstance(calls, dict):
             continue
-        for song_id, sp in songs.items():
+        for call_id, sp in calls.items():
             if isinstance(sp, dict):
-                yield wav_key, str(song_id), sp
+                yield wav_key, str(call_id), sp
 
 
 def wav_path_same_folder(json_path: Path, sp: dict, wav_key: str) -> Path:
@@ -219,19 +224,19 @@ class Main(QWidget):
 
     def load_job(self, index: int):
         """
-        Carica il song 'index' dal JSON (song_jobs), applica i parametri salvati (facoltativo)
+        Carica la call 'index' dal JSON (call_jobs), applica i parametri salvati (facoltativo)
         e rilancia l'analisi.
         """
-        if not hasattr(self, "song_jobs") or not self.song_jobs:
+        if not hasattr(self, "call_jobs") or not self.call_jobs:
             return
 
         # clamp index
-        index = max(0, min(index, len(self.song_jobs) - 1))
+        index = max(0, min(index, len(self.call_jobs) - 1))
         self.current_job_index = index
 
-        wav_key, song_id, sp = self.song_jobs[index]
+        wav_key, call_id, sp = self.call_jobs[index]
 
-        # 1) Applica parametri del song (window_size, overlap, soglie, FFT, ecc.)
+        # 1) Applica parametri della call (window_size, overlap, soglie, FFT, ecc.)
 
         if hasattr(self, "wav_file_list") and self.wav_file_list and index < len(self.wav_file_list):
             self.wav_file = self.wav_file_list[index]
@@ -243,7 +248,7 @@ class Main(QWidget):
         self.plot_wav(self.xmin, self.xmax)
 
         # 3) applica i parametri del JSON
-        self.apply_song_params(sp)   
+        self.apply_call_params(sp)
 
         # 4) carica i picchi salvati nel JSON
         self.peaks_times = np.array(sp.get("peaks_times", []), dtype=float)
@@ -712,9 +717,9 @@ class Main(QWidget):
         # segue doppione
 
 
-        # recupera il wav_key associato al song corrente (chiave principale nel json)
-        if hasattr(self, "song_jobs") and self.song_jobs:
-            wav_key, song_id, sp = self.song_jobs[self.current_job_index]
+        # recupera il wav_key associato alla call corrente (chiave principale nel json)
+        if hasattr(self, "call_jobs") and self.call_jobs:
+            wav_key, call_id, sp = self.call_jobs[self.current_job_index]
             file_name = wav_key  # QUESTO deve combaciare con la chiave nel json
         else:
             # fallback: usa solo il nome del wav corrente
@@ -724,25 +729,18 @@ class Main(QWidget):
         
         # CREA la chiave se manca (evita KeyError)
         parameters.setdefault(file_name, {})
-        parameters[file_name].setdefault("songs", {})
-        parameters[file_name]["songs"][str(sample)] = {}
-        parameters[file_name]["songs"][str(sample)]["file"] = Path(self.wav_file).name
-        parameters[file_name]["songs"][str(sample)]["window_size"] = self.window_size
-        parameters[file_name]["songs"][str(sample)]["overlap"] = self.overlap
-        parameters[file_name]["songs"][str(sample)]["min_amplitude"] = (
-            self.min_amplitude
-        )  # amp threshold
-        parameters[file_name]["songs"][str(sample)]["min_distance"] = self.min_distance
-        parameters[file_name]["songs"][str(sample)]["max_distance"] = self.max_distance
-        parameters[file_name]["songs"][str(sample)]["prominence"] = self.prominence
-        parameters[file_name]["songs"][str(sample)]["signal_to_noise_ratio"] = (
-            self.signal_to_noise_ratio
-        )
-        parameters[file_name]["songs"][str(sample)]["fft_length"] = self.fft_length
-        parameters[file_name]["songs"][str(sample)]["fft_overlap"] = self.fft_overlap
-        parameters[file_name]["songs"][str(sample)]["sampling rate"] = (
-            self.sampling_rate
-        )
+        call_block = ensure_calls(parameters[file_name]).setdefault(str(sample), {})
+        call_block["file"] = Path(self.wav_file).name
+        call_block["window_size"] = self.window_size
+        call_block["overlap"] = self.overlap
+        call_block["min_amplitude"] = self.min_amplitude  # amp threshold
+        call_block["min_distance"] = self.min_distance
+        call_block["max_distance"] = self.max_distance
+        call_block["prominence"] = self.prominence
+        call_block["signal_to_noise_ratio"] = self.signal_to_noise_ratio
+        call_block["fft_length"] = self.fft_length
+        call_block["fft_overlap"] = self.fft_overlap
+        call_block["sampling rate"] = self.sampling_rate
 
         envelope_max = np.max(self.rms)
         soglia20 = 0.2 * envelope_max 
@@ -774,44 +772,22 @@ class Main(QWidget):
         
 
 
-        parameters[file_name]["songs"][str(sample)]["call_duration"] = (
-            self.durata_canto
-        )
-        parameters[file_name]["songs"][str(sample)]["pulse_number"] = len(
-            self.peaks_times
-        )
-        parameters[file_name]["songs"][str(sample)]["envelope20"] = (
-                    self.envelope20
-                )
-        parameters[file_name]["songs"][str(sample)]["envelope50"] = (
-                    self.envelope50
-                )
-        parameters[file_name]["songs"][str(sample)]["envelope80"] = (
-            self.envelope80
-        )
-        parameters[file_name]["songs"][str(sample)]["fase_ascendente"] = (
-            self.fase_ascendente
-        )
-        parameters[file_name]["songs"][str(sample)]["fase_discendente"] = (
-            self.fase_discendente
-        )
+        call_block["call_duration"] = self.durata_canto
+        call_block["pulse_number"] = len(self.peaks_times)
+        call_block["envelope20"] = self.envelope20
+        call_block["envelope50"] = self.envelope50
+        call_block["envelope80"] = self.envelope80
+        call_block["fase_ascendente"] = self.fase_ascendente
+        call_block["fase_discendente"] = self.fase_discendente
 
-        parameters[file_name]["songs"][str(sample)]["peaks_times"] = (
-            self.peaks_times.tolist()
-        )
-        parameters[file_name]["songs"][str(sample)]["peaks_int"] = (
-            self.peaks_int.tolist()
-        )
-        
-        parameters[file_name]["songs"][str(sample)]["FFT_length"] = self.control_panel.fft_length_input.value()
-        parameters[file_name]["songs"][str(sample)]["FFT_overlap"] = self.control_panel.fft_overlap_input.value()
+        call_block["peaks_times"] = self.peaks_times.tolist()
+        call_block["peaks_int"] = self.peaks_int.tolist()
 
-        parameters[file_name]["songs"][str(sample)]["spectrum"] = self.results_dict[
-            "spectrum"
-        ]
-        parameters[file_name]["songs"][str(sample)]["spectrum peaks"] = (
-            self.results_dict["spectrum_peaks"]
-        )
+        call_block["FFT_length"] = self.control_panel.fft_length_input.value()
+        call_block["FFT_overlap"] = self.control_panel.fft_overlap_input.value()
+
+        call_block["spectrum"] = self.results_dict["spectrum"]
+        call_block["spectrum peaks"] = self.results_dict["spectrum_peaks"]
 
         # save in .json
         try:
@@ -862,8 +838,8 @@ class Main(QWidget):
         
     def next_file_clicked(self):
         # modalità JSON: usa i job
-        if hasattr(self, "song_jobs") and self.song_jobs:
-            if self.current_job_index >= len(self.song_jobs) - 1:
+        if hasattr(self, "call_jobs") and self.call_jobs:
+            if self.current_job_index >= len(self.call_jobs) - 1:
                 QMessageBox.critical(self, "", "Last file")
                 return
             self.load_job(self.current_job_index + 1)
@@ -883,7 +859,7 @@ class Main(QWidget):
 
     def previous_file_clicked(self):
         # modalità JSON: usa i job
-        if hasattr(self, "song_jobs") and self.song_jobs:
+        if hasattr(self, "call_jobs") and self.call_jobs:
             if self.current_job_index <= 0:
                 QMessageBox.critical(self, "", "First file of directory")
                 return
@@ -909,9 +885,9 @@ class Main(QWidget):
 
         # modalità JSON
         print("SONO IN AUTO_BTN")
-        if hasattr(self, "song_jobs") and self.song_jobs:
+        if hasattr(self, "call_jobs") and self.call_jobs:
             start = getattr(self, "current_job_index", 0)
-            for idx in range(start, len(self.song_jobs)):
+            for idx in range(start, len(self.call_jobs)):
                 self.load_job(idx)
                 self.save_results_clicked()
             
@@ -932,7 +908,7 @@ class Main(QWidget):
         self.df_results.to_csv(name_outfile, sep= ";", encoding="utf-8", index=False)
 
 
-    def apply_song_params(self, sp: dict):
+    def apply_call_params(self, sp: dict):
         """Applica a Main i parametri letti dal json (se presenti)."""
         # envelope/peaks
         self.window_size = int(sp.get("window_size", self.window_size))
@@ -1351,37 +1327,37 @@ class ControlPanel(QWidget):
                 continue
             wav_level_peaks_map[wav_key] = np.array(wav_block.get("peaks_times", []), dtype=float)
 
-        # 2) Costruisci i job dei SONG (livello 2)
-        jobs = list(iter_song_jobs(parameters))
+        # 2) Costruisci i job delle call (livello 2)
+        jobs = list(iter_call_jobs(parameters))
         if not jobs:
-            QMessageBox.warning(self, "", "Nessun 'song' trovato nel JSON")
+            QMessageBox.warning(self, "", "Nessuna 'call' trovata nel JSON")
             return
 
         wav_list = []
-        song_jobs = []
+        call_jobs = []
 
-        for wav_key, song_id, sp in jobs:
+        for wav_key, call_id, sp in jobs:
             wav_path = wav_path_different_folder(json_path, sp, wav_key)
             if not wav_path.is_file():
                 print(f"[WARN] WAV non trovato: {wav_path}")
                 continue
 
             wav_list.append(str(wav_path))
-            song_jobs.append((wav_key, song_id, sp))
+            call_jobs.append((wav_key, call_id, sp))
 
         if not wav_list:
             QMessageBox.critical(self, "", "Nessun WAV valido trovato")
             return
 
         # 3) Inizializza Main
-        self.main.song_jobs = song_jobs
+        self.main.call_jobs = call_jobs
         self.main.wav_file_list = wav_list
         self.main.current_job_index = 0
 
         # 4) Salva la mappa “livello WAV” dentro Main
         self.main.wav_level_peaks_map = wav_level_peaks_map
 
-        # carica primo song
+        # carica prima call
         self.main.load_job(0)
 
 

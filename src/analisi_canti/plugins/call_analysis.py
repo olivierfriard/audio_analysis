@@ -32,6 +32,11 @@ from PySide6.QtWidgets import (
 from scipy.io import wavfile
 from scipy.signal import find_peaks
 
+try:
+    from ..call_schema import ensure_calls, get_calls
+except ImportError:
+    from analisi_canti.call_schema import ensure_calls, get_calls
+
 DEFAULT_PARAMETERS = {
     "WINDOW_SIZE": 70,
     "OVERLAP": 30,
@@ -179,16 +184,16 @@ def find_project_json_for_wav(wav_path: Path) -> Path | None:
     return None
 
 
-def find_song_block_from_wav(parameters: dict, wav_name: str):
+def find_call_block_from_wav(parameters: dict, wav_name: str):
     """
-    Search the JSON for the song block matching the selected WAV file name.
-    Return (chunk_name, song_dict) or (None, None).
+    Search the JSON for the call block matching the selected WAV file name.
+    Return (chunk_name, call_dict) or (None, None).
     """
     chunks = parameters.get("chunks", {})
     for chunk_name, chunk_data in chunks.items():
-        songs = chunk_data.get("songs", {})
-        if wav_name in songs:
-            return chunk_name, songs[wav_name]
+        calls = get_calls(chunk_data)
+        if wav_name in calls:
+            return chunk_name, calls[wav_name]
     return None, None
 
 
@@ -365,7 +370,7 @@ class Main(QWidget):
         self.resize(1450, 720)
 
         if self.wav_file_list:
-            self.load_current_song()
+            self.load_current_call()
             self.zoomOut_wav()
 
     def show(self):
@@ -422,7 +427,7 @@ class Main(QWidget):
         if len(self.peaks_times) > 0:
             self.trova_ini_fin()
 
-    def is_song_processed(self, sp: dict) -> bool:
+    def is_call_processed(self, sp: dict) -> bool:
         if not isinstance(sp, dict):
             return False
 
@@ -437,15 +442,15 @@ class Main(QWidget):
                 return False
         return True
 
-    def load_current_song(self):
+    def load_current_call(self):
         if self.project_parameters is not None:
-            chunk_name, sp = find_song_block_from_wav(
+            chunk_name, sp = find_call_block_from_wav(
                 self.project_parameters, Path(self.wav_file).name
             )
 
             if sp is not None:
                 self.current_chunk_name = chunk_name
-                self.apply_song_params(sp)
+                self.apply_call_params(sp)
 
         self.load_wav(self.wav_file)
 
@@ -453,7 +458,7 @@ class Main(QWidget):
             self.run_analysis()
             return
 
-        chunk_name, sp = find_song_block_from_wav(
+        chunk_name, sp = find_call_block_from_wav(
             self.project_parameters, Path(self.wav_file).name
         )
 
@@ -470,7 +475,7 @@ class Main(QWidget):
             self.run_analysis()
             return
 
-        if self.is_song_processed(sp):
+        if self.is_call_processed(sp):
             self.envelope(reset_manual=False)
 
             self.peaks_times = np.array(sp.get("peaks_times", []), dtype=float)
@@ -1103,7 +1108,7 @@ class Main(QWidget):
 
         wav_file_name = Path(self.wav_file).name
 
-        chunk_file_name, _song_block = find_song_block_from_wav(
+        chunk_file_name, _call_block = find_call_block_from_wav(
             parameters, wav_file_name
         )
         if chunk_file_name is None:
@@ -1128,70 +1133,28 @@ class Main(QWidget):
         peaks_times_to_save = peaks_times_to_save[peaks_times_to_save >= 0]
 
         parameters["chunks"].setdefault(chunk_file_name, {})
-        parameters["chunks"][chunk_file_name].setdefault("songs", {})
-        parameters["chunks"][chunk_file_name]["songs"].setdefault(wav_file_name, {})
+        calls = ensure_calls(parameters["chunks"][chunk_file_name])
+        call_block = calls.setdefault(wav_file_name, {})
 
-        parameters["chunks"][chunk_file_name]["songs"][wav_file_name][
-            "add_noise_padding_enabled"
-        ] = bool(self.add_noise_padding_enabled)
-
-        parameters["chunks"][chunk_file_name]["songs"][wav_file_name][
-            "noise_padding_duration"
-        ] = float(self.noise_padding_duration)
-
-        parameters["chunks"][chunk_file_name]["songs"][wav_file_name]["window_size"] = (
-            self.window_size
-        )
-        parameters["chunks"][chunk_file_name]["songs"][wav_file_name]["overlap"] = (
-            self.overlap
-        )
-        parameters["chunks"][chunk_file_name]["songs"][wav_file_name][
-            "min_amplitude"
-        ] = self.min_amplitude
-        parameters["chunks"][chunk_file_name]["songs"][wav_file_name][
-            "min_distance"
-        ] = self.min_distance
-        parameters["chunks"][chunk_file_name]["songs"][wav_file_name][
-            "max_distance"
-        ] = self.max_distance
-        parameters["chunks"][chunk_file_name]["songs"][wav_file_name]["prominence"] = (
-            self.prominence
-        )
-        parameters["chunks"][chunk_file_name]["songs"][wav_file_name][
-            "signal_to_noise_ratio"
-        ] = self.signal_to_noise_ratio
-        parameters["chunks"][chunk_file_name]["songs"][wav_file_name]["fft_length"] = (
-            self.fft_length
-        )
-        parameters["chunks"][chunk_file_name]["songs"][wav_file_name]["fft_overlap"] = (
-            self.fft_overlap
-        )
-        parameters["chunks"][chunk_file_name]["songs"][wav_file_name][
-            "sampling rate"
-        ] = self.sampling_rate
-
-        parameters["chunks"][chunk_file_name]["songs"][wav_file_name]["call_start"] = (
-            call_start_to_save
-        )
-        parameters["chunks"][chunk_file_name]["songs"][wav_file_name][
-            "call_duration"
-        ] = float(call_end_to_save - call_start_to_save)
-
-        parameters["chunks"][chunk_file_name]["songs"][wav_file_name][
-            "pulse_number"
-        ] = len(self.peaks_times)
-        parameters["chunks"][chunk_file_name]["songs"][wav_file_name]["peaks_times"] = (
-            peaks_times_to_save.tolist()
-        )
-        parameters["chunks"][chunk_file_name]["songs"][wav_file_name]["peaks_int"] = (
-            self.peaks_int.tolist() if len(self.peaks_int) else []
-        )
-        parameters["chunks"][chunk_file_name]["songs"][wav_file_name]["spectrum"] = (
-            self.results_dict["spectrum"]
-        )
-        parameters["chunks"][chunk_file_name]["songs"][wav_file_name][
-            "spectrum peaks"
-        ] = self.results_dict["spectrum_peaks"]
+        call_block["add_noise_padding_enabled"] = bool(self.add_noise_padding_enabled)
+        call_block["noise_padding_duration"] = float(self.noise_padding_duration)
+        call_block["window_size"] = self.window_size
+        call_block["overlap"] = self.overlap
+        call_block["min_amplitude"] = self.min_amplitude
+        call_block["min_distance"] = self.min_distance
+        call_block["max_distance"] = self.max_distance
+        call_block["prominence"] = self.prominence
+        call_block["signal_to_noise_ratio"] = self.signal_to_noise_ratio
+        call_block["fft_length"] = self.fft_length
+        call_block["fft_overlap"] = self.fft_overlap
+        call_block["sampling rate"] = self.sampling_rate
+        call_block["call_start"] = call_start_to_save
+        call_block["call_duration"] = float(call_end_to_save - call_start_to_save)
+        call_block["pulse_number"] = len(self.peaks_times)
+        call_block["peaks_times"] = peaks_times_to_save.tolist()
+        call_block["peaks_int"] = self.peaks_int.tolist() if len(self.peaks_int) else []
+        call_block["spectrum"] = self.results_dict["spectrum"]
+        call_block["spectrum peaks"] = self.results_dict["spectrum_peaks"]
 
         if len(self.rms) > 0:
             sel_mask = (self.rms_times >= self.selected_times[0]) & (
@@ -1203,25 +1166,13 @@ class Main(QWidget):
             soglia50 = 0.5 * envelope_max
             soglia80 = 0.8 * envelope_max
             if len(self.rms_canto) > 0:
-                parameters["chunks"][chunk_file_name]["songs"][wav_file_name][
-                    "envelope20"
-                ] = float(np.mean(self.rms_canto >= soglia20))
-                parameters["chunks"][chunk_file_name]["songs"][wav_file_name][
-                    "envelope50"
-                ] = float(np.mean(self.rms_canto >= soglia50))
-                parameters["chunks"][chunk_file_name]["songs"][wav_file_name][
-                    "envelope80"
-                ] = float(np.mean(self.rms_canto >= soglia80))
+                call_block["envelope20"] = float(np.mean(self.rms_canto >= soglia20))
+                call_block["envelope50"] = float(np.mean(self.rms_canto >= soglia50))
+                call_block["envelope80"] = float(np.mean(self.rms_canto >= soglia80))
             else:
-                parameters["chunks"][chunk_file_name]["songs"][wav_file_name][
-                    "envelope20"
-                ] = np.nan
-                parameters["chunks"][chunk_file_name]["songs"][wav_file_name][
-                    "envelope50"
-                ] = np.nan
-                parameters["chunks"][chunk_file_name]["songs"][wav_file_name][
-                    "envelope80"
-                ] = np.nan
+                call_block["envelope20"] = np.nan
+                call_block["envelope50"] = np.nan
+                call_block["envelope80"] = np.nan
 
         with open(self.json_file_path, "w", encoding="utf-8") as f_out:
             json.dump(parameters, f_out, indent=0, ensure_ascii=False)
@@ -1269,7 +1220,7 @@ class Main(QWidget):
             return
 
         self.wav_file = self.wav_file_list[current_wav_index + 1]
-        self.load_current_song()
+        self.load_current_call()
 
     def previous_file_clicked(self):
         if not self.wav_file_list:
@@ -1280,9 +1231,9 @@ class Main(QWidget):
             return
 
         self.wav_file = self.wav_file_list[current_wav_index - 1]
-        self.load_current_song()
+        self.load_current_call()
 
-    def is_song_already_analyzed(self, wav_file):
+    def is_call_already_analyzed(self, wav_file):
         """
         Check whether the call matching wav_file has already been analyzed in the JSON.
         """
@@ -1296,12 +1247,12 @@ class Main(QWidget):
 
             wav_file_name = Path(wav_file).name
 
-            chunk_name, song_block = find_song_block_from_wav(parameters, wav_file_name)
+            chunk_name, call_block = find_call_block_from_wav(parameters, wav_file_name)
 
-            if song_block is None:
+            if call_block is None:
                 return False
 
-            return self.is_song_processed(song_block)
+            return self.is_call_processed(call_block)
 
         except Exception as e:
             print(f"Error checking {wav_file}: {e}")
@@ -1325,7 +1276,7 @@ class Main(QWidget):
         )
 
         btn_solo_non_analizzati = msg.addButton(
-            "Analyze only unprocessed songs", QMessageBox.AcceptRole
+            "Analyze only unprocessed calls", QMessageBox.AcceptRole
         )
 
         btn_annulla = msg.addButton("Cancel", QMessageBox.RejectRole)
@@ -1345,9 +1296,9 @@ class Main(QWidget):
 
         for wav_file in self.wav_file_list[start_index:]:
             print(
-                f"self.is_song_already_analyzed(wav_file) = {self.is_song_already_analyzed(wav_file)}"
+                f"self.is_call_already_analyzed(wav_file) = {self.is_call_already_analyzed(wav_file)}"
             )
-            if only_missing and self.is_song_already_analyzed(wav_file):
+            if only_missing and self.is_call_already_analyzed(wav_file):
                 print(only_missing)
                 print(f"Skipping {Path(wav_file).name}: already analyzed")
                 continue
@@ -1362,7 +1313,7 @@ class Main(QWidget):
 
         self.automatic = False
 
-    def apply_song_params(self, sp: dict):
+    def apply_call_params(self, sp: dict):
         self.window_size = int(sp.get("window_size", self.window_size))
         self.overlap = int(sp.get("overlap", self.overlap))
         self.min_amplitude = float(sp.get("min_amplitude", self.min_amplitude))

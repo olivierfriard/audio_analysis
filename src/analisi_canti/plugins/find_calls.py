@@ -25,6 +25,11 @@ from PySide6.QtWidgets import (
 from scipy.io import wavfile
 from scipy.signal import find_peaks
 
+try:
+    from ..call_schema import get_calls
+except ImportError:
+    from analisi_canti.call_schema import get_calls
+
 
 class Main(QWidget):
     plugin_name = "Find calls"
@@ -441,20 +446,20 @@ class Main(QWidget):
         self.time = np.linspace(
             0, len(self.data) / self.sampling_rate, num=len(self.data)
         )
-        self.binary_song = np.zeros(len(self.time))
+        self.binary_call = np.zeros(len(self.time))
         self.xmin = 0
         self.xmax = self.time[-1]
         self.zmin = 0
         self.zmax = self.time[-1]
         self.id_xmin = 0
         self.id_xmax = len(self.data)
-        self.binary_song = np.zeros_like(self.time)
+        self.binary_call = np.zeros_like(self.time)
 
     def plot_wav(self, xmin, xmax):
         self.ax.cla()  # Clear the previous plot
         self.ax.plot(self.time, self.data, linewidth=0.5, color="black", alpha=0.5)
         self.ax.plot(
-            self.time, self.binary_song, linewidth=0.5, color="black", alpha=0.5
+            self.time, self.binary_call, linewidth=0.5, color="black", alpha=0.5
         )
 
         if len(self.rms) > 0:
@@ -542,7 +547,7 @@ class Main(QWidget):
             self.xmax = self.duration
 
             # Clear detected calls and peaks
-            self.binary_song = np.zeros_like(self.time)
+            self.binary_call = np.zeros_like(self.time)
             self.peaks_times = np.array([])
             self.peaks = np.array([])
 
@@ -650,7 +655,7 @@ class Main(QWidget):
 
         self.start_times = np.full(len(self.peaks_times), np.nan, dtype=float)
         self.end_times = np.full(len(self.peaks_times), np.nan, dtype=float)
-        self.binary_song = np.zeros_like(self.time)
+        self.binary_call = np.zeros_like(self.time)
         self.plot_wav(self.zmin, self.zmax)
 
     def detect_calls(self):
@@ -738,10 +743,10 @@ class Main(QWidget):
         self.start_times = np.sort(np.concatenate((self.start_times, new_start_times)))
         self.end_times = np.sort(np.concatenate((self.end_times, new_end_times)))
         # Rebuild the binary track only for calls found in the window
-        self.binary_song = np.zeros_like(self.time)
+        self.binary_call = np.zeros_like(self.time)
         for start, end in zip(self.start_times, self.end_times):
             mask = (self.time >= start) & (self.time <= end)
-            self.binary_song[mask] = 1
+            self.binary_call[mask] = 1
 
         # Important: keep drawing with the visible window
         self.plot_wav(self.xmin, self.xmax)
@@ -770,17 +775,17 @@ class Main(QWidget):
         # read file content
         with open(self.json_file_path, "r", encoding="utf-8") as f_in:
             parameters = json.load(f_in)
-        # delete previous songs
-        for song in parameters["chunks"][Path(self.wav_file).name].get("songs", {}):
+        # delete previous calls
+        for call in get_calls(parameters["chunks"][Path(self.wav_file).name]):
             print(
-                f"deleting {(Path(self.wav_file).parent / song)=}"
+                f"deleting {(Path(self.wav_file).parent / call)=}"
             )  # remove before release
-            (Path(self.wav_file).parent / song).unlink(missing_ok=True)
+            (Path(self.wav_file).parent / call).unlink(missing_ok=True)
         parameters["chunks"][Path(self.wav_file).name] = {}
 
-        print(f"Saving songs in {data_directory}")
+        print(f"Saving calls in {data_directory}")
 
-        songs_list = []
+        calls_list = []
         for i in valid_idx:
             # Compute cut start and end
             ini = int(self.start_times[i] * self.sampling_rate)
@@ -810,12 +815,12 @@ class Main(QWidget):
             wavfile.write(nome_ritaglio, self.sampling_rate, ritaglio)
             print(f"Saved: {nome_ritaglio}")
 
-            songs_list.append(nome_ritaglio.name)
+            calls_list.append(nome_ritaglio.name)
 
-        if self.save_parameters(self.json_file_path, songs_list):
+        if self.save_parameters(self.json_file_path, calls_list):
             self.results_saved_signal.emit()
 
-    def save_parameters(self, file_path, songs_list: list):
+    def save_parameters(self, file_path, calls_list: list):
         """
         save parameters in json file
         """
@@ -844,10 +849,10 @@ class Main(QWidget):
         parameters["chunks"][Path(self.wav_file).name]["peaks_times"] = (
             self.peaks_times.tolist()
         )
-        parameters["chunks"][Path(self.wav_file).name]["songs"] = {}
+        parameters["chunks"][Path(self.wav_file).name]["calls"] = {}
 
-        for song in songs_list:
-            parameters["chunks"][Path(self.wav_file).name]["songs"][song] = {}
+        for call in calls_list:
+            parameters["chunks"][Path(self.wav_file).name]["calls"][call] = {}
 
         # save file
         try:

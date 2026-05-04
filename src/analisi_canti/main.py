@@ -43,6 +43,7 @@ __version__ = "0.2.0"
 __version_date__ = "2026-04-23"
 
 
+from .call_schema import get_calls
 from .oscillogram import OscillogramWindow
 from .wav_cutting import Wav_cutting
 
@@ -310,21 +311,21 @@ class MainWindow(QMainWindow):
         for i in range(parent_item.childCount()):
             parent_item.child(i).setCheckState(0, check_state)
 
-    def set_songs_check_state(self, chunk_item, check_state):
+    def set_calls_check_state(self, chunk_item, check_state):
         """
-        Set the check state for all songs of a chunk item.
+        Set the check state for all calls of a chunk item.
         """
         for i in range(chunk_item.childCount()):
             chunk_item.child(i).setCheckState(0, check_state)
 
-    def set_songs_without_icon_check_state(self, chunk_item, check_state):
+    def set_calls_without_icon_check_state(self, chunk_item, check_state):
         """
-        Set the check state only for songs without an icon.
+        Set the check state only for calls without an icon.
         """
         for i in range(chunk_item.childCount()):
-            song_item = chunk_item.child(i)
-            if song_item.icon(0).isNull():
-                song_item.setCheckState(0, check_state)
+            call_item = chunk_item.child(i)
+            if call_item.icon(0).isNull():
+                call_item.setCheckState(0, check_state)
 
     def show_wav_context_menu(self, pos):
         """
@@ -356,22 +357,22 @@ class MainWindow(QMainWindow):
             return
 
         if item.parent().parent() is None:
-            select_songs_action = menu.addAction("Select all songs")
-            select_songs_without_data_action = menu.addAction(
-                "Select songs without data"
+            select_calls_action = menu.addAction("Select all calls")
+            select_calls_without_data_action = menu.addAction(
+                "Select calls without data"
             )
-            deselect_songs_action = menu.addAction("Deselect all songs")
+            deselect_calls_action = menu.addAction("Deselect all calls")
 
             selected_action = menu.exec(
                 self.wav_list_widget.viewport().mapToGlobal(pos)
             )
 
-            if selected_action == select_songs_action:
-                self.set_songs_check_state(item, Qt.CheckState.Checked)
-            elif selected_action == select_songs_without_data_action:
-                self.set_songs_without_icon_check_state(item, Qt.CheckState.Checked)
-            elif selected_action == deselect_songs_action:
-                self.set_songs_check_state(item, Qt.CheckState.Unchecked)
+            if selected_action == select_calls_action:
+                self.set_calls_check_state(item, Qt.CheckState.Checked)
+            elif selected_action == select_calls_without_data_action:
+                self.set_calls_without_icon_check_state(item, Qt.CheckState.Checked)
+            elif selected_action == deselect_calls_action:
+                self.set_calls_check_state(item, Qt.CheckState.Unchecked)
 
     def get_selected_files(self) -> list:
         """
@@ -404,16 +405,16 @@ class MainWindow(QMainWindow):
                         seen_files.add(chunk_path)
 
                 for k in range(chunk_item.childCount()):
-                    song_item = chunk_item.child(k)
-                    if song_item.checkState(0) != Qt.CheckState.Checked:
+                    call_item = chunk_item.child(k)
+                    if call_item.checkState(0) != Qt.CheckState.Checked:
                         continue
 
                     selected_levels.add(2)
-                    song_file_path = parent_wav_path.with_suffix("") / song_item.text(0)
-                    song_path = str(song_file_path)
-                    if song_path not in seen_files:
-                        selected_files.append(song_path)
-                        seen_files.add(song_path)
+                    call_file_path = parent_wav_path.with_suffix("") / call_item.text(0)
+                    call_path = str(call_file_path)
+                    if call_path not in seen_files:
+                        selected_files.append(call_path)
+                        seen_files.add(call_path)
 
         if len(selected_levels) > 1:
             QMessageBox.warning(
@@ -494,7 +495,7 @@ class MainWindow(QMainWindow):
         """
         Count calls saved under all chunks.
         """
-        return sum(len(chunk_data.get("songs", {})) for chunk_data in chunks.values())
+        return sum(len(get_calls(chunk_data)) for chunk_data in chunks.values())
 
     def get_chunk_duration(self, chunk_data: dict, sample_rate) -> str:
         """
@@ -510,24 +511,24 @@ class MainWindow(QMainWindow):
         return self.format_duration(duration)
 
     @staticmethod
-    def format_song_info(song_data: dict) -> str:
+    def format_call_info(call_data: dict) -> str:
         """
-        Return free text info for a call/song row.
+        Return free text info for a call row.
         """
-        if not isinstance(song_data, dict):
+        if not isinstance(call_data, dict):
             return ""
-        pulse_number = song_data.get("pulse_number")
+        pulse_number = call_data.get("pulse_number")
         if pulse_number not in (None, ""):
             return f"pulses: {pulse_number}"
-        if song_data:
+        if call_data:
             return "analysis saved"
         return "not analyzed"
 
     def update_wav_list(self):
         """
-        Update wav treewidget with wav files, chunks and songs.
+        Update wav treewidget with wav files, chunks and calls.
         """
-        completed_song_icon = self.style().standardIcon(
+        completed_call_icon = self.style().standardIcon(
             QStyle.StandardPixmap.SP_DialogApplyButton
         )
 
@@ -555,31 +556,31 @@ class MainWindow(QMainWindow):
 
             sample_rate = wav_data.get("sample rate")
             for chunk_name, chunk_data in chunks.items():
-                songs = chunk_data.get("songs", {})
+                calls = get_calls(chunk_data)
                 child_item = QTreeWidgetItem(
                     [
                         chunk_name,
                         self.get_chunk_duration(chunk_data, sample_rate),
-                        f"number of calls: {len(songs)}",
+                        f"number of calls: {len(calls)}",
                     ]
                 )
                 child_item.setCheckState(0, Qt.CheckState.Unchecked)
                 child_item.setData(0, Qt.ItemDataRole.UserRole, chunk_data)
                 parent_item.addChild(child_item)
 
-                for song_name, song_data in songs.items():
-                    song_item = QTreeWidgetItem(
+                for call_name, call_data in calls.items():
+                    call_item = QTreeWidgetItem(
                         [
-                            song_name,
-                            self.format_duration(song_data.get("call_duration")),
-                            self.format_song_info(song_data),
+                            call_name,
+                            self.format_duration(call_data.get("call_duration")),
+                            self.format_call_info(call_data),
                         ]
                     )
-                    song_item.setCheckState(0, Qt.CheckState.Unchecked)
-                    song_item.setData(0, Qt.ItemDataRole.UserRole, song_data)
-                    if song_data:
-                        song_item.setIcon(0, completed_song_icon)
-                    child_item.addChild(song_item)
+                    call_item.setCheckState(0, Qt.CheckState.Unchecked)
+                    call_item.setData(0, Qt.ItemDataRole.UserRole, call_data)
+                    if call_data:
+                        call_item.setIcon(0, completed_call_icon)
+                    child_item.addChild(call_item)
 
                 if child_item.childCount():
                     child_item.setExpanded(True)

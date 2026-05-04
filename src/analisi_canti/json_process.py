@@ -7,6 +7,11 @@ import numpy as np
 from scipy.io import wavfile
 from scipy.signal import find_peaks
 
+try:
+    from .call_schema import get_calls
+except ImportError:
+    from call_schema import get_calls
+
 PROMINENCE = 0.09
 
 directory = sys.argv[1]
@@ -281,26 +286,28 @@ for dir in sorted(list(Path(directory).glob("*"))):
 
     for wav_key, wav_block in new_json.items():
         # print(wav_key)
-        if "songs" not in wav_block:
-            print(wav_key, "no songs found")
+        calls = get_calls(wav_block)
+        if not calls:
+            print(wav_key, "no calls found")
             continue
         # change PROMINENCE value
-        for song in wav_block["songs"]:
-            wav_block["songs"][song]["prominence"] = PROMINENCE
-            prominence = wav_block["songs"][song]["prominence"]
-            overlap = wav_block["songs"][song]["overlap"]
-            window_size = wav_block["songs"][song]["window_size"]
-            peaks_times = np.array(wav_block["songs"][song]["peaks_times"])
-            signal_to_noise_ratio = wav_block["songs"][song]["signal_to_noise_ratio"]
-            min_amplitude = wav_block["songs"][song]["min_amplitude"]
-            min_distance = wav_block["songs"][song]["min_distance"]
-            max_distance = wav_block["songs"][song]["max_distance"]
+        for call in calls:
+            call_block = calls[call]
+            call_block["prominence"] = PROMINENCE
+            prominence = call_block["prominence"]
+            overlap = call_block["overlap"]
+            window_size = call_block["window_size"]
+            peaks_times = np.array(call_block["peaks_times"])
+            signal_to_noise_ratio = call_block["signal_to_noise_ratio"]
+            min_amplitude = call_block["min_amplitude"]
+            min_distance = call_block["min_distance"]
+            max_distance = call_block["max_distance"]
 
             # load wav
             wav_file = (
                 json_file.parent
                 / Path(wav_key).stem
-                / Path(wav_block["songs"][song]["file"])
+                / Path(call_block["file"])
             )
             if not wav_file.is_file():
                 print(f"[WARN] WAV lungo non trovato: {wav_file}")
@@ -325,9 +332,9 @@ for dir in sorted(list(Path(directory).glob("*"))):
                 min_amplitude,
             )
             print("-" * 20)
-            wav_block["songs"][song]["call_duration"] = durata_canto
-            wav_block["songs"][song]["peaks_times"] = list(peaks_times)
-            wav_block["songs"][song]["pulse_number"] = len(list(peaks_times))
+            call_block["call_duration"] = durata_canto
+            call_block["peaks_times"] = list(peaks_times)
+            call_block["pulse_number"] = len(list(peaks_times))
 
     with open(json_file.with_name(json_file.stem + "_auto.json"), "w") as f_out:
         json.dump(new_json, f_out, indent=2)
