@@ -221,6 +221,7 @@ class SpectrumWindow(QWidget):
 
 class Main(QWidget):
     plugin_name = "Call analysis"
+    target: list = ["call"]
 
     results_saved_signal = Signal()
 
@@ -1256,9 +1257,7 @@ class Main(QWidget):
         name_outfile = Path(self.json_file_path).with_suffix(".csv")
         self.df_results.to_csv(name_outfile, sep=";", encoding="utf-8", index=False)
         if not self.automatic:
-            self.status_bar.showMessage(
-                f"Results saved in {self.json_file_path}", 5000
-            )
+            self.status_bar.showMessage(f"Results saved in {self.json_file_path}", 5000)
 
     def next_file_clicked(self):
         if not self.wav_file_list:

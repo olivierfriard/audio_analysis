@@ -174,9 +174,9 @@ class MainWindow(QMainWindow):
 
         # list widget for WAV file paths
         self.wav_list_widget = QTreeWidget()
-        self.wav_list_widget.setColumnCount(2)  # Number of columns
+        self.wav_list_widget.setColumnCount(3)  # Number of columns
         self.wav_list_widget.setHeaderLabels(
-            ["WAV file path", "duration (s)", "Sample rate (Hz)"]
+            ["File / item", "Duration (s)", "Info"]
         )  # Column headers
         self.wav_list_widget.setContextMenuPolicy(Qt.CustomContextMenu)
         self.wav_list_widget.customContextMenuRequested.connect(
@@ -188,7 +188,7 @@ class MainWindow(QMainWindow):
         header.setStretchLastSection(False)
         self.wav_list_widget.setColumnWidth(0, 520)
         self.wav_list_widget.setColumnWidth(1, 110)
-        self.wav_list_widget.setColumnWidth(2, 130)
+        self.wav_list_widget.setColumnWidth(2, 180)
 
         # Editor di testo per output
         self.text_edit = QTextEdit(self)
@@ -477,6 +477,52 @@ class MainWindow(QMainWindow):
         duration = round(len(data) / sample_rate, 3)
         return sample_rate, duration
 
+    @staticmethod
+    def format_duration(value) -> str:
+        """
+        Return a compact text representation for durations shown in the tree.
+        """
+        if value in (None, ""):
+            return ""
+        try:
+            return f"{float(value):.3f}".rstrip("0").rstrip(".")
+        except (TypeError, ValueError):
+            return str(value)
+
+    @staticmethod
+    def count_calls(chunks: dict) -> int:
+        """
+        Count calls saved under all chunks.
+        """
+        return sum(len(chunk_data.get("songs", {})) for chunk_data in chunks.values())
+
+    def get_chunk_duration(self, chunk_data: dict, sample_rate) -> str:
+        """
+        Return chunk duration in seconds when start/end samples are available.
+        """
+        try:
+            start = float(chunk_data["start"])
+            end = float(chunk_data["end"])
+            sample_rate = float(sample_rate)
+            duration = (end - start) / sample_rate
+        except (KeyError, TypeError, ValueError, ZeroDivisionError):
+            return ""
+        return self.format_duration(duration)
+
+    @staticmethod
+    def format_song_info(song_data: dict) -> str:
+        """
+        Return free text info for a call/song row.
+        """
+        if not isinstance(song_data, dict):
+            return ""
+        pulse_number = song_data.get("pulse_number")
+        if pulse_number not in (None, ""):
+            return f"pulses: {pulse_number}"
+        if song_data:
+            return "analysis saved"
+        return "not analyzed"
+
     def update_wav_list(self):
         """
         Update wav treewidget with wav files, chunks and songs.
@@ -494,35 +540,39 @@ class MainWindow(QMainWindow):
         self.wav_list_widget.clear()
 
         for wav_file_path, wav_data in self.wav_list.items():
+            chunks = wav_data.get("chunks", {})
+            calls_count = self.count_calls(chunks)
             parent_item = QTreeWidgetItem(
                 [
                     Path(wav_file_path).name,
-                    str(wav_data["duration"]),
-                    str(wav_data["sample rate"]),
+                    self.format_duration(wav_data.get("duration")),
+                    f"chunks: {len(chunks)}, number of calls: {calls_count}",
                 ]
             )
             parent_item.setCheckState(0, Qt.CheckState.Unchecked)
             parent_item.setData(0, Qt.ItemDataRole.UserRole, wav_file_path)
             self.wav_list_widget.addTopLevelItem(parent_item)
 
-            for chunk_name, chunk_data in wav_data.get("chunks", {}).items():
+            sample_rate = wav_data.get("sample rate")
+            for chunk_name, chunk_data in chunks.items():
+                songs = chunk_data.get("songs", {})
                 child_item = QTreeWidgetItem(
                     [
                         chunk_name,
-                        str(chunk_data["start"]),
-                        str(chunk_data["end"]),
+                        self.get_chunk_duration(chunk_data, sample_rate),
+                        f"number of calls: {len(songs)}",
                     ]
                 )
                 child_item.setCheckState(0, Qt.CheckState.Unchecked)
                 child_item.setData(0, Qt.ItemDataRole.UserRole, chunk_data)
                 parent_item.addChild(child_item)
 
-                for song_name, song_data in chunk_data.get("songs", {}).items():
+                for song_name, song_data in songs.items():
                     song_item = QTreeWidgetItem(
                         [
                             song_name,
-                            str(song_data.get("call_duration", "")),
-                            str(song_data.get("pulse_number", "")),
+                            self.format_duration(song_data.get("call_duration")),
+                            self.format_song_info(song_data),
                         ]
                     )
                     song_item.setCheckState(0, Qt.CheckState.Unchecked)

@@ -28,6 +28,7 @@ from scipy.signal import find_peaks
 
 class Main(QWidget):
     plugin_name = "Find calls"
+    target: list = ["chunk"]
 
     plugin_closed_signal = Signal()
     results_saved_signal = Signal()
@@ -351,17 +352,13 @@ class Main(QWidget):
         self.layout.setRowStretch(4, 0)  # Labels
         self.layout.setRowStretch(5, 1)  # Buttons
         for col in range(10):  # Assume 10 columns
-            self.layout.setColumnStretch(
-                col, 1
-            )  # All columns have the same weight
+            self.layout.setColumnStretch(col, 1)  # All columns have the same weight
 
         # Matplotlib figure creation
         self.figure, self.ax = plt.subplots(figsize=(10, 4))
         self.figure.subplots_adjust(bottom=0.2)
         self.canvas = FigureCanvas(self.figure)
-        self.layout.addWidget(
-            self.canvas, 2, 0, 1, 10
-        )  # Row 3, spans all columns
+        self.layout.addWidget(self.canvas, 2, 0, 1, 10)  # Row 3, spans all columns
 
         # Slider for time navigation (row 3)
         self.slider = QSlider(Qt.Horizontal)
@@ -371,9 +368,7 @@ class Main(QWidget):
         self.slider.setTickPosition(QSlider.TicksBelow)
         self.slider.setTickInterval(10)
         self.slider.valueChanged.connect(self.on_slider)
-        self.layout.addWidget(
-            self.slider, 3, 0, 1, 10
-        )  # Row 4, spans all columns
+        self.layout.addWidget(self.slider, 3, 0, 1, 10)  # Row 4, spans all columns
 
         # Enable SpanSelector for range selection
         self.selected_region = []
@@ -577,9 +572,7 @@ class Main(QWidget):
             self.plot_wav(self.xmin, self.xmax)
 
         except ValueError:
-            print(
-                "Error: make sure Window Size and Overlap are valid integers."
-            )
+            print("Error: make sure Window Size and Overlap are valid integers.")
 
     def fd_peaks_spinbox(self, value):
         if self.xmin > 0 or self.xmax < self.duration:
