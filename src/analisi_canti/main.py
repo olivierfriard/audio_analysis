@@ -17,7 +17,6 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QApplication,
-    QCheckBox,
     QComboBox,
     QFileDialog,
     QHBoxLayout,
@@ -140,6 +139,17 @@ class ResamplingWindow(QWidget):
 
 
 class MainWindow(QMainWindow):
+    SELECTION_TYPES = {
+        0: "wav",
+        1: "chunk",
+        2: "call",
+    }
+    SELECTION_LABELS = {
+        "wav": "WAV",
+        "chunk": "chunk",
+        "call": "call",
+    }
+
     def __init__(self):
         super().__init__()
 
@@ -157,10 +167,8 @@ class MainWindow(QMainWindow):
         layout = QVBoxLayout()
 
         hlayout = QHBoxLayout()
-        # select/deselect all checkbox
-        self.check_all_checkbox = QCheckBox("Check/Uncheck all")
-        self.check_all_checkbox.stateChanged.connect(self.toggle_all_items)
-        hlayout.addWidget(self.check_all_checkbox)  # Add "Check All" checkbox on top
+        self.selected_calls_label = QLabel("Selected calls: 0")
+        hlayout.addWidget(self.selected_calls_label)
         # spacer for left grouping
         hlayout.addItem(
             QSpacerItem(
@@ -183,6 +191,7 @@ class MainWindow(QMainWindow):
         self.wav_list_widget.customContextMenuRequested.connect(
             self.show_wav_context_menu
         )
+        self.wav_list_widget.itemChanged.connect(self.update_selected_calls_count)
 
         header = self.wav_list_widget.header()
         header.setSectionResizeMode(QHeaderView.Interactive)
@@ -277,16 +286,6 @@ class MainWindow(QMainWindow):
                 widget.close()
         event.accept()
 
-    def toggle_all_items(self, state):
-        """
-        Toggles all items in the list based on the "Check/Uncheck all" checkbox state.
-        """
-        check_state = Qt.Checked if state == 2 else Qt.Unchecked
-        for i in range(self.wav_list_widget.topLevelItemCount()):
-            top_level_item = self.wav_list_widget.topLevelItem(i)
-            top_level_item.setCheckState(0, check_state)
-            self.set_chunks_check_state(top_level_item, check_state)
-
     def remove_from_list(self):
         """
         remove selected files from list
@@ -301,31 +300,82 @@ class MainWindow(QMainWindow):
 
         self.update_wav_list()
 
-        if not self.wav_list_widget.topLevelItemCount():
-            self.check_all_checkbox.setChecked(False)
+    def count_selected_calls(self) -> int:
+        """
+        Count checked call items in the tree.
+        """
+        selected_calls = 0
+        for i in range(self.wav_list_widget.topLevelItemCount()):
+            wav_item = self.wav_list_widget.topLevelItem(i)
+            for j in range(wav_item.childCount()):
+                chunk_item = wav_item.child(j)
+                for k in range(chunk_item.childCount()):
+                    if chunk_item.child(k).checkState(0) == Qt.CheckState.Checked:
+                        selected_calls += 1
+        return selected_calls
+
+    def update_selected_calls_count(self, *_):
+        """
+        Update the selected calls indicator.
+        """
+        self.selected_calls_label.setText(
+            f"Selected calls: {self.count_selected_calls()}"
+        )
 
     def set_chunks_check_state(self, parent_item, check_state):
         """
         Set the check state for all chunks of a top-level WAV item.
         """
-        for i in range(parent_item.childCount()):
-            parent_item.child(i).setCheckState(0, check_state)
+        signals_were_blocked = self.wav_list_widget.blockSignals(True)
+        try:
+            for i in range(parent_item.childCount()):
+                parent_item.child(i).setCheckState(0, check_state)
+        finally:
+            self.wav_list_widget.blockSignals(signals_were_blocked)
+        self.update_selected_calls_count()
 
-    def set_calls_check_state(self, chunk_item, check_state):
+    def set_calls_check_state(self, chunk_item, check_state, update_count=True):
         """
         Set the check state for all calls of a chunk item.
         """
-        for i in range(chunk_item.childCount()):
-            chunk_item.child(i).setCheckState(0, check_state)
+        signals_were_blocked = self.wav_list_widget.blockSignals(True)
+        try:
+            for i in range(chunk_item.childCount()):
+                chunk_item.child(i).setCheckState(0, check_state)
+        finally:
+            self.wav_list_widget.blockSignals(signals_were_blocked)
+        if update_count:
+            self.update_selected_calls_count()
+
+    def set_wav_calls_check_state(self, wav_item, check_state):
+        """
+        Set the check state for all calls under a top-level WAV item.
+        """
+        signals_were_blocked = self.wav_list_widget.blockSignals(True)
+        try:
+            for i in range(wav_item.childCount()):
+                self.set_calls_check_state(
+                    wav_item.child(i),
+                    check_state,
+                    update_count=False,
+                )
+        finally:
+            self.wav_list_widget.blockSignals(signals_were_blocked)
+        self.update_selected_calls_count()
 
     def set_calls_without_icon_check_state(self, chunk_item, check_state):
         """
         Set the check state only for calls without an icon.
         """
-        for i in range(chunk_item.childCount()):
-            call_item = chunk_item.child(i)
-            if call_item.icon(0).isNull():
-                call_item.setCheckState(0, check_state)
+        signals_were_blocked = self.wav_list_widget.blockSignals(True)
+        try:
+            for i in range(chunk_item.childCount()):
+                call_item = chunk_item.child(i)
+                if call_item.icon(0).isNull():
+                    call_item.setCheckState(0, check_state)
+        finally:
+            self.wav_list_widget.blockSignals(signals_were_blocked)
+        self.update_selected_calls_count()
 
     def show_wav_context_menu(self, pos):
         """
@@ -341,6 +391,8 @@ class MainWindow(QMainWindow):
             show_oscillogram_action = menu.addAction("Show oscillogram")
             select_chunks_action = menu.addAction("Select all chunks")
             deselect_chunks_action = menu.addAction("Deselect all chunks")
+            select_calls_action = menu.addAction("Select all calls")
+            deselect_calls_action = menu.addAction("Deselect all calls")
 
             selected_action = menu.exec(
                 self.wav_list_widget.viewport().mapToGlobal(pos)
@@ -354,6 +406,10 @@ class MainWindow(QMainWindow):
                 self.set_chunks_check_state(item, Qt.CheckState.Checked)
             elif selected_action == deselect_chunks_action:
                 self.set_chunks_check_state(item, Qt.CheckState.Unchecked)
+            elif selected_action == select_calls_action:
+                self.set_wav_calls_check_state(item, Qt.CheckState.Checked)
+            elif selected_action == deselect_calls_action:
+                self.set_wav_calls_check_state(item, Qt.CheckState.Unchecked)
             return
 
         if item.parent().parent() is None:
@@ -374,9 +430,9 @@ class MainWindow(QMainWindow):
             elif selected_action == deselect_calls_action:
                 self.set_calls_check_state(item, Qt.CheckState.Unchecked)
 
-    def get_selected_files(self) -> list:
+    def get_selected_files_and_type(self) -> tuple[list[str], str | None, bool]:
         """
-        Return the file paths of all checked items in the tree.
+        Return selected file paths, their tree level type and whether selection is valid.
         """
         selected_levels = set()
         selected_files = []
@@ -422,9 +478,39 @@ class MainWindow(QMainWindow):
                 "",
                 "Please select object of the same type.",
             )
-            return []
+            return [], None, False
 
+        selected_type = None
+        if selected_levels:
+            selected_type = self.SELECTION_TYPES[next(iter(selected_levels))]
+
+        return selected_files, selected_type, True
+
+    def get_selected_files(self) -> list:
+        """
+        Return the file paths of all checked items in the tree.
+        """
+        selected_files, _, selection_is_valid = self.get_selected_files_and_type()
+        if not selection_is_valid:
+            return []
         return selected_files
+
+    def normalize_plugin_targets(self, targets) -> set[str]:
+        """
+        Return normalized target names declared by a plugin.
+        """
+        if targets is None:
+            return set()
+        if isinstance(targets, str):
+            targets = [targets]
+        return {str(target).strip().lower() for target in targets if str(target).strip()}
+
+    def format_target_list(self, targets: set[str]) -> str:
+        """
+        Return a readable target list for messages.
+        """
+        labels = [self.SELECTION_LABELS.get(target, target) for target in sorted(targets)]
+        return ", ".join(labels)
 
     def resolve_wav_file_path(self, wav_file_path: str | Path) -> str:
         """
@@ -586,6 +672,8 @@ class MainWindow(QMainWindow):
                     child_item.setExpanded(True)
 
             parent_item.setExpanded(True)
+
+        self.update_selected_calls_count()
 
     def create_json_file(self, path) -> int:
         """
@@ -813,12 +901,44 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "", "Plugin not found")
             return
 
+        plugin_class = getattr(self.modules[module_name], "Main", None)
+        if plugin_class is None:
+            QMessageBox.warning(self, "", "Plugin not found")
+            return
+
+        selected_files, selected_type, selection_is_valid = (
+            self.get_selected_files_and_type()
+        )
+        if not selection_is_valid:
+            return
+
+        if not selected_files:
+            QMessageBox.warning(self, "", "No file selected")
+            return
+
+        plugin_targets = self.normalize_plugin_targets(
+            getattr(plugin_class, "target", None)
+        )
+        if plugin_targets and selected_type not in plugin_targets:
+            expected_targets = self.format_target_list(plugin_targets)
+            selected_label = self.SELECTION_LABELS.get(selected_type, selected_type)
+            QMessageBox.warning(
+                self,
+                "",
+                (
+                    "La selezione non e' compatibile con il plugin.\n"
+                    f"Plugin: {plugin_name}\n"
+                    f"Tipo selezionato: {selected_label}\n"
+                    f"Tipo richiesto: {expected_targets}"
+                ),
+            )
+            return
+
         self.text_edit.append(f"Running {plugin_name} plugin")
 
-        selected_files = self.get_selected_files()
         if selected_files:
             self.plugin_widgets.append(
-                self.modules[module_name].Main(self.json_file_path, selected_files)
+                plugin_class(self.json_file_path, selected_files)
             )
             if hasattr(self.plugin_widgets[-1], "results_saved_signal"):
                 self.plugin_widgets[-1].results_saved_signal.connect(
@@ -831,8 +951,6 @@ class MainWindow(QMainWindow):
                     self.update_wav_list
                 )
             self.plugin_widgets[-1].show()
-        else:
-            QMessageBox.warning(self, "", "No file selected")
 
 
 def parse_cli_args(argv: list[str] | None = None):
