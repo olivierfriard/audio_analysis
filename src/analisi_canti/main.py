@@ -39,8 +39,8 @@ from PySide6.QtWidgets import (
 )
 from scipy.io import wavfile
 
-__version__ = "0.2.0"
-__version_date__ = "2026-04-23"
+__version__ = "0.3.0"
+__version_date__ = "2026-05-05"
 
 
 from .call_schema import get_calls
