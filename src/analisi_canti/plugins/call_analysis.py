@@ -341,6 +341,12 @@ class Main(QWidget):
         top_layout.addWidget(self.peaks_help_btn)
         top_layout.addSpacing(16)
 
+        self.help_zoom_btn = QPushButton("? Zoom IN/OUT")
+        #self.help_zoom_btn.setFixedWidth(30)
+        self.help_zoom_btn.clicked.connect(self.show_zoom_help)
+        top_layout.addWidget(self.help_zoom_btn)
+        top_layout.addSpacing(16)
+
         self.toggle_params_btn = QPushButton("Show/Hide Parameters")
         self.toggle_params_btn.clicked.connect(self.toggle_control_panel)
         top_layout.addWidget(self.toggle_params_btn)
@@ -537,7 +543,8 @@ class Main(QWidget):
         self.selected_times = [0.0, 0.0]
         self.selected_peak_times = []
         self.span_region = None
-
+        self.results_dict["spectrum"] = None
+        self.results_dict["spectrum_peaks"] = None
         self.setWindowTitle(f"{self.plugin_name} - {Path(wav_file).stem}")
 
     def plot_wav(self, xmin=None, xmax=None):
@@ -703,6 +710,17 @@ class Main(QWidget):
                 "- Right-click near an already selected peak (blue): "
                 "remove the selection and add the peak to the final list.\n"
                 "- Left double-click: return to the full view (zoom out)."
+            ),
+        )
+    def show_zoom_help(self):
+        QMessageBox.information(
+            self,
+            "Zooming Help",
+            (
+                "Zoom IN\n"
+                "- Click and drag to zoom into a selected region.\n\n"
+                "Zoom OUT\n"
+                "- Left double-click: return to the full view."
             ),
         )
 
@@ -1100,6 +1118,10 @@ class Main(QWidget):
         if not Path(self.json_file_path).is_file():
             QMessageBox.warning(self, "", "Project JSON not found")
             return
+        
+        if self.results_dict["spectrum"] == None:
+            QMessageBox.warning(self, "", "Warning: Spectrum not computed!")
+        
 
         with open(self.json_file_path, "r", encoding="utf-8") as f:
             parameters = json.load(f)
@@ -1287,7 +1309,8 @@ class Main(QWidget):
 
         if clicked == btn_annulla:
             return
-
+        
+        self.trova_inizio_manuale = False
         only_missing = clicked == btn_solo_non_analizzati
         print(f"only_missing : {only_missing}")
 
@@ -1307,7 +1330,7 @@ class Main(QWidget):
             self.load_wav(self.wav_file)
 
             self.plot_wav(self.xmin, self.xmax)
-
+            self.plot_spectrum()
             self.run_analysis()
             self.save_results_clicked()
 
