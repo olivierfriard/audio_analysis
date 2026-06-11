@@ -38,8 +38,8 @@ from PySide6.QtWidgets import (
 )
 from scipy.io import wavfile
 
-__version__ = "0.3.0"
-__version_date__ = "2026-05-05"
+__version__ = "0.4.0"
+__version_date__ = "2026-06-11"
 
 
 from .call_schema import get_calls
@@ -503,13 +503,17 @@ class MainWindow(QMainWindow):
             return set()
         if isinstance(targets, str):
             targets = [targets]
-        return {str(target).strip().lower() for target in targets if str(target).strip()}
+        return {
+            str(target).strip().lower() for target in targets if str(target).strip()
+        }
 
     def format_target_list(self, targets: set[str]) -> str:
         """
         Return a readable target list for messages.
         """
-        labels = [self.SELECTION_LABELS.get(target, target) for target in sorted(targets)]
+        labels = [
+            self.SELECTION_LABELS.get(target, target) for target in sorted(targets)
+        ]
         return ", ".join(labels)
 
     def resolve_wav_file_path(self, wav_file_path: str | Path) -> str:
